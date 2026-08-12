@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: web-builder-db
+    environment:
+      POSTGRES_USER: webbuilder
+      POSTGRES_PASSWORD: webbuilder
+      POSTGRES_DB: web_builder
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  pgdata:
