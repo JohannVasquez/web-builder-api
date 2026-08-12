@@ -1,0 +1,43 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/shared/infrastructure/prisma/generated"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Page {
+  id          Int           @id @default(autoincrement())
+  slug        String        @unique @db.VarChar(255)
+  title       String        @db.VarChar(255)
+  description String?
+  isPublished Boolean       @default(true) @map("is_published")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  sections    PageSection[]
+
+  @@map("pages")
+}
+
+model PageSection {
+  id       Int    @id @default(autoincrement())
+  pageId   Int    @map("page_id")
+  type     String @db.VarChar(100)
+  position Int
+  props    Json   @default("{}")
+  page     Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, position])
+  @@index([pageId])
+  @@map("page_sections")
+}
+
+model GlobalSetting {
+  key   String @id @db.VarChar(100)
+  value String
+
+  @@map("global_settings")
+}

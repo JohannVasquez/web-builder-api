@@ -1,10 +1,10 @@
 import type { Express } from 'express';
 import type { EnvConfig } from './shared/config/EnvConfig';
-import { PostgresConnection } from './shared/infrastructure/database/PostgresConnection';
-import { PostgresPageRepository } from './modules/Page/infrastructure/PostgresPageRepository';
+import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
+import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { PageController } from './modules/Page/presentation/PageController';
-import { PostgresGlobalSettingsRepository } from './modules/GlobalSettings/infrastructure/PostgresGlobalSettingsRepository';
+import { PrismaGlobalSettingsRepository } from './modules/GlobalSettings/infrastructure/PrismaGlobalSettingsRepository';
 import { GetGlobalSettingsUseCase } from './modules/GlobalSettings/application/GetGlobalSettingsUseCase';
 import { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
 import { SmtpEmailService } from './modules/Contact/infrastructure/SmtpEmailService';
@@ -13,18 +13,18 @@ import { ContactController } from './modules/Contact/presentation/ContactControl
 import { buildApp } from './app';
 
 export class Container {
-  private readonly connection: PostgresConnection;
+  private readonly connection: PrismaConnection;
   private readonly app: Express;
 
   constructor(env: EnvConfig) {
-    this.connection = new PostgresConnection(env.get('DATABASE_URL'));
-    const pool = this.connection.getPool();
+    this.connection = new PrismaConnection(env.get('DATABASE_URL'));
+    const prisma = this.connection.getClient();
 
     const pageController = new PageController(
-      new GetPageBySlugUseCase(new PostgresPageRepository(pool)),
+      new GetPageBySlugUseCase(new PrismaPageRepository(prisma)),
     );
     const globalSettingsController = new GlobalSettingsController(
-      new GetGlobalSettingsUseCase(new PostgresGlobalSettingsRepository(pool)),
+      new GetGlobalSettingsUseCase(new PrismaGlobalSettingsRepository(prisma)),
     );
     const contactController = new ContactController(
       new SendContactEmailUseCase(

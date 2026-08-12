@@ -4,13 +4,23 @@ import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '*.mjs', '*.js'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      '*.mjs',
+      '*.js',
+      'src/shared/infrastructure/prisma/generated/**',
+      'prisma.config.ts',
+    ],
   },
   ...tseslint.configs.recommendedTypeChecked,
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['prisma/seed.ts'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

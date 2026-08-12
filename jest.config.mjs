@@ -5,5 +5,9 @@ export default {
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.spec.ts'],
   clearMocks: true,
-  collectCoverageFrom: ['src/**/*.ts', '!src/server.ts'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/server.ts',
+    '!src/shared/infrastructure/prisma/generated/**',
+  ],
 };

@@ -7,7 +7,7 @@ formulario de contacto vía SMTP.
 ## Stack
 
 - Express 5 + TypeScript (strict)
-- PostgreSQL (driver `pg`)
+- PostgreSQL + Prisma ORM (migraciones versionadas y seed declarativo)
 - Zod 4 (validación estricta en todas las fronteras)
 - Jest + ts-jest (TDD, specs junto a cada caso de uso)
 - ESLint (type-checked) + `eslint-plugin-boundaries` + Prettier
@@ -24,7 +24,7 @@ src/
 │   ├── Page/            # Motor de renderizado dinámico
 │   │   ├── domain/          # Entidades, errores e interfaces de repositorio
 │   │   ├── application/     # GetPageBySlugUseCase (+ .spec.ts)
-│   │   ├── infrastructure/  # PostgresPageRepository
+│   │   ├── infrastructure/  # PrismaPageRepository
 │   │   └── presentation/    # Controller + router
 │   ├── GlobalSettings/  # Variables globales de marca
 │   └── Contact/         # Formulario de contacto + SMTP
@@ -50,11 +50,24 @@ Las dependencias entre capas están protegidas por `eslint-plugin-boundaries`:
 ## Puesta en marcha
 
 ```bash
-pnpm install
+pnpm install               # genera el cliente de Prisma vía postinstall
 cp .env.example .env       # ajustar credenciales SMTP si se desea envío real
-pnpm db:up                 # levanta PostgreSQL (puerto 5433) con esquema + seed
+pnpm db:up                 # levanta PostgreSQL (puerto 5433)
+pnpm db:migrate            # aplica las migraciones de Prisma
+pnpm db:seed               # carga las páginas y settings de ejemplo
 pnpm dev                   # API en http://localhost:4000
 ```
+
+## Base de datos (Prisma)
+
+El esquema vive en `prisma/schema.prisma` y las migraciones versionadas en
+`prisma/migrations/`. Flujo de trabajo:
+
+- `pnpm db:migrate` — crea/aplica migraciones en desarrollo (`prisma migrate dev`)
+- `pnpm db:deploy` — aplica migraciones pendientes en producción
+- `pnpm db:seed` — ejecuta `prisma/seed.ts` (idempotente, usa upserts)
+- `pnpm db:studio` — abre Prisma Studio para inspeccionar datos
+- `pnpm db:generate` — regenera el cliente tipado (también corre en postinstall)
 
 ## Scripts
 
@@ -63,3 +76,4 @@ pnpm dev                   # API en http://localhost:4000
 - `pnpm format` — Prettier
 - `pnpm typecheck` — `tsc --noEmit`
 - `pnpm build` && `pnpm start` — compilación y ejecución de producción
+- `pnpm db:*` — ver sección Base de datos (Prisma)
