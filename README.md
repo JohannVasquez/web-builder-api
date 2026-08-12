@@ -8,6 +8,7 @@ formulario de contacto vía SMTP.
 
 - Express 5 + TypeScript (strict)
 - PostgreSQL + Prisma ORM (migraciones versionadas y seed declarativo)
+- [diod](https://github.com/artberri/diod) para inyección de dependencias
 - Zod 4 (validación estricta en todas las fronteras)
 - Jest + ts-jest (TDD, specs junto a cada caso de uso)
 - ESLint (type-checked) + `eslint-plugin-boundaries` + Prettier
@@ -37,6 +38,24 @@ src/
 Las dependencias entre capas están protegidas por `eslint-plugin-boundaries`:
 `domain` no conoce a nadie, `application` solo conoce a `domain`, e
 `infrastructure`/`presentation` nunca se importan entre sí.
+
+## Inyección de dependencias (diod)
+
+`domain` define los contratos como **clases abstractas** (`PageRepository`,
+`GlobalSettingsRepository`, `EmailService`) — TypeScript borra las `interface` en
+runtime, así que diod necesita un token real para resolver dependencias. Las clases
+de `application`/`presentation`/`infrastructure` reciben esos contratos por
+constructor, sin conocer la implementación concreta.
+
+`src/container.ts` es la única raíz de composición: usa el `ContainerBuilder` de diod
+para asociar cada abstracción con su implementación de Prisma/SMTP y arma el grafo de
+dependencias con **wiring explícito** (`withDependencies([...])`) en vez de autowiring
+por decoradores. Se eligió así porque el autowiring de diod depende de
+`emitDecoratorMetadata`, que requiere chequeo de tipos de todo el `Program` para
+resolver clases importadas de otros archivos — algo que un transpilador de un solo
+archivo como esbuild (usado por `tsx` en `pnpm dev`) no puede garantizar. El wiring
+explícito es una función de primera clase de diod, sin esa fragilidad, y se comporta
+igual en `pnpm dev`, `pnpm test` y `pnpm build`.
 
 ## Endpoints
 

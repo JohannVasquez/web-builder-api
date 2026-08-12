@@ -2,14 +2,21 @@ import nodemailer, { type Transporter } from 'nodemailer';
 import type { ContactRequest } from '../domain/ContactRequest';
 import type { EmailService } from '../domain/EmailService';
 
-export interface SmtpConfig {
-  readonly host: string;
-  readonly port: number;
-  readonly secure: boolean;
-  readonly user: string;
-  readonly pass: string;
-  readonly from: string;
-  readonly to: string;
+/**
+ * Clase (no interface) para poder registrarse como token resoluble por diod
+ * y ser inyectada explícitamente en el constructor de `SmtpEmailService`
+ * (ver `withDependencies` en la raíz de composición).
+ */
+export class SmtpConfig {
+  constructor(
+    public readonly host: string,
+    public readonly port: number,
+    public readonly secure: boolean,
+    public readonly user: string,
+    public readonly pass: string,
+    public readonly from: string,
+    public readonly to: string,
+  ) {}
 }
 
 export class SmtpEmailService implements EmailService {

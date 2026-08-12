@@ -1,5 +1,8 @@
 import type { GlobalSettings } from './GlobalSettings';
 
-export interface GlobalSettingsRepository {
-  find(): Promise<GlobalSettings>;
+/**
+ * Clase abstracta usada como token de inyección de dependencias (diod).
+ */
+export abstract class GlobalSettingsRepository {
+  public abstract find(): Promise<GlobalSettings>;
 }

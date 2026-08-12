@@ -17,6 +17,9 @@ importers:
       cors:
         specifier: ^2.8.6
         version: 2.8.6
+      diod:
+        specifier: ^3.0.0
+        version: 3.0.0
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -1634,6 +1637,10 @@ packages:
 
   dezalgo@1.0.4:
     resolution: {integrity: sha512-rXSP0bf+5n0Qonsb+SVVfNfIsimO4HEtmnIpPHY8Q1UCzKlQrDMfdobr8nJOOsRgWCyMRqeSBQzmWUMq7zvVig==}
+
+  diod@3.0.0:
+    resolution: {integrity: sha512-7qdVDqPM0641QFPtJjfqWzRAbh/e7XG74az9uL+P2ii5B4ewpwLFECum59qiCgMjr2cRGs+r7Ua24qOQ7ZaRXQ==}
+    engines: {node: '>=18'}
 
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
@@ -4836,6 +4843,8 @@ snapshots:
     dependencies:
       asap: 2.0.6
       wrappy: 1.0.2
+
+  diod@3.0.0: {}
 
   dotenv@17.4.2: {}
 
