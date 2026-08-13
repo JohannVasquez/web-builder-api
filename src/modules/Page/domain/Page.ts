@@ -2,6 +2,7 @@ export interface PageSectionPrimitives {
   readonly type: string;
   readonly position: number;
   readonly props: Readonly<Record<string, unknown>>;
+  readonly anchor: string | null;
 }
 
 export interface PagePrimitives {
@@ -16,10 +17,16 @@ export class PageSection {
     public readonly type: string,
     public readonly position: number,
     public readonly props: Readonly<Record<string, unknown>>,
+    public readonly anchor: string | null = null,
   ) {}
 
   public toPrimitives(): PageSectionPrimitives {
-    return { type: this.type, position: this.position, props: this.props };
+    return {
+      type: this.type,
+      position: this.position,
+      props: this.props,
+      anchor: this.anchor,
+    };
   }
 }
 

@@ -13,6 +13,8 @@ interface SectionSeed {
   readonly type: string;
   readonly position: number;
   readonly props: Record<string, unknown>;
+  /** Permite enlazar la sección con `/slug#ancla` (útil para sitios one-page). */
+  readonly anchor?: string;
 }
 
 interface PageSeed {
@@ -21,6 +23,25 @@ interface PageSeed {
   readonly description: string;
   readonly sections: readonly SectionSeed[];
 }
+
+interface NavigationSeed {
+  readonly label: string;
+  readonly href: string;
+  readonly position: number;
+}
+
+/**
+ * El menú del sitio vive en la base de datos: cada entrada puede apuntar a una
+ * página propia (`/nosotros`) o al ancla de una sección (`/#caracteristicas`),
+ * lo que permite estructurar el sitio como multi-página o como one-page sin
+ * tocar el código.
+ */
+const NAVIGATION: readonly NavigationSeed[] = [
+  { label: 'Inicio', href: '/', position: 1 },
+  { label: 'Nosotros', href: '/nosotros', position: 2 },
+  { label: 'Servicios', href: '/servicios', position: 3 },
+  { label: 'Contacto', href: '/contacto', position: 4 },
+];
 
 const GLOBAL_SETTINGS: Readonly<Record<string, string>> = {
   siteName: 'Web Builder Co.',
@@ -53,6 +74,7 @@ const PAGES: readonly PageSeed[] = [
       {
         type: 'Features',
         position: 2,
+        anchor: 'caracteristicas',
         props: {
           title: '¿Por qué elegirnos?',
           items: [
@@ -85,14 +107,6 @@ const PAGES: readonly PageSeed[] = [
           subtitle: 'Cuéntanos tu proyecto y te responderemos a la brevedad.',
           buttonLabel: 'Contáctanos',
           buttonHref: '/contacto',
-        },
-      },
-      {
-        type: 'ContactForm',
-        position: 4,
-        props: {
-          title: 'Hablemos',
-          subtitle: 'Completa el formulario y nos pondremos en contacto contigo.',
         },
       },
     ],
@@ -173,11 +187,13 @@ const PAGES: readonly PageSeed[] = [
         },
       },
       {
-        type: 'ContactForm',
+        type: 'CallToAction',
         position: 3,
         props: {
-          title: 'Cotiza tu proyecto',
+          title: '¿Te interesa alguno?',
           subtitle: 'Cuéntanos qué necesitas y te enviaremos una propuesta.',
+          buttonLabel: 'Cotiza tu proyecto',
+          buttonHref: '/contacto',
         },
       },
     ],
@@ -217,6 +233,15 @@ const seed = async (): Promise<void> => {
     });
   }
 
+  await prisma.navigationLink.deleteMany();
+  await prisma.navigationLink.createMany({
+    data: NAVIGATION.map((link) => ({
+      label: link.label,
+      href: link.href,
+      position: link.position,
+    })),
+  });
+
   for (const page of PAGES) {
     await prisma.page.upsert({
       where: { slug: page.slug },
@@ -229,6 +254,7 @@ const seed = async (): Promise<void> => {
             type: section.type,
             position: section.position,
             props: section.props,
+            anchor: section.anchor ?? null,
           })),
         },
       },
@@ -241,6 +267,7 @@ const seed = async (): Promise<void> => {
             type: section.type,
             position: section.position,
             props: section.props,
+            anchor: section.anchor ?? null,
           })),
         },
       },
@@ -248,7 +275,7 @@ const seed = async (): Promise<void> => {
   }
 
   console.log(
-    `Seeded ${Object.keys(GLOBAL_SETTINGS).length} settings and ${PAGES.length} pages`,
+    `Seeded ${Object.keys(GLOBAL_SETTINGS).length} settings, ${NAVIGATION.length} nav links and ${PAGES.length} pages`,
   );
 };
 

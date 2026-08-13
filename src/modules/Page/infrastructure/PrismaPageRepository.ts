@@ -20,7 +20,12 @@ export class PrismaPageRepository implements PageRepository {
 
     const sections = record.sections.map(
       (section) =>
-        new PageSection(section.type, section.position, propsSchema.parse(section.props)),
+        new PageSection(
+          section.type,
+          section.position,
+          propsSchema.parse(section.props),
+          section.anchor,
+        ),
     );
 
     return new Page(record.slug, record.title, record.description, sections);

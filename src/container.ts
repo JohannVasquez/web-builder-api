@@ -11,6 +11,10 @@ import { GlobalSettingsRepository } from './modules/GlobalSettings/domain/Global
 import { PrismaGlobalSettingsRepository } from './modules/GlobalSettings/infrastructure/PrismaGlobalSettingsRepository';
 import { GetGlobalSettingsUseCase } from './modules/GlobalSettings/application/GetGlobalSettingsUseCase';
 import { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
+import { NavigationRepository } from './modules/Navigation/domain/NavigationRepository';
+import { PrismaNavigationRepository } from './modules/Navigation/infrastructure/PrismaNavigationRepository';
+import { GetNavigationUseCase } from './modules/Navigation/application/GetNavigationUseCase';
+import { NavigationController } from './modules/Navigation/presentation/NavigationController';
 import { EmailService } from './modules/Contact/domain/EmailService';
 import {
   SmtpEmailService,
@@ -81,6 +85,14 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(GlobalSettingsController)
     .withDependencies([GetGlobalSettingsUseCase]);
 
+  // Navigation
+  builder
+    .register(NavigationRepository)
+    .use(PrismaNavigationRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(GetNavigationUseCase).withDependencies([NavigationRepository]);
+  builder.registerAndUse(NavigationController).withDependencies([GetNavigationUseCase]);
+
   // Contact
   builder.register(EmailService).use(SmtpEmailService).withDependencies([SmtpConfig]);
   builder.registerAndUse(SendContactEmailUseCase).withDependencies([EmailService]);
@@ -100,6 +112,7 @@ export class Container {
       {
         pageController: this.services.get(PageController),
         globalSettingsController: this.services.get(GlobalSettingsController),
+        navigationController: this.services.get(NavigationController),
         contactController: this.services.get(ContactController),
       },
       env.get('CORS_ORIGIN'),

@@ -23,16 +23,26 @@ model Page {
 }
 
 model PageSection {
-  id       Int    @id @default(autoincrement())
-  pageId   Int    @map("page_id")
-  type     String @db.VarChar(100)
+  id       Int     @id @default(autoincrement())
+  pageId   Int     @map("page_id")
+  type     String  @db.VarChar(100)
   position Int
-  props    Json   @default("{}")
-  page     Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  props    Json    @default("{}")
+  anchor   String? @db.VarChar(100)
+  page     Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@unique([pageId, position])
   @@index([pageId])
   @@map("page_sections")
+}
+
+model NavigationLink {
+  id       Int    @id @default(autoincrement())
+  label    String @db.VarChar(100)
+  href     String @db.VarChar(255)
+  position Int    @unique
+
+  @@map("navigation_links")
 }
 
 model GlobalSetting {

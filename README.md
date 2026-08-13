@@ -28,6 +28,7 @@ src/
 │   │   ├── infrastructure/  # PrismaPageRepository
 │   │   └── presentation/    # Controller + router
 │   ├── GlobalSettings/  # Variables globales de marca
+│   ├── Navigation/      # Menú del sitio (páginas y/o anclas de secciones)
 │   └── Contact/         # Formulario de contacto + SMTP
 ├── shared/              # Kernel compartido (config, DB, error handler)
 ├── app.ts               # Ensamblado de Express
@@ -63,8 +64,42 @@ igual en `pnpm dev`, `pnpm test` y `pnpm build`.
 | ------ | ------------------ | ----------------------------------------------------------- |
 | GET    | `/api/pages/:slug` | Página con sus secciones JSONB ordenadas (404 si no existe) |
 | GET    | `/api/settings`    | Configuraciones globales de marca                           |
+| GET    | `/api/navigation`  | Enlaces del menú del sitio, ordenados                       |
 | POST   | `/api/contact`     | Valida con `ContactSchema` (400 si falla) y envía correo    |
 | GET    | `/health`          | Health check                                                |
+
+## Páginas vs secciones: multi-página o one-page
+
+La estructura del sitio se decide 100% en la base de datos, con dos piezas:
+
+- **`pages` + `page_sections`**: cada sección pertenece explícitamente a una página
+  (`page_id`). Una página es una URL propia; sus secciones son los bloques que la
+  componen, en orden. Las secciones pueden llevar un `anchor` opcional que el
+  frontend renderiza como `id`, enlazable como `/slug#ancla`.
+- **`navigation_links`**: el menú del sitio. Cada entrada tiene `label`, `href` y
+  `position`. El `href` puede apuntar a una página (`/nosotros`) o al ancla de una
+  sección (`/#caracteristicas`).
+
+Con eso, ambos modos son solo datos:
+
+**Sitio multi-página** (como el seed actual): crea varias páginas y haz que el menú
+apunte a sus slugs.
+
+```
+pages:            home · nosotros · servicios · contacto
+navigation_links: Inicio → /  ·  Nosotros → /nosotros  ·  Servicios → /servicios  ·  Contacto → /contacto
+```
+
+**Sitio one-page**: pon todas las secciones en `home`, dales `anchor`, y haz que el
+menú apunte a las anclas. No se toca ninguna línea de código.
+
+```
+pages:            home (secciones: Hero · Features[anchor: servicios] · TextBlock[anchor: nosotros] · ContactForm[anchor: contacto])
+navigation_links: Inicio → /  ·  Nosotros → /#nosotros  ·  Servicios → /#servicios  ·  Contacto → /#contacto
+```
+
+Ambos estilos pueden mezclarse: un menú puede combinar páginas propias y anclas
+(ej. `Características → /#caracteristicas` junto a `Contacto → /contacto`).
 
 ## Puesta en marcha
 
