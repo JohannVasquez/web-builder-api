@@ -331,15 +331,27 @@ export const buildElectricaPages = (
         type: 'Hero',
         position: 1,
         props: {
-          title: 'Energía segura para tu hogar y tu empresa',
+          eyebrow: 'Certificados SEC Clase A',
+          title: 'Energía segura para',
+          titleAccent: 'tu hogar y tu empresa',
           subtitle:
             'Instalaciones eléctricas, mantención preventiva y atención de emergencias 24/7, ejecutadas por instaladores autorizados SEC.',
           ctaLabel: 'Solicita tu cotización',
           ctaHref: '/contacto',
+          secondaryCtaLabel: 'Ver servicios',
+          secondaryCtaHref: '/servicios',
+          accentColor: palette.primary,
           ...(assets === null
             ? {}
             : {
-                imageUrl: assets.electricaHeroHome,
+                // Carrusel: rota entre los tres heros del sitio, igual que la
+                // referencia clonada (synovaingenieria.cl) para demostrar
+                // la capacidad genérica del motor, no solo una imagen fija.
+                images: [
+                  assets.electricaHeroHome,
+                  assets.electricaHeroServicios,
+                  assets.electricaHeroNosotros,
+                ],
                 overlayColor: palette.heroOverlays.home,
               }),
         },
@@ -349,7 +361,6 @@ export const buildElectricaPages = (
         position: 2,
         anchor: 'cifras',
         props: {
-          title: 'Respaldo que se nota',
           backgroundColor: '#1e293b',
           textColor: '#e2e8f0',
           accentColor: '#fbbf24',
@@ -362,38 +373,136 @@ export const buildElectricaPages = (
         },
       },
       {
-        type: 'Features',
+        type: 'ServiceCards',
         position: 3,
         anchor: 'servicios-destacados',
         props: {
-          title: '¿Por qué confiar en nosotros?',
-          backgroundColor: palette.primarySoft,
+          title: 'Nuestros Servicios',
+          subtitle: 'Excelencia técnica y compromiso en cada proyecto eléctrico.',
           accentColor: palette.primaryDark,
           items: [
             {
-              icon: 'badge-check',
-              title: 'Certificados SEC',
+              icon: 'home',
+              title: 'Instalaciones residenciales',
               description:
-                'Instaladores autorizados clase A. Cada trabajo queda con su declaración TE1 al día.',
+                'Instalaciones eléctricas completas para viviendas: canalización, cableado, tablero, protecciones, enchufes e iluminación.',
+              checklist: [
+                'Instalación completa de redes eléctricas domiciliarias',
+                'Montaje de tableros eléctricos y protecciones',
+                'Cumplimiento de normativa eléctrica vigente (SEC)',
+              ],
+              linkLabel: 'Instalaciones eléctricas',
+              linkHref: '/contacto',
+            },
+            {
+              icon: 'lightbulb',
+              title: 'Estudio y diseño lumínico',
+              description:
+                'Estudios luminotécnicos con software DIALux Evo: niveles de iluminancia, uniformidad y cumplimiento normativo.',
+              checklist: [
+                'Simulación y cálculo lumínico con DIALux Evo',
+                'Verificación de cumplimiento normativo',
+                'Diagnóstico de instalaciones existentes',
+              ],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
+            },
+            {
+              icon: 'factory',
+              title: 'Instalaciones industriales',
+              description:
+                'Instalaciones eléctricas para plantas, bodegas y faenas: diseño, planificación y ejecución completa.',
+              checklist: [
+                'Diseño y ejecución de sistemas eléctricos industriales',
+                'Montaje de tableros eléctricos y de control',
+                'Canalizaciones, bandejas y distribución de carga',
+              ],
+              linkLabel: 'Agéndanos una reunión',
+              linkHref: '/contacto',
+            },
+            {
+              icon: 'badge-check',
+              title: 'Certificación eléctrica TE1',
+              description:
+                'Regularizamos e instalamos empalmes eléctricos TE1, cumpliendo con la normativa SEC, sin trámites eternos.',
+              checklist: ['Diagnóstico sin costo', 'Rapidez'],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
+            },
+          ],
+          viewAllLabel: 'Ver todos los servicios',
+          viewAllHref: '/servicios',
+        },
+      },
+      {
+        type: 'SplitHighlights',
+        position: 4,
+        anchor: 'por-que-elegirnos',
+        props: {
+          title: '¿Por qué elegir a ElectroAndes?',
+          backgroundColor: palette.primarySoft,
+          accentColor: palette.primaryDark,
+          ...(assets === null ? {} : { imageUrl: assets.electricaEquipo }),
+          imageAlt: 'Electricista de ElectroAndes trabajando en un tablero',
+          items: [
+            {
+              icon: 'badge-check',
+              title: 'Instaladores Certificados SEC',
+              description:
+                'Todo nuestro personal cuenta con licencia SEC vigente, asegurando cumplimiento normativo total.',
             },
             {
               icon: 'clock',
-              title: 'Emergencias 24/7',
+              title: 'Respuesta Rápida y Puntualidad',
               description:
-                'Cuadrillas de turno todos los días del año: un corte no espera a horario de oficina.',
+                'Valoramos tu tiempo. Llegamos a la hora acordada y entregamos los proyectos en los plazos establecidos.',
             },
             {
               icon: 'shield',
-              title: 'Seguridad garantizada',
+              title: 'Garantía en Todos los Trabajos',
               description:
-                'Análisis de riesgo antes de cada faena y garantía escrita de 12 meses por nuestros trabajos.',
+                'Ofrecemos garantía escrita sobre la mano de obra y los materiales utilizados en cada instalación.',
+            },
+          ],
+        },
+      },
+      {
+        type: 'Testimonials',
+        position: 5,
+        props: {
+          title: 'Lo que dicen nuestros clientes',
+          accentColor: palette.primaryDark,
+          items: [
+            {
+              badgeLabel: 'Instalación eléctrica · Ñuñoa',
+              quote:
+                'El equipo de ElectroAndes dejó el tablero de la casa nuevo, todo certificado y explicado paso a paso. Llegaron a la hora acordada y el trabajo quedó impecable.',
+              rating: 5,
+              authorName: 'Marcela Reyes',
+              authorLocation: 'Ñuñoa, Santiago',
+            },
+            {
+              badgeLabel: 'Mantención industrial · San Bernardo',
+              quote:
+                'Contratamos la mantención preventiva de nuestra bodega y el diagnóstico fue súper claro. Resolvieron una falla que llevaba meses sin que nadie diera con ella.',
+              rating: 5,
+              authorName: 'Rodrigo Salas',
+              authorLocation: 'San Bernardo',
+            },
+            {
+              badgeLabel: 'Certificación TE1 · Providencia',
+              quote:
+                'Necesitaba regularizar el empalme para vender el departamento y lo dejaron certificado en menos de una semana, sin vueltas.',
+              rating: 5,
+              authorName: 'Camila Ortiz',
+              authorLocation: 'Providencia',
             },
           ],
         },
       },
       {
         type: 'CallToAction',
-        position: 4,
+        position: 6,
         props: {
           title: '¿Cortes de luz o fallas recurrentes?',
           subtitle:
@@ -510,7 +619,7 @@ export const buildElectricaPages = (
         },
       },
       {
-        type: 'Features',
+        type: 'ServiceCards',
         position: 2,
         anchor: 'soluciones',
         props: {
@@ -523,36 +632,63 @@ export const buildElectricaPages = (
               title: 'Instalaciones residenciales',
               description:
                 'Proyectos eléctricos completos para casas y edificios, con su declaración TE1 incluida.',
+              checklist: [
+                'Canalización, cableado y tablero',
+                'Enchufes, iluminación y circuitos',
+              ],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
             },
             {
               icon: 'factory',
               title: 'Mantención industrial',
               description:
                 'Planes preventivos y correctivos para tableros, motores y líneas de producción.',
+              checklist: ['Diagnóstico de fallas', 'Planes de mantención periódica'],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
             },
             {
               icon: 'plug-zap',
               title: 'Empalmes y aumentos de potencia',
               description:
                 'Gestión completa ante la distribuidora para que tu proyecto tenga la energía que necesita.',
+              checklist: [
+                'Trámite ante la distribuidora',
+                'Aumento de potencia contratada',
+              ],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
             },
             {
               icon: 'sun',
               title: 'Energía solar',
               description:
                 'Diseño e instalación de sistemas fotovoltaicos on-grid, con trámite ante la SEC.',
+              checklist: [
+                'Diseño del sistema fotovoltaico',
+                'Trámite de conexión ante la SEC',
+              ],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
             },
             {
               icon: 'lightbulb',
               title: 'Iluminación LED',
               description:
                 'Recambio y diseño lumínico eficiente para comercios, bodegas y áreas comunes.',
+              checklist: ['Cálculo lumínico con DIALux Evo', 'Recambio a tecnología LED'],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
             },
             {
               icon: 'gauge',
               title: 'Certificaciones y mediciones',
               description:
                 'Certificación de instalaciones, mediciones de tierra y termografía de tableros.',
+              checklist: ['Mediciones de puesta a tierra', 'Termografía de tableros'],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
             },
           ],
         },

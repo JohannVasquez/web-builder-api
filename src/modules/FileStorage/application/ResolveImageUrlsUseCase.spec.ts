@@ -47,6 +47,27 @@ describe('ResolveImageUrlsUseCase', () => {
     });
   });
 
+  it('resolves every key inside an images array (Hero carousel)', async () => {
+    const storageProvider = buildStorageProvider();
+    const useCase = new ResolveImageUrlsUseCase(storageProvider);
+
+    const result = await useCase.execute({
+      title: 'Hero',
+      images: ['a.svg', 'b.svg', 'https://example.com/external.svg'],
+    });
+
+    expect(result).toEqual({
+      title: 'Hero',
+      images: [
+        'http://cdn.test/a.svg?signed=1',
+        'http://cdn.test/b.svg?signed=1',
+        'https://example.com/external.svg',
+      ],
+    });
+    expect(storageProvider.getPresignedUrl).toHaveBeenCalledWith('a.svg');
+    expect(storageProvider.getPresignedUrl).toHaveBeenCalledWith('b.svg');
+  });
+
   it('leaves absolute http(s) URLs untouched', async () => {
     const storageProvider = buildStorageProvider();
     const useCase = new ResolveImageUrlsUseCase(storageProvider);
