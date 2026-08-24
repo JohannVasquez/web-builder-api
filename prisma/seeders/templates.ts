@@ -848,6 +848,15 @@ export const buildElectricaPages = (
           ],
         },
       },
+      {
+        type: 'LocationMap',
+        position: 3,
+        props: {
+          title: 'Dónde estamos',
+          address: 'Av. Vicuña Mackenna 2890, Ñuñoa, Santiago, Chile',
+          accentColor: palette.primaryDark,
+        },
+      },
     ],
   },
 ];
