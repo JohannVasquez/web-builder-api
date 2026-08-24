@@ -690,12 +690,76 @@ export const buildElectricaPages = (
               linkLabel: 'Cotizar',
               linkHref: '/contacto',
             },
+            {
+              icon: 'thermometer',
+              title: 'Termografía eléctrica',
+              description:
+                'Detectamos fallas y conexiones defectuosas antes de que se transformen en un corte o un incendio.',
+              checklist: [
+                'Inspección termográfica de tableros',
+                'Informe con puntos críticos',
+              ],
+              linkLabel: 'Agenda tu termografía',
+              linkHref: '/contacto',
+            },
+            {
+              icon: 'wrench',
+              title: 'Mantención preventiva y correctiva',
+              description:
+                'Inspecciones y reparaciones programadas para evitar fallas y tiempos de inactividad.',
+              checklist: ['Detección temprana de fallas', 'Informes técnicos detallados'],
+              linkLabel: 'Cotizar',
+              linkHref: '/contacto',
+            },
+            {
+              icon: 'badge-check',
+              title: 'Regulariza tu instalación',
+              description:
+                'Si tu instalación no cumple con la normativa vigente, la evaluamos y dejamos todo en regla ante la SEC.',
+              checklist: [
+                'Evaluación completa en terreno',
+                'Gestión de documentación SEC',
+              ],
+              linkLabel: 'Solicita tu regularización',
+              linkHref: '/contacto',
+            },
+          ],
+        },
+      },
+      {
+        type: 'Features',
+        position: 3,
+        anchor: 'sectores',
+        props: {
+          eyebrow: 'Sectores que atendemos',
+          title: 'Experiencia en todos los niveles',
+          variant: 'plain',
+          accentColor: palette.primaryDark,
+          items: [
+            {
+              icon: 'home',
+              title: 'Residencial',
+              description:
+                'Seguridad para tu hogar. Desde cambio de enchufes hasta cableado completo de casas y departamentos.',
+            },
+            {
+              icon: 'layout',
+              title: 'Comercial',
+              description:
+                'Soluciones para oficinas y locales. Iluminación eficiente y circuitos pensados para la operación diaria.',
+            },
+            {
+              icon: 'factory',
+              title: 'Industrial',
+              description:
+                'Alta potencia y trifásica. Mantención de maquinaria y tableros de fuerza industrial.',
+            },
           ],
         },
       },
       {
         type: 'Stats',
-        position: 3,
+        position: 4,
         props: {
           backgroundColor: '#1e293b',
           textColor: '#e2e8f0',
@@ -709,7 +773,7 @@ export const buildElectricaPages = (
       },
       {
         type: 'CallToAction',
-        position: 4,
+        position: 5,
         props: {
           title: '¿No encuentras lo que buscas?',
           subtitle: 'Cuéntanos tu caso: armamos soluciones a la medida de cada cliente.',
@@ -730,7 +794,8 @@ export const buildElectricaPages = (
         type: 'Hero',
         position: 1,
         props: {
-          title: 'Contacto',
+          eyebrow: 'Atención al cliente',
+          title: 'Contáctanos',
           subtitle:
             'Cotizaciones, visitas técnicas y emergencias: escríbenos y te respondemos dentro del día.',
           ...(assets === null
@@ -748,6 +813,39 @@ export const buildElectricaPages = (
           title: 'Cuéntanos tu proyecto',
           subtitle:
             'Completa el formulario y un técnico se pondrá en contacto contigo. Para emergencias, usa el botón de WhatsApp.',
+          accentColor: palette.primaryDark,
+          channels: [
+            {
+              type: 'phone',
+              title: 'Llámanos',
+              description: 'Atención inmediata para proyectos y cotizaciones.',
+              value: '+56 9 6543 2109',
+            },
+            {
+              type: 'whatsapp',
+              title: 'WhatsApp',
+              description: 'Chatea con un técnico ahora, ideal para emergencias.',
+              value: '56965432109',
+              linkLabel: 'Iniciar chat',
+            },
+            {
+              type: 'email',
+              title: 'Email',
+              description: 'Envíanos tus planos, dudas o solicitudes de cotización.',
+              value: 'contacto@electroandes.cl',
+            },
+            {
+              type: 'hours',
+              title: 'Horario de atención',
+              description:
+                'Cotizaciones y visitas técnicas. Para emergencias, escríbenos por WhatsApp a cualquier hora.',
+              schedule: [
+                { day: 'Lunes a viernes', hours: '08:30 – 18:30' },
+                { day: 'Sábado', hours: '09:00 – 13:00' },
+                { day: 'Domingo', hours: 'Cerrado' },
+              ],
+            },
+          ],
         },
       },
     ],
