@@ -561,8 +561,38 @@ export const buildElectricaPages = (
         },
       },
       {
-        type: 'Features',
+        type: 'Columns',
         position: 3,
+        anchor: 'como-trabajamos',
+        props: {
+          title: 'Cómo trabajamos',
+          subtitle: 'El mismo proceso, sin importar el tamaño del proyecto.',
+          accentColor: palette.secondary,
+          columns: [
+            {
+              eyebrow: 'Paso 1',
+              title: 'Diagnóstico',
+              content:
+                'Visitamos el lugar, evaluamos la instalación existente y te entregamos una cotización clara, sin letra chica.',
+            },
+            {
+              eyebrow: 'Paso 2',
+              title: 'Ejecución',
+              content:
+                'Nuestra cuadrilla ejecuta el trabajo cumpliendo la normativa vigente, con materiales certificados y plazos definidos.',
+            },
+            {
+              eyebrow: 'Paso 3',
+              title: 'Certificación',
+              content:
+                'Dejamos tu instalación declarada ante la SEC y te entregamos la documentación técnica correspondiente.',
+            },
+          ],
+        },
+      },
+      {
+        type: 'Features',
+        position: 4,
         anchor: 'valores',
         props: {
           title: 'Nuestros valores',
@@ -592,7 +622,7 @@ export const buildElectricaPages = (
       },
       {
         type: 'CallToAction',
-        position: 4,
+        position: 5,
         props: {
           title: 'Conversemos de tu proyecto',
           subtitle:
