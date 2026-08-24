@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.6" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#78350f"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.78" cy="0.2" r="0.55">
+      <stop offset="0" stop-color="#fbbf24" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#fbbf24" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.15" cy="0.8" r="0.55">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0v80" fill="none" stroke="#fcd34d" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#grid)"/>
+  <rect width="1600" height="900" fill="url(#glowA)"/>
+  <rect width="1600" height="900" fill="url(#glowB)"/>
+  <!-- torres de alta tensión -->
+  <g stroke="#94a3b8" stroke-opacity="0.55" stroke-width="6" fill="none">
+    <path d="M1180 720 L1240 300 L1300 720 M1200 580 h140 M1190 650 h160 M1216 440 h108"/>
+    <path d="M1150 340 h180 M1170 300 h140" stroke-width="8"/>
+  </g>
+  <g stroke="#94a3b8" stroke-opacity="0.35" stroke-width="4" fill="none">
+    <path d="M320 760 L365 440 L410 760 M335 660 h150 M347 560 h126"/>
+    <path d="M300 470 h130 M315 440 h100" stroke-width="6"/>
+  </g>
+  <!-- cables catenaria -->
+  <path d="M0 320 C 400 420, 800 260, 1160 330" stroke="#e2e8f0" stroke-opacity="0.3" stroke-width="3" fill="none"/>
+  <path d="M1330 330 C 1450 360, 1550 330, 1600 340" stroke="#e2e8f0" stroke-opacity="0.3" stroke-width="3" fill="none"/>
+  <path d="M0 360 C 420 460, 820 300, 1165 345" stroke="#e2e8f0" stroke-opacity="0.2" stroke-width="3" fill="none"/>
+  <!-- rayo central -->
+  <g transform="translate(700 300)">
+    <path d="M120 0 L20 190 H95 L45 360 L215 140 H125 L200 0 Z" fill="#fbbf24" opacity="0.9"/>
+    <path d="M120 0 L20 190 H95 L45 360 L215 140 H125 L200 0 Z" fill="none" stroke="#fef3c7" stroke-width="6" stroke-opacity="0.6"/>
+  </g>
+  <circle cx="1380" cy="180" r="12" fill="#fcd34d" opacity="0.7"/>
+  <circle cx="250" cy="220" r="8" fill="#fde68a" opacity="0.6"/>
+  <circle cx="1480" cy="620" r="9" fill="#7dd3fc" opacity="0.5"/>
+  <path d="M0 780 C 380 700, 700 860, 1050 790 S 1500 700, 1600 760 V900 H0 Z" fill="#b45309" opacity="0.4"/>
+  <path d="M0 830 C 420 770, 760 900, 1120 840 S 1520 770, 1600 820 V900 H0 Z" fill="#f59e0b" opacity="0.35"/>
+</svg>

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.5" stop-color="#134e4a"/>
+      <stop offset="1" stop-color="#0d9488"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.75" cy="0.2" r="0.6">
+      <stop offset="0" stop-color="#2dd4bf" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#2dd4bf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.1" cy="0.9" r="0.55">
+      <stop offset="0" stop-color="#818cf8" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#818cf8" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="46" height="46" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="2.5" fill="#99f6e4" fill-opacity="0.14"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#dots)"/>
+  <rect width="1600" height="900" fill="url(#glowA)"/>
+  <rect width="1600" height="900" fill="url(#glowB)"/>
+  <g opacity="0.6" stroke="#5eead4" stroke-opacity="0.6" stroke-width="2" fill="#115e59">
+    <rect x="1060" y="200" width="180" height="180" rx="20"/>
+    <rect x="1270" y="260" width="140" height="140" rx="18"/>
+    <rect x="1160" y="420" width="150" height="150" rx="18"/>
+  </g>
+  <g stroke="#5eead4" stroke-opacity="0.5" stroke-width="2">
+    <line x1="1240" y1="290" x2="1270" y2="310"/>
+    <line x1="1200" y1="380" x2="1220" y2="420"/>
+    <line x1="1310" y1="400" x2="1280" y2="440"/>
+  </g>
+  <g fill="#2dd4bf" opacity="0.85">
+    <path d="M1128 270 l-30 30 30 30" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M1172 270 l30 30 -30 30" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <circle cx="1340" cy="330" r="26" fill="none" stroke="#99f6e4" stroke-width="6" opacity="0.8"/>
+  <path d="M1205 470 h60 M1205 495 h44 M1205 520 h52" stroke="#99f6e4" stroke-width="7" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="420" cy="230" r="8" fill="#99f6e4" opacity="0.7"/>
+  <circle cx="720" cy="640" r="11" fill="#5eead4" opacity="0.5"/>
+  <path d="M0 790 C 400 700, 760 870, 1150 790 S 1520 710, 1600 760 V900 H0 Z" fill="#0f766e" opacity="0.55"/>
+</svg>

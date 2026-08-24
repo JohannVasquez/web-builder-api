@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ede9fe"/>
+      <stop offset="1" stop-color="#fae8ff"/>
+    </linearGradient>
+    <linearGradient id="p1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+    <linearGradient id="p2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ec4899"/>
+      <stop offset="1" stop-color="#be185d"/>
+    </linearGradient>
+    <linearGradient id="p3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" rx="28" fill="url(#card)"/>
+  <circle cx="130" cy="110" r="46" fill="#c4b5fd" opacity="0.5"/>
+  <circle cx="700" cy="500" r="70" fill="#f5d0fe" opacity="0.6"/>
+  <circle cx="660" cy="120" r="22" fill="#a5b4fc" opacity="0.6"/>
+  <g fill="none" stroke="#a78bfa" stroke-opacity="0.5" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round">
+    <path d="M250 430 C 320 380, 480 380, 550 430"/>
+  </g>
+  <g>
+    <circle cx="260" cy="280" r="58" fill="url(#p1)"/>
+    <circle cx="243" cy="272" r="7" fill="#fff"/>
+    <circle cx="277" cy="272" r="7" fill="#fff"/>
+    <path d="M242 298 q18 14 36 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M170 450 a90 90 0 0 1 180 0 z" fill="url(#p1)"/>
+  </g>
+  <g>
+    <circle cx="400" cy="250" r="66" fill="url(#p2)"/>
+    <circle cx="381" cy="242" r="8" fill="#fff"/>
+    <circle cx="419" cy="242" r="8" fill="#fff"/>
+    <path d="M380 272 q20 16 40 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M298 450 a102 102 0 0 1 204 0 z" fill="url(#p2)"/>
+  </g>
+  <g>
+    <circle cx="540" cy="280" r="58" fill="url(#p3)"/>
+    <circle cx="523" cy="272" r="7" fill="#fff"/>
+    <circle cx="557" cy="272" r="7" fill="#fff"/>
+    <path d="M522 298 q18 14 36 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M450 450 a90 90 0 0 1 180 0 z" fill="url(#p3)"/>
+  </g>
+  <rect x="240" y="490" width="320" height="14" rx="7" fill="#c4b5fd" opacity="0.7"/>
+  <rect x="300" y="520" width="200" height="10" rx="5" fill="#ddd6fe" opacity="0.8"/>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.55" stop-color="#172554"/>
+      <stop offset="1" stop-color="#92400e"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.5" cy="0.3" r="0.6">
+      <stop offset="0" stop-color="#fbbf24" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#fbbf24" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0v80" fill="none" stroke="#fcd34d" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#grid)"/>
+  <rect width="1600" height="900" fill="url(#glowA)"/>
+  <!-- burbuja de chat con rayo -->
+  <g opacity="0.9">
+    <rect x="600" y="230" width="400" height="260" rx="32" fill="#1e293b" stroke="#fbbf24" stroke-opacity="0.6" stroke-width="3"/>
+    <path d="M700 490 l-40 70 100 -70 z" fill="#1e293b" stroke="#fbbf24" stroke-opacity="0.6" stroke-width="3"/>
+    <path d="M810 270 L760 370 H800 L775 450 L865 340 H818 L855 270 Z" fill="#fbbf24"/>
+  </g>
+  <!-- teléfono abstracto -->
+  <g opacity="0.7" transform="translate(1150 320)">
+    <rect width="150" height="280" rx="26" fill="#0f172a" stroke="#93c5fd" stroke-opacity="0.6" stroke-width="3"/>
+    <rect x="20" y="34" width="110" height="180" rx="10" fill="#1d4ed8" opacity="0.6"/>
+    <circle cx="75" cy="246" r="14" fill="#93c5fd" opacity="0.7"/>
+  </g>
+  <!-- sobre abstracto -->
+  <g opacity="0.65" transform="translate(260 380)">
+    <rect width="240" height="150" rx="16" fill="#334155" stroke="#fcd34d" stroke-opacity="0.6" stroke-width="3"/>
+    <path d="M6 16 L120 92 L234 16" fill="none" stroke="#fcd34d" stroke-opacity="0.7" stroke-width="4"/>
+  </g>
+  <circle cx="1380" cy="180" r="10" fill="#fcd34d" opacity="0.7"/>
+  <circle cx="380" cy="220" r="8" fill="#7dd3fc" opacity="0.6"/>
+  <path d="M0 790 C 380 720, 700 870, 1050 800 S 1500 720, 1600 780 V900 H0 Z" fill="#b45309" opacity="0.4"/>
+  <path d="M0 840 C 420 790, 760 900, 1120 850 S 1520 790, 1600 830 V900 H0 Z" fill="#f59e0b" opacity="0.3"/>
+</svg>
