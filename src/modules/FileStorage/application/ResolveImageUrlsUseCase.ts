@@ -1,7 +1,12 @@
 import { StorageProvider } from '../domain/StorageProvider';
 
-/** Props cuyo valor string es una `key` de archivo (ej. `Hero.imageUrl`). */
-const IMAGE_KEY_PROPS = new Set(['imageUrl']);
+/**
+ * Props cuyo valor string es una `key` de archivo. `imageUrl` es el
+ * contenido propio de cada sección (ej. la foto lateral de `TextBlock`);
+ * `backgroundImageUrl` es el fondo del `<section>` completo, disponible en
+ * cualquier tipo de sección vía `SectionBackgroundPropsSchema` (frontend).
+ */
+const IMAGE_KEY_PROPS = new Set(['imageUrl', 'backgroundImageUrl']);
 /** Props cuyo valor es un array de `key`s (ej. `Hero.images` del carrusel). */
 const IMAGE_KEY_LIST_PROPS = new Set(['images']);
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//;

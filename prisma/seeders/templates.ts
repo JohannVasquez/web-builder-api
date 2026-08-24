@@ -511,6 +511,14 @@ export const buildElectricaPages = (
           buttonHref: '/contacto',
           backgroundColor: palette.primaryDark,
           textColor: palette.primaryText,
+          // Demuestra `backgroundImageUrl`: cualquier sección puede llevar
+          // foto de fondo, no solo Hero. Reutiliza un asset ya en el bucket.
+          ...(assets === null
+            ? {}
+            : {
+                backgroundImageUrl: assets.electricaHeroContacto,
+                backgroundOverlayColor: 'rgba(180, 83, 9, 0.75)',
+              }),
         },
       },
     ],

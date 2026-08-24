@@ -68,6 +68,23 @@ describe('ResolveImageUrlsUseCase', () => {
     expect(storageProvider.getPresignedUrl).toHaveBeenCalledWith('b.svg');
   });
 
+  it('resolves backgroundImageUrl on any section type, not just Hero', async () => {
+    const storageProvider = buildStorageProvider();
+    const useCase = new ResolveImageUrlsUseCase(storageProvider);
+
+    const result = await useCase.execute({
+      title: 'Sectores',
+      backgroundImageUrl: 'seed-texture.svg',
+      backgroundOverlayColor: 'rgba(0,0,0,0.5)',
+    });
+
+    expect(result).toEqual({
+      title: 'Sectores',
+      backgroundImageUrl: 'http://cdn.test/seed-texture.svg?signed=1',
+      backgroundOverlayColor: 'rgba(0,0,0,0.5)',
+    });
+  });
+
   it('leaves absolute http(s) URLs untouched', async () => {
     const storageProvider = buildStorageProvider();
     const useCase = new ResolveImageUrlsUseCase(storageProvider);
