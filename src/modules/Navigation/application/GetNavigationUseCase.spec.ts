@@ -15,8 +15,9 @@ describe('GetNavigationUseCase', () => {
     };
     const useCase = new GetNavigationUseCase(repository);
 
-    const links = await useCase.execute();
+    const links = await useCase.execute(1);
 
+    expect(repository.findAll).toHaveBeenCalledWith(1);
     expect(links.map((link) => link.label)).toEqual(['Inicio', 'Nosotros', 'Contacto']);
   });
 
@@ -26,7 +27,7 @@ describe('GetNavigationUseCase', () => {
     };
     const useCase = new GetNavigationUseCase(repository);
 
-    await expect(useCase.execute()).resolves.toEqual([]);
+    await expect(useCase.execute(1)).resolves.toEqual([]);
   });
 
   it('serializes links exposing only label and href', () => {

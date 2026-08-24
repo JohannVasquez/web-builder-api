@@ -3,7 +3,20 @@ import { z } from 'zod';
 const envSchema = z.strictObject({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
-  CORS_ORIGIN: z.string().min(1).default('http://localhost:3000'),
+  // Lista separada por comas: con multi-tenant cada dominio es un origen
+  // distinto, así que un único valor bloquearía el formulario de contacto de
+  // todos los tenants menos uno. Detrás de Caddy queda vacío de facto, porque
+  // la API se sirve bajo el mismo host que la web y no hay cross-origin.
+  CORS_ORIGIN: z
+    .string()
+    .min(1)
+    .default('http://localhost:3000')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin !== ''),
+    ),
   DATABASE_URL: z.string().min(1),
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
@@ -15,6 +28,13 @@ const envSchema = z.strictObject({
   SMTP_PASS: z.string().default(''),
   CONTACT_EMAIL_FROM: z.email(),
   CONTACT_EMAIL_TO: z.email(),
+  STORAGE_DRIVER: z.enum(['minio', 'r2']).default('minio'),
+  STORAGE_ENDPOINT: z.string().min(1).default('http://localhost:9000'),
+  STORAGE_REGION: z.string().min(1).default('auto'),
+  STORAGE_BUCKET: z.string().min(1).default('web-builder-assets'),
+  STORAGE_ACCESS_KEY: z.string().default(''),
+  STORAGE_SECRET_KEY: z.string().default(''),
+  MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(5),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -35,6 +55,13 @@ export class EnvConfig {
       SMTP_PASS: source.SMTP_PASS,
       CONTACT_EMAIL_FROM: source.CONTACT_EMAIL_FROM,
       CONTACT_EMAIL_TO: source.CONTACT_EMAIL_TO,
+      STORAGE_DRIVER: source.STORAGE_DRIVER,
+      STORAGE_ENDPOINT: source.STORAGE_ENDPOINT,
+      STORAGE_REGION: source.STORAGE_REGION,
+      STORAGE_BUCKET: source.STORAGE_BUCKET,
+      STORAGE_ACCESS_KEY: source.STORAGE_ACCESS_KEY,
+      STORAGE_SECRET_KEY: source.STORAGE_SECRET_KEY,
+      MAX_FILE_SIZE_MB: source.MAX_FILE_SIZE_MB,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

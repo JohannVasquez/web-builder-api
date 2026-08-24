@@ -22,6 +22,25 @@ import {
 } from './modules/Contact/infrastructure/SmtpEmailService';
 import { SendContactEmailUseCase } from './modules/Contact/application/SendContactEmailUseCase';
 import { ContactController } from './modules/Contact/presentation/ContactController';
+import { TenantRepository } from './modules/Tenant/domain/TenantRepository';
+import { PrismaTenantRepository } from './modules/Tenant/infrastructure/PrismaTenantRepository';
+import { ResolveTenantUseCase } from './modules/Tenant/application/ResolveTenantUseCase';
+import { IsDomainAllowedUseCase } from './modules/Tenant/application/IsDomainAllowedUseCase';
+import { TenantController } from './modules/Tenant/presentation/TenantController';
+import { createTenantResolver } from './modules/Tenant/presentation/tenantResolver';
+import { StorageProvider } from './modules/FileStorage/domain/StorageProvider';
+import { StorageAssetRepository } from './modules/FileStorage/domain/StorageAssetRepository';
+import { FileStorageConfig } from './modules/FileStorage/domain/FileStorageConfig';
+import {
+  S3CompatibleStorageProvider,
+  S3StorageConfig,
+} from './modules/FileStorage/infrastructure/S3CompatibleStorageProvider';
+import { PrismaStorageAssetRepository } from './modules/FileStorage/infrastructure/PrismaStorageAssetRepository';
+import { createFileUploadMiddleware } from './modules/FileStorage/infrastructure/multerConfig';
+import { UploadFileUseCase } from './modules/FileStorage/application/UploadFileUseCase';
+import { DeleteFileUseCase } from './modules/FileStorage/application/DeleteFileUseCase';
+import { ResolveImageUrlsUseCase } from './modules/FileStorage/application/ResolveImageUrlsUseCase';
+import { FileController } from './modules/FileStorage/presentation/FileController';
 import { buildApp } from './app';
 
 /**
@@ -65,12 +84,65 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     )
     .asSingleton();
 
+  // Tenant
+  builder
+    .register(TenantRepository)
+    .use(PrismaTenantRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(ResolveTenantUseCase).withDependencies([TenantRepository]);
+  builder.registerAndUse(IsDomainAllowedUseCase).withDependencies([TenantRepository]);
+  builder.registerAndUse(TenantController).withDependencies([IsDomainAllowedUseCase]);
+
+  // FileStorage: MinIO (dev) y Cloudflare R2 (prod) hablan ambos el protocolo
+  // S3, así que STORAGE_DRIVER solo ajusta la configuración del mismo
+  // S3CompatibleStorageProvider (MinIO exige URLs path-style). El bucket es
+  // privado en los dos: no hay URL pública, solo `getPresignedUrl`. Va antes
+  // que Page porque GetPageBySlugUseCase depende de ResolveImageUrlsUseCase.
+  builder
+    .register(S3StorageConfig)
+    .useFactory(
+      () =>
+        new S3StorageConfig(
+          env.get('STORAGE_ENDPOINT'),
+          env.get('STORAGE_REGION'),
+          env.get('STORAGE_BUCKET'),
+          env.get('STORAGE_ACCESS_KEY'),
+          env.get('STORAGE_SECRET_KEY'),
+          env.get('STORAGE_DRIVER') === 'minio',
+        ),
+    )
+    .asSingleton();
+  builder
+    .register(FileStorageConfig)
+    .useFactory(() => new FileStorageConfig(env.get('MAX_FILE_SIZE_MB') * 1024 * 1024))
+    .asSingleton();
+  builder
+    .register(StorageProvider)
+    .use(S3CompatibleStorageProvider)
+    .withDependencies([S3StorageConfig]);
+  builder
+    .register(StorageAssetRepository)
+    .use(PrismaStorageAssetRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(UploadFileUseCase)
+    .withDependencies([StorageProvider, StorageAssetRepository, FileStorageConfig]);
+  builder
+    .registerAndUse(DeleteFileUseCase)
+    .withDependencies([StorageProvider, StorageAssetRepository]);
+  builder.registerAndUse(ResolveImageUrlsUseCase).withDependencies([StorageProvider]);
+  builder
+    .registerAndUse(FileController)
+    .withDependencies([UploadFileUseCase, DeleteFileUseCase]);
+
   // Page
   builder
     .register(PageRepository)
     .use(PrismaPageRepository)
     .withDependencies([PrismaClient]);
-  builder.registerAndUse(GetPageBySlugUseCase).withDependencies([PageRepository]);
+  builder
+    .registerAndUse(GetPageBySlugUseCase)
+    .withDependencies([PageRepository, ResolveImageUrlsUseCase]);
   builder.registerAndUse(PageController).withDependencies([GetPageBySlugUseCase]);
 
   // GlobalSettings
@@ -95,7 +167,9 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
 
   // Contact
   builder.register(EmailService).use(SmtpEmailService).withDependencies([SmtpConfig]);
-  builder.registerAndUse(SendContactEmailUseCase).withDependencies([EmailService]);
+  builder
+    .registerAndUse(SendContactEmailUseCase)
+    .withDependencies([EmailService, GlobalSettingsRepository]);
   builder.registerAndUse(ContactController).withDependencies([SendContactEmailUseCase]);
 
   return builder.build();
@@ -114,8 +188,12 @@ export class Container {
         globalSettingsController: this.services.get(GlobalSettingsController),
         navigationController: this.services.get(NavigationController),
         contactController: this.services.get(ContactController),
+        fileController: this.services.get(FileController),
+        tenantController: this.services.get(TenantController),
       },
       env.get('CORS_ORIGIN'),
+      createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
+      createTenantResolver(this.services.get(ResolveTenantUseCase)),
     );
   }
 

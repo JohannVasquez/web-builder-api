@@ -31,10 +31,13 @@ export class SmtpEmailService implements EmailService {
     });
   }
 
-  public async sendContactEmail(contact: ContactRequest): Promise<void> {
+  public async sendContactEmail(
+    contact: ContactRequest,
+    recipient?: string,
+  ): Promise<void> {
     await this.transporter.sendMail({
       from: this.config.from,
-      to: this.config.to,
+      to: recipient ?? this.config.to,
       replyTo: contact.email,
       subject: `Nuevo mensaje de contacto de ${contact.name}`,
       text: this.buildBody(contact),

@@ -19,7 +19,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['prisma/seed.ts'],
+          allowDefaultProject: ['prisma/seed.ts', 'prisma/seeders/*.ts'],
         },
         tsconfigRootDir: import.meta.dirname,
       },

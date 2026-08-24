@@ -9,16 +9,58 @@ datasource db {
   provider = "postgresql"
 }
 
+model Tenant {
+  id              Int              @id @default(autoincrement())
+  slug            String           @unique @db.VarChar(100)
+  name            String           @db.VarChar(255)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  domains         TenantDomain[]
+  pages           Page[]
+  navigationLinks NavigationLink[]
+  globalSettings  GlobalSetting[]
+
+  @@map("tenants")
+}
+
+/// Dominios por los que se llega a un tenant. Es una tabla aparte (y no una
+/// columna en `tenants`) porque un cliente puede tener a la vez el subdominio
+/// de la plataforma (`acme.webbuilder.co`) y su propio dominio (`acme.cl`).
+///
+/// - `isPrimary` marca el dominio canónico: el que se usa para construir URLs
+///   absolutas (sitemap, og:url, redirects), sin importar por cuál entró el
+///   visitante. Se espera exactamente uno por tenant.
+/// - `verifiedAt` es nulo hasta comprobar que el cliente controla el dominio
+///   (registro TXT / CNAME). Un dominio sin verificar existe en la BD pero no
+///   resuelve tráfico, para que nadie reclame un dominio ajeno.
+model TenantDomain {
+  id         Int       @id @default(autoincrement())
+  tenantId   Int       @map("tenant_id")
+  domain     String    @unique @db.VarChar(255)
+  isPrimary  Boolean   @default(false) @map("is_primary")
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz()
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_domains")
+}
+
 model Page {
   id          Int           @id @default(autoincrement())
-  slug        String        @unique @db.VarChar(255)
+  tenantId    Int           @map("tenant_id")
+  slug        String        @db.VarChar(255)
   title       String        @db.VarChar(255)
   description String?
   isPublished Boolean       @default(true) @map("is_published")
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sections    PageSection[]
 
+  @@unique([tenantId, slug])
+  @@index([tenantId])
   @@map("pages")
 }
 
@@ -38,16 +80,40 @@ model PageSection {
 
 model NavigationLink {
   id       Int    @id @default(autoincrement())
+  tenantId Int    @map("tenant_id")
   label    String @db.VarChar(100)
   href     String @db.VarChar(255)
-  position Int    @unique
+  position Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, position])
+  @@index([tenantId])
   @@map("navigation_links")
 }
 
-model GlobalSetting {
-  key   String @id @db.VarChar(100)
-  value String
+/// Registro de cada archivo subido al bucket (MinIO en dev, Cloudflare R2 en
+/// producción). El bucket es privado: `key` es lo único que se guarda en el
+/// `props` JSONB de una `PageSection` o en un `GlobalSetting.value`, nunca una
+/// URL — las URLs firmadas (presigned) se generan al vuelo en cada lectura,
+/// así que nunca quedan expuestas ni expiran mientras están "guardadas".
+model StorageAsset {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(500)
+  mimeType  String   @map("mime_type") @db.VarChar(100)
+  size      Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
+  @@map("storage_assets")
+}
+
+model GlobalSetting {
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @map("tenant_id")
+  key      String @db.VarChar(100)
+  value    String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
   @@map("global_settings")
 }

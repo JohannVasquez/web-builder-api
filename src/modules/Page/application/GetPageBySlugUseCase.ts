@@ -1,15 +1,36 @@
-import type { Page } from '../domain/Page';
+import type { ResolveImageUrlsUseCase } from '../../FileStorage/application/ResolveImageUrlsUseCase';
+import { Page, PageSection } from '../domain/Page';
 import type { PageRepository } from '../domain/PageRepository';
 import { PageNotFoundError } from '../domain/PageNotFoundError';
 
 export class GetPageBySlugUseCase {
-  constructor(private readonly pageRepository: PageRepository) {}
+  constructor(
+    private readonly pageRepository: PageRepository,
+    private readonly resolveImageUrlsUseCase: ResolveImageUrlsUseCase,
+  ) {}
 
-  public async execute(slug: string): Promise<Page> {
-    const page = await this.pageRepository.findBySlug(slug);
+  public async execute(tenantId: number, slug: string): Promise<Page> {
+    const page = await this.pageRepository.findBySlug(tenantId, slug);
     if (page === null) {
       throw new PageNotFoundError(slug);
     }
-    return page;
+
+    // Cada `imageUrl` en `props` es una `key` del bucket, no una URL: se
+    // firma recién aquí, en cada lectura, para que nunca quede una URL
+    // firmada (de vida corta) guardada en la base de datos (AC del cliente:
+    // "siempre" presigned, nunca una URL fija).
+    const sections = await Promise.all(
+      page.sections.map(
+        async (section) =>
+          new PageSection(
+            section.type,
+            section.position,
+            await this.resolveImageUrlsUseCase.execute(section.props),
+            section.anchor,
+          ),
+      ),
+    );
+
+    return new Page(page.slug, page.title, page.description, sections);
   }
 }

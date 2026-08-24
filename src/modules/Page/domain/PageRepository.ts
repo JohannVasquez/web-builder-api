@@ -7,5 +7,5 @@ import type { Page } from './Page';
  * a través del contenedor.
  */
 export abstract class PageRepository {
-  public abstract findBySlug(slug: string): Promise<Page | null>;
+  public abstract findBySlug(tenantId: number, slug: string): Promise<Page | null>;
 }

@@ -13,9 +13,9 @@ describe('GetGlobalSettingsUseCase', () => {
     };
     const useCase = new GetGlobalSettingsUseCase(repository);
 
-    const result = await useCase.execute();
+    const result = await useCase.execute(1);
 
-    expect(repository.find).toHaveBeenCalledTimes(1);
+    expect(repository.find).toHaveBeenCalledWith(1);
     expect(result).toBe(settings);
   });
 

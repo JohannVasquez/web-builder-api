@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { NotFoundError } from '../domain/NotFoundError';
+import { BadRequestError } from '../domain/BadRequestError';
+import { PayloadTooLargeError } from '../domain/PayloadTooLargeError';
 
 export class ErrorHandler {
   public readonly handle = (
@@ -22,6 +24,16 @@ export class ErrorHandler {
 
     if (error instanceof NotFoundError) {
       res.status(404).json({ error: 'NotFound', message: error.message });
+      return;
+    }
+
+    if (error instanceof BadRequestError) {
+      res.status(400).json({ error: 'BadRequest', message: error.message });
+      return;
+    }
+
+    if (error instanceof PayloadTooLargeError) {
+      res.status(413).json({ error: 'PayloadTooLarge', message: error.message });
       return;
     }
 

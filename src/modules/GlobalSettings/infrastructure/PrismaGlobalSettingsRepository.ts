@@ -5,8 +5,8 @@ import type { GlobalSettingsRepository } from '../domain/GlobalSettingsRepositor
 export class PrismaGlobalSettingsRepository implements GlobalSettingsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  public async find(): Promise<GlobalSettings> {
-    const rows = await this.prisma.globalSetting.findMany();
+  public async find(tenantId: number): Promise<GlobalSettings> {
+    const rows = await this.prisma.globalSetting.findMany({ where: { tenantId } });
     const record: Record<string, string> = {};
     for (const row of rows) {
       record[row.key] = row.value;
