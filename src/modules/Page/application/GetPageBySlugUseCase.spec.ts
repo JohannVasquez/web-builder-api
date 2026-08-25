@@ -13,6 +13,15 @@ describe('GetPageBySlugUseCase', () => {
 
   const buildRepository = (page: Page | null): jest.Mocked<PageRepository> => ({
     findBySlug: jest.fn().mockResolvedValue(page),
+    findAllByTenant: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    addSection: jest.fn(),
+    updateSection: jest.fn(),
+    deleteSection: jest.fn(),
+    reorderSections: jest.fn(),
   });
 
   // Identidad por defecto: deja pasar `props` tal cual, para no acoplar

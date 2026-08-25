@@ -6,7 +6,17 @@ import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
+import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
+import { GetPageByIdUseCase } from './modules/Page/application/GetPageByIdUseCase';
+import { CreatePageUseCase } from './modules/Page/application/CreatePageUseCase';
+import { UpdatePageUseCase } from './modules/Page/application/UpdatePageUseCase';
+import { DeletePageUseCase } from './modules/Page/application/DeletePageUseCase';
+import { AddSectionUseCase } from './modules/Page/application/AddSectionUseCase';
+import { UpdateSectionUseCase } from './modules/Page/application/UpdateSectionUseCase';
+import { DeleteSectionUseCase } from './modules/Page/application/DeleteSectionUseCase';
+import { ReorderSectionsUseCase } from './modules/Page/application/ReorderSectionsUseCase';
 import { PageController } from './modules/Page/presentation/PageController';
+import { AdminPageController } from './modules/Page/presentation/AdminPageController';
 import { GlobalSettingsRepository } from './modules/GlobalSettings/domain/GlobalSettingsRepository';
 import { PrismaGlobalSettingsRepository } from './modules/GlobalSettings/infrastructure/PrismaGlobalSettingsRepository';
 import { GetGlobalSettingsUseCase } from './modules/GlobalSettings/application/GetGlobalSettingsUseCase';
@@ -26,7 +36,9 @@ import { TenantRepository } from './modules/Tenant/domain/TenantRepository';
 import { PrismaTenantRepository } from './modules/Tenant/infrastructure/PrismaTenantRepository';
 import { ResolveTenantUseCase } from './modules/Tenant/application/ResolveTenantUseCase';
 import { IsDomainAllowedUseCase } from './modules/Tenant/application/IsDomainAllowedUseCase';
+import { ListTenantsUseCase } from './modules/Tenant/application/ListTenantsUseCase';
 import { TenantController } from './modules/Tenant/presentation/TenantController';
+import { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
 import { createTenantResolver } from './modules/Tenant/presentation/tenantResolver';
 import { StorageProvider } from './modules/FileStorage/domain/StorageProvider';
 import { StorageAssetRepository } from './modules/FileStorage/domain/StorageAssetRepository';
@@ -105,6 +117,8 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(ResolveTenantUseCase).withDependencies([TenantRepository]);
   builder.registerAndUse(IsDomainAllowedUseCase).withDependencies([TenantRepository]);
   builder.registerAndUse(TenantController).withDependencies([IsDomainAllowedUseCase]);
+  builder.registerAndUse(ListTenantsUseCase).withDependencies([TenantRepository]);
+  builder.registerAndUse(AdminTenantController).withDependencies([ListTenantsUseCase]);
 
   // FileStorage: MinIO (dev) y Cloudflare R2 (prod) hablan ambos el protocolo
   // S3, así que STORAGE_DRIVER solo ajusta la configuración del mismo
@@ -157,6 +171,28 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(GetPageBySlugUseCase)
     .withDependencies([PageRepository, ResolveImageUrlsUseCase]);
   builder.registerAndUse(PageController).withDependencies([GetPageBySlugUseCase]);
+  builder.registerAndUse(ListPagesUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(GetPageByIdUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(CreatePageUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(UpdatePageUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(DeletePageUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(AddSectionUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(UpdateSectionUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(DeleteSectionUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(ReorderSectionsUseCase).withDependencies([PageRepository]);
+  builder
+    .registerAndUse(AdminPageController)
+    .withDependencies([
+      ListPagesUseCase,
+      GetPageByIdUseCase,
+      CreatePageUseCase,
+      UpdatePageUseCase,
+      DeletePageUseCase,
+      AddSectionUseCase,
+      UpdateSectionUseCase,
+      DeleteSectionUseCase,
+      ReorderSectionsUseCase,
+    ]);
 
   // GlobalSettings
   builder
@@ -230,6 +266,8 @@ export class Container {
         fileController: this.services.get(FileController),
         tenantController: this.services.get(TenantController),
         authController: this.services.get(AuthController),
+        adminTenantController: this.services.get(AdminTenantController),
+        adminPageController: this.services.get(AdminPageController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),

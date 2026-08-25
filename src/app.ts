@@ -14,6 +14,10 @@ import type { TenantController } from './modules/Tenant/presentation/TenantContr
 import { createTenantInternalRouter } from './modules/Tenant/presentation/tenantRouter';
 import type { AuthController } from './modules/Auth/presentation/AuthController';
 import { createAuthRouter } from './modules/Auth/presentation/authRouter';
+import type { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
+import { createAdminTenantRouter } from './modules/Tenant/presentation/adminTenantRouter';
+import type { AdminPageController } from './modules/Page/presentation/AdminPageController';
+import { createAdminPageRouter } from './modules/Page/presentation/adminPageRouter';
 import { ErrorHandler } from './shared/presentation/ErrorHandler';
 
 export interface AppControllers {
@@ -24,6 +28,8 @@ export interface AppControllers {
   readonly fileController: FileController;
   readonly tenantController: TenantController;
   readonly authController: AuthController;
+  readonly adminTenantController: AdminTenantController;
+  readonly adminPageController: AdminPageController;
 }
 
 export const buildApp = (
@@ -73,6 +79,19 @@ export const buildApp = (
   // que emite); /me exige sesión válida, como cualquier ruta admin futura.
   app.use('/api/admin/auth', createAuthRouter(controllers.authController));
   app.get('/api/admin/me', adminAuthMiddleware, controllers.authController.me);
+
+  // Resto de /api/admin/**: mismo middleware, scoped por :tenantId en la ruta
+  // (no por dominio — un admin gestiona todos los tenants desde un login).
+  app.use(
+    '/api/admin/tenants',
+    adminAuthMiddleware,
+    createAdminTenantRouter(controllers.adminTenantController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/pages',
+    adminAuthMiddleware,
+    createAdminPageRouter(controllers.adminPageController),
+  );
 
   app.use(errorHandler.handle);
 

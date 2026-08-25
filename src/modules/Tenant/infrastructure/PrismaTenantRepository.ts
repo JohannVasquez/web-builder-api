@@ -38,6 +38,14 @@ export class PrismaTenantRepository implements TenantRepository {
     return record === null ? null : this.toDomain(record);
   }
 
+  public async findAll(): Promise<Tenant[]> {
+    const records = await this.prisma.tenant.findMany({
+      include: { domains: { where: { isPrimary: true }, take: 1 } },
+      orderBy: { name: 'asc' },
+    });
+    return records.map((record) => this.toDomain(record));
+  }
+
   private toDomain(record: TenantRecord): Tenant {
     return new Tenant(
       record.id,

@@ -1,3 +1,10 @@
+export interface TenantPrimitives {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly primaryDomain: string | null;
+}
+
 export class Tenant {
   constructor(
     public readonly id: number,
@@ -11,6 +18,15 @@ export class Tenant {
      */
     public readonly primaryDomain: string | null,
   ) {}
+
+  public toPrimitives(): TenantPrimitives {
+    return {
+      id: this.id,
+      slug: this.slug,
+      name: this.name,
+      primaryDomain: this.primaryDomain,
+    };
+  }
 }
 
 /**

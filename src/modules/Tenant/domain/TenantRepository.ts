@@ -6,4 +6,6 @@ import type { Tenant } from './Tenant';
 export abstract class TenantRepository {
   public abstract findByDomain(domain: string): Promise<Tenant | null>;
   public abstract findBySlug(slug: string): Promise<Tenant | null>;
+  /** Admin: para el selector de tenant del panel. */
+  public abstract findAll(): Promise<Tenant[]>;
 }
