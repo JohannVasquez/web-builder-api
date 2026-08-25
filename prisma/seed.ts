@@ -6,6 +6,7 @@ import { TenantSeeder } from './seeders/TenantSeeder';
 import { GlobalSettingsSeeder } from './seeders/GlobalSettingsSeeder';
 import { NavigationSeeder } from './seeders/NavigationSeeder';
 import { PageSeeder } from './seeders/PageSeeder';
+import { AdminUserSeeder } from './seeders/AdminUserSeeder';
 import { TENANT_TEMPLATES } from './seeders/templates';
 
 const connectionString = process.env.DATABASE_URL;
@@ -21,6 +22,21 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
  * y se recorren los tenants definidos en `seeders/templates.ts`.
  */
 const seed = async (): Promise<void> => {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (adminEmail !== undefined && adminPassword !== undefined && adminPassword !== '') {
+    await new AdminUserSeeder(prisma).execute({
+      email: adminEmail,
+      password: adminPassword,
+      name: 'Admin',
+    });
+    console.log(`Seeded admin user "${adminEmail}" (skipped if it already existed)`);
+  } else {
+    console.warn(
+      '[seed] ADMIN_EMAIL/ADMIN_PASSWORD no definidos: no se creó usuario admin.',
+    );
+  }
+
   const assets = await new StorageAssetsSeeder().execute(prisma);
 
   const tenantSeeder = new TenantSeeder(prisma);

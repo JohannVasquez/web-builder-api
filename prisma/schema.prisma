@@ -106,6 +106,21 @@ model StorageAsset {
   @@map("storage_assets")
 }
 
+/// Usuario del panel de administración. Un solo tipo de cuenta, sin scoping
+/// por tenant: es una herramienta interna de la agencia para gestionar
+/// todos sus clientes desde un mismo login, no un portal self-service para
+/// que cada cliente entre a su propio sitio.
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("admin_users")
+}
+
 model GlobalSetting {
   id       Int    @id @default(autoincrement())
   tenantId Int    @map("tenant_id")

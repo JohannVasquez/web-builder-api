@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { NotFoundError } from '../domain/NotFoundError';
 import { BadRequestError } from '../domain/BadRequestError';
 import { PayloadTooLargeError } from '../domain/PayloadTooLargeError';
+import { UnauthorizedError } from '../domain/UnauthorizedError';
 
 export class ErrorHandler {
   public readonly handle = (
@@ -34,6 +35,11 @@ export class ErrorHandler {
 
     if (error instanceof PayloadTooLargeError) {
       res.status(413).json({ error: 'PayloadTooLarge', message: error.message });
+      return;
+    }
+
+    if (error instanceof UnauthorizedError) {
+      res.status(401).json({ error: 'Unauthorized', message: error.message });
       return;
     }
 

@@ -12,6 +12,8 @@ import type { FileController } from './modules/FileStorage/presentation/FileCont
 import { createFileRouter } from './modules/FileStorage/presentation/fileRouter';
 import type { TenantController } from './modules/Tenant/presentation/TenantController';
 import { createTenantInternalRouter } from './modules/Tenant/presentation/tenantRouter';
+import type { AuthController } from './modules/Auth/presentation/AuthController';
+import { createAuthRouter } from './modules/Auth/presentation/authRouter';
 import { ErrorHandler } from './shared/presentation/ErrorHandler';
 
 export interface AppControllers {
@@ -21,6 +23,7 @@ export interface AppControllers {
   readonly contactController: ContactController;
   readonly fileController: FileController;
   readonly tenantController: TenantController;
+  readonly authController: AuthController;
 }
 
 export const buildApp = (
@@ -28,6 +31,7 @@ export const buildApp = (
   corsOrigin: string[],
   fileUploadMiddleware: RequestHandler,
   tenantResolver: RequestHandler,
+  adminAuthMiddleware: RequestHandler,
 ): Express => {
   const app = express();
   const errorHandler = new ErrorHandler();
@@ -64,6 +68,11 @@ export const buildApp = (
     '/api/files',
     createFileRouter(controllers.fileController, fileUploadMiddleware),
   );
+
+  // Auth: /login es público (sería absurdo protegerlo con el propio token
+  // que emite); /me exige sesión válida, como cualquier ruta admin futura.
+  app.use('/api/admin/auth', createAuthRouter(controllers.authController));
+  app.get('/api/admin/me', adminAuthMiddleware, controllers.authController.me);
 
   app.use(errorHandler.handle);
 

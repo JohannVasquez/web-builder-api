@@ -41,6 +41,19 @@ import { UploadFileUseCase } from './modules/FileStorage/application/UploadFileU
 import { DeleteFileUseCase } from './modules/FileStorage/application/DeleteFileUseCase';
 import { ResolveImageUrlsUseCase } from './modules/FileStorage/application/ResolveImageUrlsUseCase';
 import { FileController } from './modules/FileStorage/presentation/FileController';
+import { AdminUserRepository } from './modules/Auth/domain/AdminUserRepository';
+import { PasswordHasher } from './modules/Auth/domain/PasswordHasher';
+import { TokenService } from './modules/Auth/domain/TokenService';
+import { PrismaAdminUserRepository } from './modules/Auth/infrastructure/PrismaAdminUserRepository';
+import { ScryptPasswordHasher } from './modules/Auth/infrastructure/ScryptPasswordHasher';
+import {
+  JwtConfig,
+  JwtTokenService,
+} from './modules/Auth/infrastructure/JwtTokenService';
+import { LoginUseCase } from './modules/Auth/application/LoginUseCase';
+import { VerifyTokenUseCase } from './modules/Auth/application/VerifyTokenUseCase';
+import { AuthController } from './modules/Auth/presentation/AuthController';
+import { createAdminAuthMiddleware } from './modules/Auth/presentation/adminAuthMiddleware';
 import { buildApp } from './app';
 
 /**
@@ -172,6 +185,32 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([EmailService, GlobalSettingsRepository]);
   builder.registerAndUse(ContactController).withDependencies([SendContactEmailUseCase]);
 
+  // Auth: panel de administración. Cuentas reales (AdminUser), sin scoping
+  // por tenant — es la herramienta interna de la agencia, no un login por
+  // cliente. `scrypt` (node:crypto) evita una dependencia externa para
+  // hashing; el token es JWT Bearer, no cookie, para no lidiar con
+  // SameSite/credentials entre `admin.<dominio>` y la API en otro origen.
+  builder
+    .register(AdminUserRepository)
+    .use(PrismaAdminUserRepository)
+    .withDependencies([PrismaClient]);
+  builder.register(PasswordHasher).use(ScryptPasswordHasher).withDependencies([]);
+  builder
+    .register(JwtConfig)
+    .useFactory(
+      () =>
+        new JwtConfig(env.get('AUTH_JWT_SECRET'), env.get('AUTH_TOKEN_TTL_HOURS') * 3600),
+    )
+    .asSingleton();
+  builder.register(TokenService).use(JwtTokenService).withDependencies([JwtConfig]);
+  builder
+    .registerAndUse(LoginUseCase)
+    .withDependencies([AdminUserRepository, PasswordHasher, TokenService]);
+  builder
+    .registerAndUse(VerifyTokenUseCase)
+    .withDependencies([TokenService, AdminUserRepository]);
+  builder.registerAndUse(AuthController).withDependencies([LoginUseCase]);
+
   return builder.build();
 };
 
@@ -190,10 +229,12 @@ export class Container {
         contactController: this.services.get(ContactController),
         fileController: this.services.get(FileController),
         tenantController: this.services.get(TenantController),
+        authController: this.services.get(AuthController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
       createTenantResolver(this.services.get(ResolveTenantUseCase)),
+      createAdminAuthMiddleware(this.services.get(VerifyTokenUseCase)),
     );
   }
 

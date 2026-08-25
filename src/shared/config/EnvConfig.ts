@@ -35,6 +35,10 @@ const envSchema = z.strictObject({
   STORAGE_ACCESS_KEY: z.string().default(''),
   STORAGE_SECRET_KEY: z.string().default(''),
   MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(5),
+  // Sin default: un secreto de firma JWT no debería tener un valor "de
+  // fábrica" que alguien olvide cambiar en producción.
+  AUTH_JWT_SECRET: z.string().min(32),
+  AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(168),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -62,6 +66,8 @@ export class EnvConfig {
       STORAGE_ACCESS_KEY: source.STORAGE_ACCESS_KEY,
       STORAGE_SECRET_KEY: source.STORAGE_SECRET_KEY,
       MAX_FILE_SIZE_MB: source.MAX_FILE_SIZE_MB,
+      AUTH_JWT_SECRET: source.AUTH_JWT_SECRET,
+      AUTH_TOKEN_TTL_HOURS: source.AUTH_TOKEN_TTL_HOURS,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

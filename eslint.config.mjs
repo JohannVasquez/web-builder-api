@@ -20,6 +20,10 @@ export default tseslint.config(
       parserOptions: {
         projectService: {
           allowDefaultProject: ['prisma/seed.ts', 'prisma/seeders/*.ts'],
+          // El default (8) ya no alcanza: prisma/seeders/ creció con cada
+          // módulo nuevo (AdminUserSeeder sumó el noveno). Sigue siendo un
+          // puñado de archivos de seed, no un problema de performance real.
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 20,
         },
         tsconfigRootDir: import.meta.dirname,
       },
