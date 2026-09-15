@@ -70,8 +70,13 @@ export const buildApp = (
     tenantResolver,
     createContactRouter(controllers.contactController),
   );
+  // Subida y borrado de archivos: solo administración con sesión válida
+  // (SPEC 0.1). Antes estaba abierto a internet, así que cualquiera podía
+  // llenar o vaciar el bucket. Leer las imágenes sigue siendo público: las
+  // URLs firmadas se resuelven en el servidor al armar cada página, no aquí.
   app.use(
     '/api/files',
+    adminAuthMiddleware,
     createFileRouter(controllers.fileController, fileUploadMiddleware),
   );
 

@@ -68,6 +68,24 @@ igual en `pnpm dev`, `pnpm test` y `pnpm build`.
 | POST   | `/api/contact`     | Valida con `ContactSchema` (400 si falla) y envía correo    |
 | GET    | `/health`          | Health check                                                |
 
+### Rutas que exigen sesión de administración
+
+Todo lo que escribe va detrás de `Authorization: Bearer <token>` (el token lo
+emite `POST /api/admin/auth/login`). Sin cabecera, o con un token inválido o
+vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
+
+| Método | Ruta                                 | Descripción                       |
+| ------ | ------------------------------------ | --------------------------------- |
+| POST   | `/api/files`                         | Sube un archivo al bucket privado |
+| DELETE | `/api/files/:key`                    | Borra un archivo del bucket       |
+| GET    | `/api/admin/me`                      | Confirma la sesión vigente        |
+| GET    | `/api/admin/tenants`                 | Lista los clientes                |
+| CRUD   | `/api/admin/tenants/:tenantId/pages` | Páginas y secciones del cliente   |
+
+Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
+servidor al armar cada página, así que los sitios publicados siguen viéndose
+para cualquier visitante.
+
 ## Páginas vs secciones: multi-página o one-page
 
 La estructura del sitio se decide 100% en la base de datos, con dos piezas:
