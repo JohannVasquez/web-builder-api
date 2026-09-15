@@ -66,6 +66,13 @@ import { LoginUseCase } from './modules/Auth/application/LoginUseCase';
 import { VerifyTokenUseCase } from './modules/Auth/application/VerifyTokenUseCase';
 import { AuthController } from './modules/Auth/presentation/AuthController';
 import { createAdminAuthMiddleware } from './modules/Auth/presentation/adminAuthMiddleware';
+import { SiteCacheInvalidator } from './modules/SiteCache/domain/SiteCacheInvalidator';
+import {
+  HttpSiteCacheInvalidator,
+  SiteCacheConfig,
+} from './modules/SiteCache/infrastructure/HttpSiteCacheInvalidator';
+import { InvalidateTenantCacheUseCase } from './modules/SiteCache/application/InvalidateTenantCacheUseCase';
+import { createCacheInvalidationMiddleware } from './modules/SiteCache/presentation/cacheInvalidationMiddleware';
 import { buildApp } from './app';
 
 /**
@@ -119,6 +126,28 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(TenantController).withDependencies([IsDomainAllowedUseCase]);
   builder.registerAndUse(ListTenantsUseCase).withDependencies([TenantRepository]);
   builder.registerAndUse(AdminTenantController).withDependencies([ListTenantsUseCase]);
+
+  // SiteCache: los sitios públicos se sirven cacheados, así que cada
+  // escritura admin tiene que avisarle al frontend qué dominios invalidar
+  // (SPEC 0.2). Con `WEBAPP_REVALIDATE_URL` vacía el invalidador no hace
+  // nada y el frontend simplemente sirve contenido hasta que expire.
+  builder
+    .register(SiteCacheConfig)
+    .useFactory(
+      () =>
+        new SiteCacheConfig(
+          env.get('WEBAPP_REVALIDATE_URL'),
+          env.get('REVALIDATE_SECRET'),
+        ),
+    )
+    .asSingleton();
+  builder
+    .register(SiteCacheInvalidator)
+    .use(HttpSiteCacheInvalidator)
+    .withDependencies([SiteCacheConfig]);
+  builder
+    .registerAndUse(InvalidateTenantCacheUseCase)
+    .withDependencies([TenantRepository, SiteCacheInvalidator]);
 
   // FileStorage: MinIO (dev) y Cloudflare R2 (prod) hablan ambos el protocolo
   // S3, así que STORAGE_DRIVER solo ajusta la configuración del mismo
@@ -273,6 +302,7 @@ export class Container {
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
       createTenantResolver(this.services.get(ResolveTenantUseCase)),
       createAdminAuthMiddleware(this.services.get(VerifyTokenUseCase)),
+      createCacheInvalidationMiddleware(this.services.get(InvalidateTenantCacheUseCase)),
     );
   }
 

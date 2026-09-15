@@ -86,6 +86,25 @@ Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose
 para cualquier visitante.
 
+## Caché del sitio publicado
+
+Los sitios públicos se sirven cacheados en el frontend (Next), con una
+etiqueta por **dominio** de tenant. Después de cada escritura bajo
+`/api/admin/tenants/:tenantId/**`, la API le avisa al frontend qué dominios
+invalidar, para que el cambio se vea publicado de inmediato sin reiniciar
+nada.
+
+- El aviso lo dispara `createCacheInvalidationMiddleware`, montado junto a los
+  routers admin. Va en un middleware y no dentro de cada caso de uso para que
+  toda ruta admin nueva quede cubierta sin que nadie tenga que acordarse.
+- `InvalidateTenantCacheUseCase` traduce el `tenantId` a **todos** sus
+  dominios: un tenant puede llegar por su subdominio de plataforma y por su
+  dominio propio, y cada uno es una clave de caché distinta.
+- La llamada sale en segundo plano y nunca lanza: si el frontend está caído,
+  el cambio igual quedó guardado; lo que se pierde es la frescura inmediata.
+- Con `WEBAPP_REVALIDATE_URL` vacía la invalidación queda apagada y la API
+  funciona igual.
+
 ## Páginas vs secciones: multi-página o one-page
 
 La estructura del sitio se decide 100% en la base de datos, con dos piezas:

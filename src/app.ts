@@ -38,6 +38,7 @@ export const buildApp = (
   fileUploadMiddleware: RequestHandler,
   tenantResolver: RequestHandler,
   adminAuthMiddleware: RequestHandler,
+  cacheInvalidation: RequestHandler,
 ): Express => {
   const app = express();
   const errorHandler = new ErrorHandler();
@@ -92,9 +93,14 @@ export const buildApp = (
     adminAuthMiddleware,
     createAdminTenantRouter(controllers.adminTenantController),
   );
+  // `cacheInvalidation` va aquí y no dentro de cada caso de uso: así toda
+  // ruta admin nueva queda cubierta sin que nadie tenga que acordarse
+  // (SPEC 0.2). Necesita `:tenantId` en la ruta, así que se monta con el
+  // router que lo declara.
   app.use(
     '/api/admin/tenants/:tenantId/pages',
     adminAuthMiddleware,
+    cacheInvalidation,
     createAdminPageRouter(controllers.adminPageController),
   );
 

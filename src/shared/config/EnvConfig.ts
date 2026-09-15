@@ -39,6 +39,11 @@ const envSchema = z.strictObject({
   // fábrica" que alguien olvide cambiar en producción.
   AUTH_JWT_SECRET: z.string().min(32),
   AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(168),
+  // Revalidación de la caché del frontend (SPEC 0.2). Vacía = apagada: la
+  // API funciona igual, pero los cambios tardan en verse lo que dure la
+  // caché. Se apunta al frontend por su URL interna, sin pasar por Caddy.
+  WEBAPP_REVALIDATE_URL: z.string().default(''),
+  REVALIDATE_SECRET: z.string().default(''),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -68,6 +73,8 @@ export class EnvConfig {
       MAX_FILE_SIZE_MB: source.MAX_FILE_SIZE_MB,
       AUTH_JWT_SECRET: source.AUTH_JWT_SECRET,
       AUTH_TOKEN_TTL_HOURS: source.AUTH_TOKEN_TTL_HOURS,
+      WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
+      REVALIDATE_SECRET: source.REVALIDATE_SECRET,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

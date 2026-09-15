@@ -9,6 +9,7 @@ describe('IsDomainAllowedUseCase', () => {
     findByDomain: jest.fn().mockResolvedValue(null),
     findBySlug: jest.fn().mockResolvedValue(null),
     findAll: jest.fn().mockResolvedValue([]),
+    findDomainsByTenantId: jest.fn().mockResolvedValue([]),
   });
 
   it('allows a domain registered and verified for some tenant', async () => {

@@ -50,7 +50,7 @@ describe('buildApp (rutas protegidas)', () => {
   };
 
   const app = (): Express =>
-    buildApp(buildControllers(), ['*'], noop, noop, fakeAdminAuth);
+    buildApp(buildControllers(), ['*'], noop, noop, fakeAdminAuth, noop);
 
   it('rechaza subir un archivo sin sesión de administración', async () => {
     const response = await request(app()).post('/api/files');
