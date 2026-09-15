@@ -2,7 +2,7 @@ import type { SiteCacheInvalidator } from '../domain/SiteCacheInvalidator';
 
 export class SiteCacheConfig {
   constructor(
-    /** URL del endpoint de revalidación del frontend. Vacía = invalidación apagada. */
+    // URL del endpoint de revalidación del frontend; vacía = invalidación apagada.
     public readonly revalidateUrl: string,
     public readonly secret: string,
   ) {}
@@ -10,14 +10,7 @@ export class SiteCacheConfig {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-/**
- * Le pega al endpoint de revalidación del frontend (Next), que traduce cada
- * dominio a su etiqueta de caché y la invalida.
- *
- * Nunca lanza: si el frontend está caído o mal configurado, el cambio ya
- * quedó guardado en la base y lo que se pierde es la frescura inmediata, no
- * el trabajo del usuario. Por eso el fallo se registra y se sigue.
- */
+// Nunca lanza: si el frontend está caído se pierde la frescura, no el trabajo ya guardado.
 export class HttpSiteCacheInvalidator implements SiteCacheInvalidator {
   constructor(
     private readonly config: SiteCacheConfig,

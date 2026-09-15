@@ -39,9 +39,7 @@ const envSchema = z.strictObject({
   // fábrica" que alguien olvide cambiar en producción.
   AUTH_JWT_SECRET: z.string().min(32),
   AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(168),
-  // Revalidación de la caché del frontend (SPEC 0.2). Vacía = apagada: la
-  // API funciona igual, pero los cambios tardan en verse lo que dure la
-  // caché. Se apunta al frontend por su URL interna, sin pasar por Caddy.
+  // Revalidación de la caché del frontend (SPEC 0.2); vacía = apagada.
   WEBAPP_REVALIDATE_URL: z.string().default(''),
   REVALIDATE_SECRET: z.string().default(''),
 });

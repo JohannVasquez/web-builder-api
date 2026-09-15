@@ -3,11 +3,7 @@ import request from 'supertest';
 import { buildApp, type AppControllers } from './app';
 import { UnauthorizedError } from './shared/domain/UnauthorizedError';
 
-/**
- * Prueba de cableado, no de lógica: verifica qué rutas quedan detrás del
- * middleware de administración. El bug que motivó SPEC 0.1 no estaba en
- * ningún controller sino justamente aquí, en el montaje de `/api/files`.
- */
+// Prueba de cableado: el bug de SPEC 0.1 estaba en el montaje, no en un controller.
 describe('buildApp (rutas protegidas)', () => {
   const noop: RequestHandler = (_req, _res, next) => next();
 
@@ -26,6 +22,11 @@ describe('buildApp (rutas protegidas)', () => {
       tenantController: { checkDomainAllowed: ok(200) },
       authController: { login: ok(200), me: ok(200) },
       adminTenantController: { list: ok(200) },
+      adminBrandController: {
+        get: ok(200),
+        update: ok(200),
+        listFontPairings: ok(200),
+      },
       adminPageController: {
         list: ok(200),
         get: ok(200),
@@ -40,7 +41,7 @@ describe('buildApp (rutas protegidas)', () => {
     } as unknown as AppControllers;
   };
 
-  /** Acepta `Bearer valido` y rechaza cualquier otra cosa, como el real. */
+  // Acepta `Bearer valido` y rechaza el resto, como el middleware real.
   const fakeAdminAuth: RequestHandler = (req, _res, next) => {
     if (req.headers.authorization !== 'Bearer valido') {
       next(new UnauthorizedError('Falta el token de autenticación'));

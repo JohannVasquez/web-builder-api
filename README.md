@@ -86,6 +86,32 @@ Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose
 para cualquier visitante.
 
+## Identidad de marca (módulo Brand)
+
+Cada tenant tiene una fila opcional en `tenant_brands` con su paleta,
+tipografía, logos, modo claro/oscuro y estilo visual. Todo es opcional: sin
+fila, o con la fila a medio llenar, el sitio se ve con la paleta neutra y la
+tipografía por defecto. Una fila inválida también cae al valor por defecto en
+vez de tumbar el sitio.
+
+- `GET /api/settings` (público) devuelve los datos del negocio **y** `brand`,
+  con los logos ya resueltos a URLs firmadas.
+- `GET/PATCH /api/admin/tenants/:tenantId/brand` lo edita. El PATCH hace
+  merge por sección: mandar `palette` la reemplaza entera, no mandarla la deja
+  intacta.
+- `GET /api/admin/font-pairings` devuelve el catálogo curado de combinaciones
+  tipográficas, para el panel y para el MCP.
+
+Los colores se guardan en hex y nada derivado se persiste: los tonos claros y
+oscuros, y el color de texto legible sobre cada color, los calcula el frontend
+al renderizar. Guardarlos obligaría a recalcular toda la tabla cada vez que
+cambie la fórmula.
+
+El id de estilo visual se valida como string en minúsculas con guiones, no
+como `enum`: el catálogo de estilos vive en el frontend, que ante un id
+desconocido cae al clásico. Encerrarlo aquí obligaría a migrar la API cada vez
+que se agrega un estilo.
+
 ## Caché del sitio publicado
 
 Los sitios públicos se sirven cacheados en el frontend (Next), con una

@@ -3,17 +3,8 @@ import type { InvalidateTenantCacheUseCase } from '../application/InvalidateTena
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-/**
- * Invalida la caché del tenant afectado después de cada escritura admin.
- *
- * Va como middleware y no dentro de cada caso de uso a propósito: así toda
- * ruta admin nueva (y todo lo que el MCP haga sobre las mismas rutas) queda
- * cubierta sin que nadie tenga que acordarse. Se engancha a `res.on('finish')`
- * para no invalidar cuando la operación falló.
- *
- * El aviso sale en segundo plano (`void`): la respuesta al panel no debe
- * quedar esperando a que el frontend conteste.
- */
+// Middleware y no caso de uso: cubre toda ruta admin futura sin que nadie tenga que acordarse.
+// Se engancha a `finish` para no invalidar cuando la operación falló; el aviso sale en segundo plano.
 export const createCacheInvalidationMiddleware = (
   useCase: InvalidateTenantCacheUseCase,
 ): RequestHandler => {

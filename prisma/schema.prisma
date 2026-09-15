@@ -19,6 +19,7 @@ model Tenant {
   pages           Page[]
   navigationLinks NavigationLink[]
   globalSettings  GlobalSetting[]
+  brand           TenantBrand?
 
   @@map("tenants")
 }
@@ -119,6 +120,30 @@ model AdminUser {
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
   @@map("admin_users")
+}
+
+/// Identidad de marca y estilo visual del tenant. Todo opcional: sin fila, valores por defecto.
+model TenantBrand {
+  id       Int @id @default(autoincrement())
+  tenantId Int @unique @map("tenant_id")
+
+  /// Colores base en hex; los tonos derivados se calculan al renderizar, no se guardan.
+  palette Json @default("{}")
+  /// `{ pairing, scale }`: id de una combinación curada y escala del texto.
+  typography Json @default("{}")
+  /// `keys` del bucket privado, nunca URLs: se firman al vuelo.
+  assets Json @default("{}")
+
+  /// `light` | `dark` | `system`.
+  colorMode String @default("system") @map("color_mode") @db.VarChar(20)
+  /// Id del estilo visual (Épica 2); `classic` es el aspecto actual.
+  visualStyle String @default("classic") @map("visual_style") @db.VarChar(50)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_brands")
 }
 
 model GlobalSetting {

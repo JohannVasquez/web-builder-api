@@ -7,6 +7,7 @@ import { GlobalSettingsSeeder } from './seeders/GlobalSettingsSeeder';
 import { NavigationSeeder } from './seeders/NavigationSeeder';
 import { PageSeeder } from './seeders/PageSeeder';
 import { AdminUserSeeder } from './seeders/AdminUserSeeder';
+import { BrandSeeder } from './seeders/BrandSeeder';
 import { TENANT_TEMPLATES } from './seeders/templates';
 
 const connectionString = process.env.DATABASE_URL;
@@ -43,6 +44,7 @@ const seed = async (): Promise<void> => {
   const globalSettingsSeeder = new GlobalSettingsSeeder(prisma);
   const navigationSeeder = new NavigationSeeder(prisma);
   const pageSeeder = new PageSeeder(prisma);
+  const brandSeeder = new BrandSeeder(prisma);
 
   for (const template of TENANT_TEMPLATES) {
     const tenant = await tenantSeeder.execute(template.tenant);
@@ -55,8 +57,9 @@ const seed = async (): Promise<void> => {
       tenantId: tenant.id,
       pages: template.buildPages(assets),
     });
+    await brandSeeder.execute({ tenantId: tenant.id, brand: template.brand });
     console.log(
-      `Seeded tenant "${tenant.slug}" (${template.tenant.domains.join(', ')}): settings, navigation and pages`,
+      `Seeded tenant "${tenant.slug}" (${template.tenant.domains.join(', ')}): settings, navigation, pages and brand`,
     );
   }
 

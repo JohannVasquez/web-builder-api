@@ -18,6 +18,8 @@ import type { AdminTenantController } from './modules/Tenant/presentation/AdminT
 import { createAdminTenantRouter } from './modules/Tenant/presentation/adminTenantRouter';
 import type { AdminPageController } from './modules/Page/presentation/AdminPageController';
 import { createAdminPageRouter } from './modules/Page/presentation/adminPageRouter';
+import type { AdminBrandController } from './modules/Brand/presentation/AdminBrandController';
+import { createAdminBrandRouter } from './modules/Brand/presentation/adminBrandRouter';
 import { ErrorHandler } from './shared/presentation/ErrorHandler';
 
 export interface AppControllers {
@@ -30,6 +32,7 @@ export interface AppControllers {
   readonly authController: AuthController;
   readonly adminTenantController: AdminTenantController;
   readonly adminPageController: AdminPageController;
+  readonly adminBrandController: AdminBrandController;
 }
 
 export const buildApp = (
@@ -71,10 +74,7 @@ export const buildApp = (
     tenantResolver,
     createContactRouter(controllers.contactController),
   );
-  // Subida y borrado de archivos: solo administración con sesión válida
-  // (SPEC 0.1). Antes estaba abierto a internet, así que cualquiera podía
-  // llenar o vaciar el bucket. Leer las imágenes sigue siendo público: las
-  // URLs firmadas se resuelven en el servidor al armar cada página, no aquí.
+  // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
   app.use(
     '/api/files',
     adminAuthMiddleware,
@@ -93,15 +93,23 @@ export const buildApp = (
     adminAuthMiddleware,
     createAdminTenantRouter(controllers.adminTenantController),
   );
-  // `cacheInvalidation` va aquí y no dentro de cada caso de uso: así toda
-  // ruta admin nueva queda cubierta sin que nadie tenga que acordarse
-  // (SPEC 0.2). Necesita `:tenantId` en la ruta, así que se monta con el
-  // router que lo declara.
+  // `cacheInvalidation` aquí y no en cada caso de uso: cubre toda ruta admin futura (SPEC 0.2).
   app.use(
     '/api/admin/tenants/:tenantId/pages',
     adminAuthMiddleware,
     cacheInvalidation,
     createAdminPageRouter(controllers.adminPageController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/brand',
+    adminAuthMiddleware,
+    cacheInvalidation,
+    createAdminBrandRouter(controllers.adminBrandController),
+  );
+  app.get(
+    '/api/admin/font-pairings',
+    adminAuthMiddleware,
+    controllers.adminBrandController.listFontPairings,
   );
 
   app.use(errorHandler.handle);

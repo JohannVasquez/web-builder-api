@@ -73,6 +73,12 @@ import {
 } from './modules/SiteCache/infrastructure/HttpSiteCacheInvalidator';
 import { InvalidateTenantCacheUseCase } from './modules/SiteCache/application/InvalidateTenantCacheUseCase';
 import { createCacheInvalidationMiddleware } from './modules/SiteCache/presentation/cacheInvalidationMiddleware';
+import { BrandRepository } from './modules/Brand/domain/BrandRepository';
+import { PrismaBrandRepository } from './modules/Brand/infrastructure/PrismaBrandRepository';
+import { GetBrandUseCase } from './modules/Brand/application/GetBrandUseCase';
+import { UpdateBrandUseCase } from './modules/Brand/application/UpdateBrandUseCase';
+import { ResolveBrandAssetsUseCase } from './modules/Brand/application/ResolveBrandAssetsUseCase';
+import { AdminBrandController } from './modules/Brand/presentation/AdminBrandController';
 import { buildApp } from './app';
 
 /**
@@ -127,10 +133,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(ListTenantsUseCase).withDependencies([TenantRepository]);
   builder.registerAndUse(AdminTenantController).withDependencies([ListTenantsUseCase]);
 
-  // SiteCache: los sitios públicos se sirven cacheados, así que cada
-  // escritura admin tiene que avisarle al frontend qué dominios invalidar
-  // (SPEC 0.2). Con `WEBAPP_REVALIDATE_URL` vacía el invalidador no hace
-  // nada y el frontend simplemente sirve contenido hasta que expire.
+  // SiteCache: cada escritura admin avisa al frontend qué dominios invalidar (SPEC 0.2).
   builder
     .register(SiteCacheConfig)
     .useFactory(
@@ -223,6 +226,18 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       ReorderSectionsUseCase,
     ]);
 
+  // Brand: identidad de marca y estilo visual. Va antes que GlobalSettings, que lo expone.
+  builder
+    .register(BrandRepository)
+    .use(PrismaBrandRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(GetBrandUseCase).withDependencies([BrandRepository]);
+  builder.registerAndUse(UpdateBrandUseCase).withDependencies([BrandRepository]);
+  builder.registerAndUse(ResolveBrandAssetsUseCase).withDependencies([StorageProvider]);
+  builder
+    .registerAndUse(AdminBrandController)
+    .withDependencies([GetBrandUseCase, UpdateBrandUseCase]);
+
   // GlobalSettings
   builder
     .register(GlobalSettingsRepository)
@@ -233,7 +248,11 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([GlobalSettingsRepository]);
   builder
     .registerAndUse(GlobalSettingsController)
-    .withDependencies([GetGlobalSettingsUseCase]);
+    .withDependencies([
+      GetGlobalSettingsUseCase,
+      GetBrandUseCase,
+      ResolveBrandAssetsUseCase,
+    ]);
 
   // Navigation
   builder
@@ -297,6 +316,7 @@ export class Container {
         authController: this.services.get(AuthController),
         adminTenantController: this.services.get(AdminTenantController),
         adminPageController: this.services.get(AdminPageController),
+        adminBrandController: this.services.get(AdminBrandController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),

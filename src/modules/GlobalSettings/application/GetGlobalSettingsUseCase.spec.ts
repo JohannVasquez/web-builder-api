@@ -22,8 +22,8 @@ describe('GetGlobalSettingsUseCase', () => {
   it('defaults missing keys to empty strings when built from a record', () => {
     const settings = GlobalSettings.fromRecord({ siteName: 'Acme' });
 
-    expect(settings.siteName).toBe('Acme');
-    expect(settings.whatsappNumber).toBe('');
+    expect(settings.get('siteName')).toBe('Acme');
+    expect(settings.get('whatsappNumber')).toBe('');
     expect(settings.toPrimitives().contactEmail).toBe('');
   });
 });

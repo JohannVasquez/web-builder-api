@@ -14,7 +14,8 @@ export class SendContactEmailUseCase {
     // Cada tenant recibe los mensajes de SU formulario en SU correo
     // (`contactEmail` de GlobalSettings); sin él, decide el EmailService.
     const settings = await this.globalSettingsRepository.find(tenantId);
-    const recipient = settings.contactEmail === '' ? undefined : settings.contactEmail;
+    const recipient =
+      settings.get('contactEmail') === '' ? undefined : settings.get('contactEmail');
     await this.emailService.sendContactEmail(contact, recipient);
   }
 }
