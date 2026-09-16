@@ -27,6 +27,10 @@ describe('UploadFileUseCase', () => {
   const buildAssetRepository = (): jest.Mocked<StorageAssetRepository> => ({
     register: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
+    findByTenant: jest.fn().mockResolvedValue([]),
+    findKey: jest.fn().mockResolvedValue(null),
+    updateAlt: jest.fn().mockResolvedValue(null),
+    findUsage: jest.fn().mockResolvedValue([]),
   });
 
   const buildFile = (overrides: Partial<FileData> = {}): FileData => ({
@@ -74,7 +78,28 @@ describe('UploadFileUseCase', () => {
       key: stored.key,
       mimeType: 'image/webp',
       size: 2048,
+      tenantId: null,
+      originalName: null,
     });
+  });
+
+  it('asocia el archivo al cliente y conserva su nombre cuando se lo indican', async () => {
+    const assetRepository = buildAssetRepository();
+    const useCase = new UploadFileUseCase(
+      buildStorageProvider(),
+      assetRepository,
+      config,
+    );
+
+    await useCase.execute(
+      buildFile({ mimeType: 'image/webp', size: 2048 }),
+      9,
+      'logo.webp',
+    );
+
+    expect(assetRepository.register).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: 9, originalName: 'logo.webp' }),
+    );
   });
 
   it('derives the key extension from the mime type, never from the client filename', async () => {

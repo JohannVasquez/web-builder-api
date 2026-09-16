@@ -28,6 +28,10 @@ describe('FileController (HTTP)', () => {
   const buildAssetRepository = (): jest.Mocked<StorageAssetRepository> => ({
     register: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
+    findByTenant: jest.fn().mockResolvedValue([]),
+    findKey: jest.fn().mockResolvedValue(null),
+    updateAlt: jest.fn().mockResolvedValue(null),
+    findUsage: jest.fn().mockResolvedValue([]),
   });
 
   const buildApp = (storageProvider: StorageProvider): Express => {

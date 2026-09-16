@@ -14,7 +14,11 @@ export class UploadFileUseCase {
     private readonly config: FileStorageConfig,
   ) {}
 
-  public async execute(file: FileData): Promise<StoredFile> {
+  public async execute(
+    file: FileData,
+    tenantId: number | null = null,
+    originalName: string | null = null,
+  ): Promise<StoredFile> {
     if (!isAllowedMimeType(file.mimeType)) {
       throw new InvalidFileTypeError(file.mimeType);
     }
@@ -28,6 +32,8 @@ export class UploadFileUseCase {
       key,
       mimeType: file.mimeType,
       size: file.size,
+      tenantId,
+      originalName,
     });
 
     // La URL devuelta es de vista previa inmediata para quien sube el

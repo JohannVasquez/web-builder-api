@@ -1,3 +1,4 @@
+import { createServer, type Server } from 'node:http';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { ContactController } from './ContactController';
@@ -11,6 +12,8 @@ import type { GlobalSettingsRepository } from '../../GlobalSettings/domain/Globa
 import { RateLimiter } from '../../ApiKey/application/RateLimiter';
 import { Tenant } from '../../Tenant/domain/Tenant';
 import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+
+const openServer = (app: Express): Server => createServer(app).listen(0);
 
 describe('ContactController (HTTP)', () => {
   const buildEmailService = (): jest.Mocked<EmailService> => ({
@@ -154,18 +157,26 @@ describe('ContactController (HTTP)', () => {
   });
 
   it('rate-limits a sixth submission from the same IP within a minute', async () => {
-    const emailService = buildEmailService();
     const rateLimiter = new RateLimiter();
-    const app = buildApp({ emailService, rateLimiter });
+    // Un solo servidor para las seis peticiones: `request(app)` levanta uno efímero por
+    // llamada, y seis seguidos hacían fallar el test por agotamiento de sockets, no por
+    // el límite que se quiere probar.
+    const server = openServer(
+      buildApp({ emailService: buildEmailService(), rateLimiter }),
+    );
 
-    for (let i = 0; i < 5; i += 1) {
-      const response = await request(app).post('/api/contact').send(validPayload);
-      expect(response.status).toBe(200);
+    try {
+      for (let i = 0; i < 5; i += 1) {
+        const response = await request(server).post('/api/contact').send(validPayload);
+        expect(response.status).toBe(200);
+      }
+      const response = await request(server).post('/api/contact').send(validPayload);
+
+      expect(response.status).toBe(429);
+      expect(response.headers['retry-after']).toBeDefined();
+    } finally {
+      server.close();
     }
-    const response = await request(app).post('/api/contact').send(validPayload);
-
-    expect(response.status).toBe(429);
-    expect(response.headers['retry-after']).toBeDefined();
   });
 
   it('keeps the rate limit separate per tenant even with a shared limiter and IP', async () => {
@@ -181,14 +192,22 @@ describe('ContactController (HTTP)', () => {
       tenantId: 2,
     });
 
-    for (let i = 0; i < 5; i += 1) {
-      const response = await request(appTenantA).post('/api/contact').send(validPayload);
-      expect(response.status).toBe(200);
-    }
-    const exhausted = await request(appTenantA).post('/api/contact').send(validPayload);
-    expect(exhausted.status).toBe(429);
+    const serverA = openServer(appTenantA);
+    const serverB = openServer(appTenantB);
 
-    const otherTenant = await request(appTenantB).post('/api/contact').send(validPayload);
-    expect(otherTenant.status).toBe(200);
+    try {
+      for (let i = 0; i < 5; i += 1) {
+        const response = await request(serverA).post('/api/contact').send(validPayload);
+        expect(response.status).toBe(200);
+      }
+      const exhausted = await request(serverA).post('/api/contact').send(validPayload);
+      expect(exhausted.status).toBe(429);
+
+      const otherTenant = await request(serverB).post('/api/contact').send(validPayload);
+      expect(otherTenant.status).toBe(200);
+    } finally {
+      serverA.close();
+      serverB.close();
+    }
   });
 });

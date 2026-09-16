@@ -24,6 +24,7 @@ model Tenant {
   activityLogs    ActivityLog[]
   contactMessages ContactMessage[]
   subscribers     NewsletterSubscriber[]
+  storageAssets   StorageAsset[]
 
   @@map("tenants")
 }
@@ -102,12 +103,22 @@ model NavigationLink {
 /// URL — las URLs firmadas (presigned) se generan al vuelo en cada lectura,
 /// así que nunca quedan expuestas ni expiran mientras están "guardadas".
 model StorageAsset {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique @db.VarChar(500)
-  mimeType  String   @map("mime_type") @db.VarChar(100)
-  size      Int
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  id       Int    @id @default(autoincrement())
+  key      String @unique @db.VarChar(500)
+  mimeType String @map("mime_type") @db.VarChar(100)
+  size     Int
 
+  /// Nulo en los archivos subidos antes de que la biblioteca fuera por cliente.
+  tenantId Int? @map("tenant_id")
+  /// Nombre con el que se subió, para poder buscarlo en el panel.
+  originalName String? @map("original_name") @db.VarChar(255)
+  /// Texto alternativo; sin él la imagen es invisible para un lector de pantalla.
+  alt String? @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
   @@map("storage_assets")
 }
 

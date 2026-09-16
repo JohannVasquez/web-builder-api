@@ -307,6 +307,40 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'list_media',
+      'Ver la biblioteca de imágenes de un cliente',
+      'Lista las imágenes de un cliente con su `key`, su texto alternativo y una URL para verlas. La `key` es lo que se guarda en los props de un bloque, no la URL: las URLs del bucket expiran.',
+      {
+        tenantId,
+        search: z.string().optional().describe('Filtra por nombre o texto alternativo'),
+      },
+      (args) => {
+        const search = (args.search as string | undefined) ?? '';
+        return api.request(
+          'GET',
+          `/api/admin/tenants/${String(args.tenantId)}/media?search=${encodeURIComponent(search)}`,
+        );
+      },
+    ),
+
+    tool(
+      'describe_image',
+      'Escribir el texto alternativo de una imagen',
+      'Guarda el texto alternativo de una imagen. Sin él la imagen es invisible para quien usa un lector de pantalla, y el sitio no cumple accesibilidad.',
+      {
+        tenantId,
+        key: z.string().describe('La `key` de la imagen, no su URL'),
+        alt: z.string().describe('Qué se ve en la imagen, en una frase'),
+      },
+      (args) =>
+        api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(args.tenantId)}/media/${encodeURIComponent(String(args.key))}`,
+          { alt: args.alt },
+        ),
+    ),
+
+    tool(
       'get_preview_url',
       'Obtener el enlace de vista previa',
       'Devuelve el enlace para que una persona revise el sitio antes de publicarlo.',

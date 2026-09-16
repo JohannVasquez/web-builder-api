@@ -26,6 +26,8 @@ import {
 } from './modules/ApiKey/presentation/actorMiddleware';
 import type { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
 import { createAdminContactMessageRouter } from './modules/Contact/presentation/adminContactMessageRouter';
+import type { MediaController } from './modules/FileStorage/presentation/MediaController';
+import { createMediaRouter } from './modules/FileStorage/presentation/mediaRouter';
 import type { NewsletterController } from './modules/Newsletter/presentation/NewsletterController';
 import {
   createAdminNewsletterRouter,
@@ -56,6 +58,7 @@ export interface AppControllers {
   readonly adminContactMessageController: AdminContactMessageController;
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
+  readonly mediaController: MediaController;
 }
 
 export const buildApp = (
@@ -155,6 +158,11 @@ export const buildApp = (
     ...adminGuards,
     cacheInvalidation,
     controllers.legalPageController.create,
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/media',
+    ...adminGuards,
+    createMediaRouter(controllers.mediaController, fileUploadMiddleware),
   );
   app.use(
     '/api/admin/tenants/:tenantId/subscribers',

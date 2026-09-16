@@ -107,6 +107,26 @@ no tiene dominios propios todavía y publicarla debería ser una decisión.
 
 `GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
 
+## Biblioteca de imágenes
+
+Cada cliente tiene la suya: `storage_assets` lleva `tenant_id`, y toda consulta
+va con él, así que una `key` adivinada no alcanza la biblioteca de otro.
+
+- `GET /api/admin/tenants/:tenantId/media?search=` lista con URLs firmadas
+  frescas (el bucket es privado).
+- `POST .../media` sube conservando el nombre original, para poder buscarlo.
+- `PATCH .../media/:key` guarda el texto alternativo. Se edita aparte de la
+  subida porque casi nunca se escribe en el momento, y sin él la imagen es
+  invisible para un lector de pantalla.
+- `DELETE .../media/:key` **avisa si la imagen está en uso** y se niega a
+  borrarla; hay que reintentar con `?force=true`. Sin eso, borrar deja huecos
+  en páginas publicadas sin que nadie se entere.
+
+La búsqueda de uso es textual sobre el JSON de los bloques, la marca y los
+ajustes. Es deliberado: la `key` es un UUID, así que un falso positivo es
+prácticamente imposible, y recorrer el schema de cada tipo de bloque sería más
+frágil y más lento.
+
 ## Suscripción a novedades
 
 `POST /api/newsletter` (público, scoped por el dominio del visitante) guarda un

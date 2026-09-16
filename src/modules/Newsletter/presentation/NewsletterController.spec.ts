@@ -1,3 +1,4 @@
+import { createServer, type Server } from 'node:http';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { NewsletterController } from './NewsletterController';
@@ -8,6 +9,10 @@ import { ListSubscribersUseCase } from '../application/ListSubscribersUseCase';
 import type { NewsletterRepository } from '../domain/NewsletterRepository';
 import { Tenant } from '../../Tenant/domain/Tenant';
 import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+
+// Un solo servidor para los bucles de peticiones: `request(app)` levanta uno efímero por
+// llamada, y varios seguidos hacen fallar el test por sockets, no por el límite probado.
+const openServer = (app: Express): Server => createServer(app).listen(0);
 
 describe('NewsletterController (HTTP)', () => {
   const buildRepository = (): jest.Mocked<NewsletterRepository> => ({
@@ -86,17 +91,21 @@ describe('NewsletterController (HTTP)', () => {
   });
 
   it('corta al sexto envío seguido desde la misma conexión', async () => {
-    const app = buildApp(buildRepository());
+    const server = openServer(buildApp(buildRepository()));
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      await request(app).post('/api/newsletter').send({ email: 'ana@ejemplo.cl' });
+    try {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await request(server).post('/api/newsletter').send({ email: 'ana@ejemplo.cl' });
+      }
+      const blocked = await request(server)
+        .post('/api/newsletter')
+        .send({ email: 'ana@ejemplo.cl' });
+
+      expect(blocked.status).toBe(429);
+      expect(blocked.headers['retry-after']).toBeDefined();
+    } finally {
+      server.close();
     }
-    const blocked = await request(app)
-      .post('/api/newsletter')
-      .send({ email: 'ana@ejemplo.cl' });
-
-    expect(blocked.status).toBe(429);
-    expect(blocked.headers['retry-after']).toBeDefined();
   });
 
   it('la cuota es por tenant: agotar uno no bloquea a otro', async () => {
@@ -104,14 +113,24 @@ describe('NewsletterController (HTTP)', () => {
     const first = buildApp(buildRepository(), rateLimiter, 1);
     const second = buildApp(buildRepository(), rateLimiter, 2);
 
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      await request(first).post('/api/newsletter').send({ email: 'ana@ejemplo.cl' });
-    }
-    const other = await request(second)
-      .post('/api/newsletter')
-      .send({ email: 'ana@ejemplo.cl' });
+    const firstServer = openServer(first);
+    const secondServer = openServer(second);
 
-    expect(other.status).toBe(200);
+    try {
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        await request(firstServer)
+          .post('/api/newsletter')
+          .send({ email: 'ana@ejemplo.cl' });
+      }
+      const other = await request(secondServer)
+        .post('/api/newsletter')
+        .send({ email: 'ana@ejemplo.cl' });
+
+      expect(other.status).toBe(200);
+    } finally {
+      firstServer.close();
+      secondServer.close();
+    }
   });
 
   it('lista los suscriptores del cliente de la ruta', async () => {

@@ -63,6 +63,10 @@ import { UploadFileUseCase } from './modules/FileStorage/application/UploadFileU
 import { DeleteFileUseCase } from './modules/FileStorage/application/DeleteFileUseCase';
 import { ResolveImageUrlsUseCase } from './modules/FileStorage/application/ResolveImageUrlsUseCase';
 import { FileController } from './modules/FileStorage/presentation/FileController';
+import { ListMediaUseCase } from './modules/FileStorage/application/ListMediaUseCase';
+import { DeleteMediaUseCase } from './modules/FileStorage/application/DeleteMediaUseCase';
+import { DescribeMediaUseCase } from './modules/FileStorage/application/DescribeMediaUseCase';
+import { MediaController } from './modules/FileStorage/presentation/MediaController';
 import { AdminUserRepository } from './modules/Auth/domain/AdminUserRepository';
 import { PasswordHasher } from './modules/Auth/domain/PasswordHasher';
 import { TokenService } from './modules/Auth/domain/TokenService';
@@ -243,6 +247,21 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(FileController)
     .withDependencies([UploadFileUseCase, DeleteFileUseCase]);
+  builder
+    .registerAndUse(ListMediaUseCase)
+    .withDependencies([StorageAssetRepository, StorageProvider]);
+  builder
+    .registerAndUse(DeleteMediaUseCase)
+    .withDependencies([StorageAssetRepository, StorageProvider]);
+  builder.registerAndUse(DescribeMediaUseCase).withDependencies([StorageAssetRepository]);
+  builder
+    .registerAndUse(MediaController)
+    .withDependencies([
+      UploadFileUseCase,
+      ListMediaUseCase,
+      DeleteMediaUseCase,
+      DescribeMediaUseCase,
+    ]);
 
   // Page
   builder
@@ -461,6 +480,7 @@ export class Container {
         catalogController: this.services.get(CatalogController),
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
+        mediaController: this.services.get(MediaController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
