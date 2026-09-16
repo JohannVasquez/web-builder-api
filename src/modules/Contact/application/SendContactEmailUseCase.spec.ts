@@ -3,10 +3,32 @@ import type { GlobalSettingsRepository } from '../../GlobalSettings/domain/Globa
 import { SendContactEmailUseCase } from './SendContactEmailUseCase';
 import { ContactRequest } from '../domain/ContactRequest';
 import { ContactSchema } from '../domain/ContactSchema';
+import type { ContactMessagePrimitives } from '../domain/ContactMessage';
+import type { ContactMessageRepository } from '../domain/ContactMessageRepository';
 import type { EmailService } from '../domain/EmailService';
 
 describe('SendContactEmailUseCase', () => {
   const TENANT_ID = 7;
+  const STORED_ID = 42;
+
+  const validInput = {
+    name: 'Johann Vasquez',
+    email: 'johann@example.com',
+    message: 'Quiero cotizar una landing page para mi negocio.',
+  };
+
+  const buildStoredMessage = (): ContactMessagePrimitives => ({
+    id: STORED_ID,
+    tenantId: TENANT_ID,
+    name: validInput.name,
+    email: validInput.email,
+    phone: null,
+    message: validInput.message,
+    emailedAt: null,
+    emailError: null,
+    readAt: null,
+    createdAt: new Date().toISOString(),
+  });
 
   const buildEmailService = (): jest.Mocked<EmailService> => ({
     sendContactEmail: jest.fn().mockResolvedValue(undefined),
@@ -18,20 +40,24 @@ describe('SendContactEmailUseCase', () => {
     find: jest.fn().mockResolvedValue(GlobalSettings.fromRecord({ contactEmail })),
   });
 
+  const buildContactMessageRepository = (): jest.Mocked<ContactMessageRepository> => ({
+    save: jest.fn().mockResolvedValue(buildStoredMessage()),
+    markEmailed: jest.fn().mockResolvedValue(undefined),
+    markRead: jest.fn(),
+    search: jest.fn(),
+  });
+
   it('dispatches an email with the contact data to the tenant mailbox', async () => {
     const emailService = buildEmailService();
     const settingsRepository = buildSettingsRepository('ventas@electroandes.cl');
-    const useCase = new SendContactEmailUseCase(emailService, settingsRepository);
-
-    await useCase.execute(
-      {
-        name: 'Johann Vasquez',
-        email: 'johann@example.com',
-        phone: '+56912345678',
-        message: 'Quiero cotizar una landing page para mi negocio.',
-      },
-      TENANT_ID,
+    const contactMessageRepository = buildContactMessageRepository();
+    const useCase = new SendContactEmailUseCase(
+      emailService,
+      settingsRepository,
+      contactMessageRepository,
     );
+
+    await useCase.execute({ ...validInput, phone: '+56912345678' }, TENANT_ID);
 
     expect(settingsRepository.find).toHaveBeenCalledWith(TENANT_ID);
     expect(emailService.sendContactEmail).toHaveBeenCalledTimes(1);
@@ -41,42 +67,98 @@ describe('SendContactEmailUseCase', () => {
     expect(recipient).toBe('ventas@electroandes.cl');
   });
 
+  it('stores the message before attempting to send the email', async () => {
+    const emailService = buildEmailService();
+    const contactMessageRepository = buildContactMessageRepository();
+    const useCase = new SendContactEmailUseCase(
+      emailService,
+      buildSettingsRepository('ventas@electroandes.cl'),
+      contactMessageRepository,
+    );
+
+    await useCase.execute(validInput, TENANT_ID);
+
+    const saveOrder = contactMessageRepository.save.mock.invocationCallOrder[0];
+    const sendOrder = emailService.sendContactEmail.mock.invocationCallOrder[0];
+    expect(saveOrder).toBeLessThan(sendOrder);
+  });
+
+  it('marks the message as emailed and reports success when the email is sent', async () => {
+    const emailService = buildEmailService();
+    const contactMessageRepository = buildContactMessageRepository();
+    const useCase = new SendContactEmailUseCase(
+      emailService,
+      buildSettingsRepository('ventas@electroandes.cl'),
+      contactMessageRepository,
+    );
+
+    const result = await useCase.execute(validInput, TENANT_ID);
+
+    expect(contactMessageRepository.markEmailed).toHaveBeenCalledWith(STORED_ID, null);
+    expect(result).toEqual({ stored: true, emailed: true });
+  });
+
+  it('does not throw when the email fails: the contact is never lost', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const emailService = buildEmailService();
+    emailService.sendContactEmail.mockRejectedValue(new Error('SMTP down'));
+    const contactMessageRepository = buildContactMessageRepository();
+    const useCase = new SendContactEmailUseCase(
+      emailService,
+      buildSettingsRepository('ventas@electroandes.cl'),
+      contactMessageRepository,
+    );
+
+    const result = await useCase.execute(validInput, TENANT_ID);
+
+    expect(result).toEqual({ stored: true, emailed: false });
+    expect(contactMessageRepository.markEmailed).toHaveBeenCalledWith(
+      STORED_ID,
+      'SMTP down',
+    );
+    consoleError.mockRestore();
+  });
+
+  it('normalizes several recipients into a single comma-separated string', async () => {
+    const emailService = buildEmailService();
+    const useCase = new SendContactEmailUseCase(
+      emailService,
+      buildSettingsRepository('a@x.cl, b@x.cl'),
+      buildContactMessageRepository(),
+    );
+
+    await useCase.execute(validInput, TENANT_ID);
+
+    const recipient = emailService.sendContactEmail.mock.calls[0]?.[1];
+    expect(recipient).toBe('a@x.cl, b@x.cl');
+  });
+
   it('omits the recipient when the tenant has no contactEmail configured', async () => {
     const emailService = buildEmailService();
-    const settingsRepository = buildSettingsRepository('');
-    const useCase = new SendContactEmailUseCase(emailService, settingsRepository);
-
-    await useCase.execute(
-      {
-        name: 'Johann Vasquez',
-        email: 'johann@example.com',
-        message: 'Mensaje suficientemente largo.',
-      },
-      TENANT_ID,
+    const useCase = new SendContactEmailUseCase(
+      emailService,
+      buildSettingsRepository(''),
+      buildContactMessageRepository(),
     );
+
+    await useCase.execute(validInput, TENANT_ID);
 
     const recipient = emailService.sendContactEmail.mock.calls[0]?.[1];
     expect(recipient).toBeUndefined();
   });
 
-  it('propagates errors from the email service', async () => {
+  it('omits the recipient when contactEmail only has separators', async () => {
     const emailService = buildEmailService();
-    emailService.sendContactEmail.mockRejectedValue(new Error('SMTP down'));
     const useCase = new SendContactEmailUseCase(
       emailService,
-      buildSettingsRepository('ventas@electroandes.cl'),
+      buildSettingsRepository('  ,  '),
+      buildContactMessageRepository(),
     );
 
-    await expect(
-      useCase.execute(
-        {
-          name: 'Johann Vasquez',
-          email: 'johann@example.com',
-          message: 'Mensaje suficientemente largo.',
-        },
-        TENANT_ID,
-      ),
-    ).rejects.toThrow('SMTP down');
+    await useCase.execute(validInput, TENANT_ID);
+
+    const recipient = emailService.sendContactEmail.mock.calls[0]?.[1];
+    expect(recipient).toBeUndefined();
   });
 
   describe('ContactSchema', () => {

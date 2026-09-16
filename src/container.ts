@@ -7,6 +7,7 @@ import { PageRepository } from './modules/Page/domain/PageRepository';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
+import { ListPublishedPagesUseCase } from './modules/Page/application/ListPublishedPagesUseCase';
 import { GetPageByIdUseCase } from './modules/Page/application/GetPageByIdUseCase';
 import { CreatePageUseCase } from './modules/Page/application/CreatePageUseCase';
 import { UpdatePageUseCase } from './modules/Page/application/UpdatePageUseCase';
@@ -32,6 +33,11 @@ import {
 } from './modules/Contact/infrastructure/SmtpEmailService';
 import { SendContactEmailUseCase } from './modules/Contact/application/SendContactEmailUseCase';
 import { ContactController } from './modules/Contact/presentation/ContactController';
+import { ContactMessageRepository } from './modules/Contact/domain/ContactMessageRepository';
+import { PrismaContactMessageRepository } from './modules/Contact/infrastructure/PrismaContactMessageRepository';
+import { ListContactMessagesUseCase } from './modules/Contact/application/ListContactMessagesUseCase';
+import { MarkContactMessageReadUseCase } from './modules/Contact/application/MarkContactMessageReadUseCase';
+import { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
 import { TenantRepository } from './modules/Tenant/domain/TenantRepository';
 import { PrismaTenantRepository } from './modules/Tenant/infrastructure/PrismaTenantRepository';
 import { ResolveTenantUseCase } from './modules/Tenant/application/ResolveTenantUseCase';
@@ -224,7 +230,10 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(GetPageBySlugUseCase)
     .withDependencies([PageRepository, ResolveImageUrlsUseCase]);
-  builder.registerAndUse(PageController).withDependencies([GetPageBySlugUseCase]);
+  builder.registerAndUse(ListPublishedPagesUseCase).withDependencies([PageRepository]);
+  builder
+    .registerAndUse(PageController)
+    .withDependencies([GetPageBySlugUseCase, ListPublishedPagesUseCase]);
   builder.registerAndUse(ListPagesUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(GetPageByIdUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(CreatePageUseCase).withDependencies([PageRepository]);
@@ -287,9 +296,21 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   // Contact
   builder.register(EmailService).use(SmtpEmailService).withDependencies([SmtpConfig]);
   builder
+    .register(ContactMessageRepository)
+    .use(PrismaContactMessageRepository)
+    .withDependencies([PrismaClient]);
+  builder
     .registerAndUse(SendContactEmailUseCase)
-    .withDependencies([EmailService, GlobalSettingsRepository]);
-  builder.registerAndUse(ContactController).withDependencies([SendContactEmailUseCase]);
+    .withDependencies([EmailService, GlobalSettingsRepository, ContactMessageRepository]);
+  builder
+    .registerAndUse(ListContactMessagesUseCase)
+    .withDependencies([ContactMessageRepository]);
+  builder
+    .registerAndUse(MarkContactMessageReadUseCase)
+    .withDependencies([ContactMessageRepository]);
+  builder
+    .registerAndUse(AdminContactMessageController)
+    .withDependencies([ListContactMessagesUseCase, MarkContactMessageReadUseCase]);
 
   // Auth: panel de administración. Cuentas reales (AdminUser), sin scoping
   // por tenant — es la herramienta interna de la agencia, no un login por
@@ -350,6 +371,11 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(SearchActivityUseCase).withDependencies([ActivityLogRepository]);
   builder.registerAndUse(ActivityLogController).withDependencies([SearchActivityUseCase]);
 
+  // El ContactController comparte el limitador con las claves: mismo mecanismo, otra clave.
+  builder
+    .registerAndUse(ContactController)
+    .withDependencies([SendContactEmailUseCase, RateLimiter]);
+
   // Catalog: la API solo reexpone lo que declara el frontend, más las tipografías.
   builder
     .register(CatalogConfig)
@@ -386,6 +412,7 @@ export class Container {
         adminBrandController: this.services.get(AdminBrandController),
         apiKeyController: this.services.get(ApiKeyController),
         activityLogController: this.services.get(ActivityLogController),
+        adminContactMessageController: this.services.get(AdminContactMessageController),
         catalogController: this.services.get(CatalogController),
       },
       env.get('CORS_ORIGIN'),

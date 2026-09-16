@@ -30,6 +30,7 @@ interface PageRecord {
   readonly title: string;
   readonly description: string | null;
   readonly isPublished: boolean;
+  readonly updatedAt?: Date | null;
   readonly sections: readonly SectionRecord[];
 }
 
@@ -273,6 +274,7 @@ export class PrismaPageRepository implements PageRepository {
       sections,
       record.id,
       record.isPublished,
+      record.updatedAt ?? null,
     );
   }
 }

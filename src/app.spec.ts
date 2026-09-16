@@ -15,7 +15,7 @@ describe('buildApp (rutas protegidas)', () => {
         res.status(status).json({ ok: true });
       };
     return {
-      pageController: { getBySlug: ok(200) },
+      pageController: { getBySlug: ok(200), listPublished: ok(200) },
       globalSettingsController: { get: ok(200) },
       navigationController: { get: ok(200) },
       contactController: { send: ok(200) },
@@ -31,6 +31,11 @@ describe('buildApp (rutas protegidas)', () => {
       },
       activityLogController: { list: ok(200) },
       catalogController: { get: ok(200) },
+      adminContactMessageController: {
+        list: ok(200),
+        markRead: ok(200),
+        exportCsv: ok(200),
+      },
       adminBrandController: {
         get: ok(200),
         update: ok(200),

@@ -86,6 +86,22 @@ Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose
 para cualquier visitante.
 
+## Formulario de contacto
+
+El mensaje se **guarda antes** de intentar el correo. Si el SMTP está caído, el
+negocio no pierde el contacto: la respuesta al visitante es exitosa igual y el
+mensaje queda en `contact_messages` con el motivo del fallo, para reintentar.
+Devolver un error habría hecho que el visitante reenviara y se duplicara el
+contacto, sin arreglar nada.
+
+- Honeypot: el schema tiene un campo `website` que debe venir vacío. El
+  formulario lo pinta fuera de pantalla; una persona nunca lo llena.
+- Límite por IP y tenant: 5 envíos por minuto, con `Retry-After`.
+- Destinatarios: el `contactEmail` del tenant acepta varios correos separados
+  por coma.
+- `GET/PATCH /api/admin/tenants/:tenantId/messages` y
+  `GET .../messages/export.csv` para leerlos, marcarlos y exportarlos.
+
 ## Claves de acceso y agentes de IA
 
 El panel y los agentes entran por **las mismas rutas** `/api/admin/**`. Es lo

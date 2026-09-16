@@ -22,6 +22,7 @@ model Tenant {
   brand           TenantBrand?
   apiKeyScopes    ApiKeyTenant[]
   activityLogs    ActivityLog[]
+  contactMessages ContactMessage[]
 
   @@map("tenants")
 }
@@ -234,4 +235,28 @@ model ActivityLog {
   @@index([actorType, actorId])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+/// Mensaje del formulario de contacto. Se guarda ANTES de intentar el correo: si el SMTP
+/// falla, el negocio igual no pierde el contacto.
+model ContactMessage {
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @map("tenant_id")
+
+  name    String  @db.VarChar(100)
+  email   String  @db.VarChar(255)
+  phone   String? @db.VarChar(20)
+  message String
+
+  /// Nulo mientras no se intentó enviar; con fecha si el correo salió.
+  emailedAt DateTime? @map("emailed_at") @db.Timestamptz()
+  /// Motivo del último fallo de envío, para poder reintentar a mano.
+  emailError String? @map("email_error")
+
+  readAt    DateTime? @map("read_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("contact_messages")
 }

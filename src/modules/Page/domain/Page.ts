@@ -61,6 +61,8 @@ export class Page {
     /** Ausente en el camino público; presente (junto a `isPublished`) en admin. */
     public readonly id?: number,
     public readonly isPublished: boolean = true,
+    // Solo lo usa el sitemap para el `lastModified`; el resto del dominio lo ignora.
+    public readonly updatedAt: Date | null = null,
   ) {}
 
   private orderedSections(): readonly PageSection[] {
