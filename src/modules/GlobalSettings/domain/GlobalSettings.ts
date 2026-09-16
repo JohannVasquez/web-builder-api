@@ -14,6 +14,11 @@ const SETTING_KEYS = [
   'xUrl',
   'customLinkUrl',
   'customLinkLabel',
+  'googleAnalyticsId',
+  'metaPixelId',
+  'googleTagManagerId',
+  'cookieBanner',
+  'openingHours',
 ] as const;
 
 type SettingKey = (typeof SETTING_KEYS)[number];

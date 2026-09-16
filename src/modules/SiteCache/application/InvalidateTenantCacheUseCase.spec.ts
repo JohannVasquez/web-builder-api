@@ -8,6 +8,9 @@ describe('InvalidateTenantCacheUseCase', () => {
     findBySlug: jest.fn(),
     findAll: jest.fn(),
     findDomainsByTenantId: jest.fn().mockResolvedValue(domains),
+    findById: jest.fn(),
+    createWithContent: jest.fn(),
+    readContent: jest.fn(),
   });
 
   it('invalida TODOS los dominios del tenant, no solo el principal', async () => {

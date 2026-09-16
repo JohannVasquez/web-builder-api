@@ -12,6 +12,9 @@ describe('ResolveTenantUseCase', () => {
     findBySlug: jest.fn().mockResolvedValue(defaultTenant),
     findAll: jest.fn().mockResolvedValue([]),
     findDomainsByTenantId: jest.fn().mockResolvedValue([]),
+    findById: jest.fn(),
+    createWithContent: jest.fn(),
+    readContent: jest.fn(),
   });
 
   it('resolves the tenant registered for the given domain', async () => {

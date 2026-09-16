@@ -86,6 +86,37 @@ Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose
 para cualquier visitante.
 
+## Crear clientes: kits por rubro y duplicado
+
+`POST /api/admin/tenants` crea un cliente. Puede nacer vacío, desde un kit por
+rubro (`templateId`) o copiando el sitio de otro cliente
+(`duplicateFromTenantId`). Las dos últimas opciones son excluyentes.
+
+Los kits viven en `src/modules/Template/domain/kits/`, uno por archivo, y se
+registran con una línea en `registry.ts`. Traen páginas, bloques, textos de
+ejemplo en español de Chile, paleta, tipografía y estilo visual, y **ninguna
+imagen**: las sube el cliente después, así que cada bloque tiene que verse bien
+sin ellas.
+
+El módulo `Tenant` no conoce los kits: pide "el contenido del kit X" a través
+del puerto `SiteContentSource`. Lo mismo que se usa para duplicar un sitio.
+
+Un sitio creado desde un kit nace **publicado** —el punto de la spec es que
+quede listo en minutos—, pero una copia de otro cliente nace **despublicada**:
+no tiene dominios propios todavía y publicarla debería ser una decisión.
+
+`GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
+
+## Páginas legales
+
+`POST /api/admin/tenants/:tenantId/legal-pages` con `{ kind }` crea la política
+de privacidad o los términos y condiciones a partir de una plantilla, ya
+rellenada con los datos del negocio. Nacen despublicadas: un texto legal lo
+revisa una persona antes de publicarlo.
+
+Los marcadores que no se pueden rellenar se dejan visibles (`{{address}}`) en
+vez de borrarse, para que se note qué falta completar.
+
 ## Formulario de contacto
 
 El mensaje se **guarda antes** de intentar el correo. Si el SMTP está caído, el

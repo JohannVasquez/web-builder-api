@@ -133,4 +133,28 @@ describe('herramientas del MCP', () => {
       /No existe un cliente con id 9 a tu alcance/,
     );
   });
+
+  it('el sitio duplicado y el creado desde plantilla pasan por el mismo endpoint', async () => {
+    const api = buildApi();
+
+    await find(api, 'create_tenant').handler({
+      slug: 'pasteleria-luna',
+      name: 'Pastelería Luna',
+      templateId: 'pasteleria',
+    });
+
+    expect(api.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/admin/tenants',
+      expect.objectContaining({ templateId: 'pasteleria' }),
+    );
+  });
+
+  it('el catálogo de plantillas se pide a la API, no se escribe a mano en el MCP', async () => {
+    const api = buildApi();
+
+    await find(api, 'list_templates').handler({});
+
+    expect(api.request).toHaveBeenCalledWith('GET', '/api/admin/site-templates');
+  });
 });

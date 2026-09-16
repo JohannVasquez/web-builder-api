@@ -26,6 +26,7 @@ import {
 } from './modules/ApiKey/presentation/actorMiddleware';
 import type { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
 import { createAdminContactMessageRouter } from './modules/Contact/presentation/adminContactMessageRouter';
+import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
 import { createActivityLogRouter } from './modules/ActivityLog/presentation/activityLogRouter';
@@ -48,6 +49,7 @@ export interface AppControllers {
   readonly activityLogController: ActivityLogController;
   readonly catalogController: CatalogController;
   readonly adminContactMessageController: AdminContactMessageController;
+  readonly legalPageController: LegalPageController;
 }
 
 export const buildApp = (
@@ -127,6 +129,22 @@ export const buildApp = (
     createActivityLogRouter(controllers.activityLogController),
   );
   app.get('/api/admin/catalog', actorMiddleware, controllers.catalogController.get);
+  app.get(
+    '/api/admin/site-templates',
+    actorMiddleware,
+    controllers.adminTenantController.listTemplates,
+  );
+  app.get(
+    '/api/admin/legal-templates',
+    actorMiddleware,
+    controllers.legalPageController.list,
+  );
+  app.post(
+    '/api/admin/tenants/:tenantId/legal-pages',
+    ...adminGuards,
+    cacheInvalidation,
+    controllers.legalPageController.create,
+  );
   app.use(
     '/api/admin/tenants/:tenantId/messages',
     ...adminGuards,

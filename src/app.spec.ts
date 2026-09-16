@@ -22,7 +22,7 @@ describe('buildApp (rutas protegidas)', () => {
       fileController: { upload: ok(201), remove: ok(204) },
       tenantController: { checkDomainAllowed: ok(200) },
       authController: { login: ok(200), me: ok(200) },
-      adminTenantController: { list: ok(200) },
+      adminTenantController: { list: ok(200), create: ok(201), listTemplates: ok(200) },
       apiKeyController: {
         list: ok(200),
         create: ok(201),
@@ -31,6 +31,7 @@ describe('buildApp (rutas protegidas)', () => {
       },
       activityLogController: { list: ok(200) },
       catalogController: { get: ok(200) },
+      legalPageController: { list: ok(200), create: ok(201) },
       adminContactMessageController: {
         list: ok(200),
         markRead: ok(200),

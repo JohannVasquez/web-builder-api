@@ -60,6 +60,38 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'list_templates',
+      'Ver los kits de inicio por rubro',
+      'Lista las plantillas disponibles para crear un cliente nuevo ya armado: su id, el rubro que cubre, cuántas páginas trae y con qué estilo visual viene.',
+      {},
+      () => api.request('GET', '/api/admin/site-templates'),
+    ),
+
+    tool(
+      'create_tenant',
+      'Crear un cliente',
+      'Crea un cliente nuevo. Puede nacer vacío, desde un kit por rubro (`templateId`, ver list_templates) o duplicando el sitio de otro cliente (`duplicateFromTenantId`). Un sitio duplicado nace despublicado.',
+      {
+        slug: z
+          .string()
+          .describe('Identificador en minúsculas y guiones, ej. "pasteleria-luna"'),
+        name: z.string().describe('Nombre del negocio, como se muestra en el sitio'),
+        domains: z
+          .array(z.string())
+          .optional()
+          .describe('Dominios sin protocolo ni puerto; el primero es el canónico'),
+        templateId: z.string().optional().describe('Id de un kit por rubro'),
+        duplicateFromTenantId: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Id del cliente cuyo sitio quieres copiar'),
+      },
+      (args) => api.request('POST', '/api/admin/tenants', args),
+    ),
+
+    tool(
       'create_page',
       'Crear una página',
       'Crea una página en el sitio de un cliente. Nace despublicada salvo que indiques lo contrario: publicar es una acción aparte.',
@@ -219,6 +251,20 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           `/api/admin/tenants/${String(args.tenantId)}/pages/${String(args.pageId)}/sections/reorder`,
           { sectionIds: args.sectionIds },
         ),
+    ),
+
+    tool(
+      'add_legal_page',
+      'Agregar una página legal',
+      'Crea la política de privacidad o los términos y condiciones a partir de una plantilla, ya rellenada con los datos del negocio. Nace despublicada: un texto legal lo revisa una persona antes de publicarlo.',
+      {
+        tenantId,
+        kind: z.enum(['privacidad', 'terminos']).describe('Qué documento crear'),
+      },
+      (args) =>
+        api.request('POST', `/api/admin/tenants/${String(args.tenantId)}/legal-pages`, {
+          kind: args.kind,
+        }),
     ),
 
     tool(

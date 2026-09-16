@@ -43,6 +43,10 @@ import { PrismaTenantRepository } from './modules/Tenant/infrastructure/PrismaTe
 import { ResolveTenantUseCase } from './modules/Tenant/application/ResolveTenantUseCase';
 import { IsDomainAllowedUseCase } from './modules/Tenant/application/IsDomainAllowedUseCase';
 import { ListTenantsUseCase } from './modules/Tenant/application/ListTenantsUseCase';
+import { CreateTenantUseCase } from './modules/Tenant/application/CreateTenantUseCase';
+import { ListSiteTemplatesUseCase } from './modules/Tenant/application/ListSiteTemplatesUseCase';
+import { SiteContentSource } from './modules/Tenant/domain/SiteContentSource';
+import { TemplateSiteContentSource } from './modules/Tenant/infrastructure/TemplateSiteContentSource';
 import { TenantController } from './modules/Tenant/presentation/TenantController';
 import { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
 import { createTenantResolver } from './modules/Tenant/presentation/tenantResolver';
@@ -94,6 +98,8 @@ import {
 } from './modules/Catalog/infrastructure/HttpCatalogProvider';
 import { GetCatalogUseCase } from './modules/Catalog/application/GetCatalogUseCase';
 import { CatalogController } from './modules/Catalog/presentation/CatalogController';
+import { CreateLegalPageUseCase } from './modules/LegalPages/application/CreateLegalPageUseCase';
+import { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import { SiteCacheInvalidator } from './modules/SiteCache/domain/SiteCacheInvalidator';
 import {
   HttpSiteCacheInvalidator,
@@ -159,7 +165,18 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(IsDomainAllowedUseCase).withDependencies([TenantRepository]);
   builder.registerAndUse(TenantController).withDependencies([IsDomainAllowedUseCase]);
   builder.registerAndUse(ListTenantsUseCase).withDependencies([TenantRepository]);
-  builder.registerAndUse(AdminTenantController).withDependencies([ListTenantsUseCase]);
+  builder.register(SiteContentSource).use(TemplateSiteContentSource).withDependencies([]);
+  builder
+    .registerAndUse(CreateTenantUseCase)
+    .withDependencies([TenantRepository, SiteContentSource]);
+  builder.registerAndUse(ListSiteTemplatesUseCase).withDependencies([SiteContentSource]);
+  builder
+    .registerAndUse(AdminTenantController)
+    .withDependencies([
+      ListTenantsUseCase,
+      CreateTenantUseCase,
+      ListSiteTemplatesUseCase,
+    ]);
 
   // SiteCache: cada escritura admin avisa al frontend qué dominios invalidar (SPEC 0.2).
   builder
@@ -388,6 +405,12 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(GetCatalogUseCase).withDependencies([CatalogProvider]);
   builder.registerAndUse(CatalogController).withDependencies([GetCatalogUseCase]);
 
+  // LegalPages: plantillas de privacidad y términos rellenadas con los datos del negocio.
+  builder
+    .registerAndUse(CreateLegalPageUseCase)
+    .withDependencies([PageRepository, GlobalSettingsRepository]);
+  builder.registerAndUse(LegalPageController).withDependencies([CreateLegalPageUseCase]);
+
   return builder.build();
 };
 
@@ -414,6 +437,7 @@ export class Container {
         activityLogController: this.services.get(ActivityLogController),
         adminContactMessageController: this.services.get(AdminContactMessageController),
         catalogController: this.services.get(CatalogController),
+        legalPageController: this.services.get(LegalPageController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),

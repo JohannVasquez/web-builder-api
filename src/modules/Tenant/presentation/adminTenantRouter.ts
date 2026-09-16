@@ -5,5 +5,6 @@ import type { AdminTenantController } from './AdminTenantController';
 export const createAdminTenantRouter = (controller: AdminTenantController): Router => {
   const router = Router();
   router.get('/', controller.list);
+  router.post('/', controller.create);
   return router;
 };
