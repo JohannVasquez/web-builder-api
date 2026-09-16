@@ -6,6 +6,9 @@ import { TenantSlugConflictError } from '../domain/TenantSlugConflictError';
 // Prisma tipa las columnas JSON con su propio `InputJsonValue`, que no acepta un
 // `Record<string, unknown>` cualquiera. Este paso es el único lugar donde se cruza.
 const toJsonColumn = (props: Record<string, unknown>): object => ({ ...props });
+
+// Prisma tipa las columnas JSON con su propio `InputJsonValue`; este es el punto de cruce.
+const asJsonColumn = (value: unknown): object => value as object;
 import type { TenantRepository } from '../domain/TenantRepository';
 
 /** Forma mínima que necesita el mapeo, común a ambas consultas. */
@@ -114,6 +117,21 @@ export class PrismaTenantRepository implements TenantRepository {
       }
 
       for (const page of content.pages) {
+        // El público lee `publishedContent`, no las filas de `sections`. Una página marcada
+        // como publicada tiene que nacer con su foto tomada, o el sitio responde 404.
+        const publishedContent = page.isPublished
+          ? asJsonColumn({
+              title: page.title,
+              description: page.description,
+              sections: page.sections.map((section, index) => ({
+                type: section.type,
+                position: index + 1,
+                props: section.props,
+                anchor: section.anchor ?? null,
+              })),
+            })
+          : undefined;
+
         await tx.page.create({
           data: {
             tenantId: tenant.id,
@@ -121,6 +139,8 @@ export class PrismaTenantRepository implements TenantRepository {
             title: page.title,
             description: page.description,
             isPublished: page.isPublished,
+            publishedContent,
+            publishedAt: page.isPublished ? new Date() : null,
             sections: {
               create: page.sections.map((section, index) => ({
                 type: section.type,

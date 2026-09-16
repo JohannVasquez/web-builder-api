@@ -130,3 +130,36 @@ describe('CreateTenantUseCase', () => {
     ).rejects.toThrow(BadRequestError);
   });
 });
+
+describe('CreateTenantUseCase (lo publicado)', () => {
+  it('un sitio creado desde un kit nace con sus páginas publicadas', async () => {
+    const repository = {
+      createWithContent: jest
+        .fn()
+        .mockResolvedValue(new Tenant(3, 'nuevo', 'Nuevo', 'nuevo.cl')),
+      readContent: jest.fn(),
+    } as unknown as jest.Mocked<TenantRepository>;
+    const source = {
+      fromTemplate: jest.fn().mockResolvedValue({
+        settings: {},
+        navigation: [],
+        brand: {},
+        pages: [
+          { slug: 'home', title: 'Inicio', description: null, isPublished: true, sections: [] },
+        ],
+      }),
+      listTemplates: jest.fn(),
+    } as unknown as jest.Mocked<SiteContentSource>;
+
+    await new CreateTenantUseCase(repository, source).execute({
+      slug: 'nuevo',
+      name: 'Nuevo',
+      domains: [],
+      templateId: 'restaurante',
+      duplicateFromTenantId: undefined,
+    });
+
+    const [, , , written] = repository.createWithContent.mock.calls[0] ?? [];
+    expect((written as SiteContent).pages.every((page) => page.isPublished)).toBe(true);
+  });
+});
