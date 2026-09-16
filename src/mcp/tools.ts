@@ -379,6 +379,86 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'list_posts',
+      'Ver las publicaciones del blog',
+      'Lista las publicaciones de un cliente, incluidos borradores y programadas, con su estado y fecha.',
+      { tenantId },
+      (args) => api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/posts`),
+    ),
+
+    tool(
+      'create_post',
+      'Escribir una publicación',
+      'Crea una publicación de blog. Nace en borrador salvo que se indique otra cosa. El contenido es una lista de bloques: paragraph, heading, list, quote, image, video y divider.',
+      {
+        tenantId,
+        slug: z.string().describe('Dirección en minúsculas con guiones'),
+        title: z.string(),
+        excerpt: z.string().describe('Resumen corto, se muestra en el listado'),
+        authorName: z.string(),
+        content: z
+          .array(z.record(z.string(), z.unknown()))
+          .describe('Bloques de contenido; consulta get_catalog para los tipos'),
+        tags: z.array(z.string()).optional(),
+        status: z
+          .enum(['draft', 'published', 'scheduled'])
+          .optional()
+          .describe('Por defecto draft; "scheduled" necesita publishedAt'),
+        publishedAt: z
+          .string()
+          .optional()
+          .describe('Fecha ISO; con status "scheduled" se publica sola al llegar'),
+        coverImageKey: z.string().optional().describe('La `key` de la imagen, no su URL'),
+      },
+      (args) => {
+        const { tenantId: id, ...body } = args;
+        return api.request('POST', `/api/admin/tenants/${String(id)}/posts`, {
+          status: 'draft',
+          ...body,
+        });
+      },
+    ),
+
+    tool(
+      'update_post',
+      'Editar una publicación',
+      'Cambia una publicación existente. Lo que no envíes no se toca.',
+      {
+        tenantId,
+        postId: z.number().int().positive(),
+        slug: z.string().optional(),
+        title: z.string().optional(),
+        excerpt: z.string().optional(),
+        authorName: z.string().optional(),
+        content: z.array(z.record(z.string(), z.unknown())).optional(),
+        tags: z.array(z.string()).optional(),
+        status: z.enum(['draft', 'published', 'scheduled']).optional(),
+        publishedAt: z.string().nullable().optional(),
+        coverImageKey: z.string().nullable().optional(),
+      },
+      (args) => {
+        const { tenantId: id, postId, ...body } = args;
+        return api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(id)}/posts/${String(postId)}`,
+          body,
+        );
+      },
+    ),
+
+    tool(
+      'delete_post',
+      'Eliminar una publicación',
+      'Borra una publicación del blog. Requiere permiso "full" y confirmación explícita.',
+      { tenantId, postId: z.number().int().positive(), confirm },
+      (args) =>
+        api.request(
+          'DELETE',
+          `/api/admin/tenants/${String(args.tenantId)}/posts/${String(args.postId)}`,
+        ),
+    ),
+
+    tool(
       'get_preview_url',
       'Obtener el enlace de vista previa',
       'Devuelve el enlace para que una persona revise el sitio antes de publicarlo.',

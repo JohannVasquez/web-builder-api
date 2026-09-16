@@ -25,6 +25,7 @@ model Tenant {
   contactMessages ContactMessage[]
   subscribers     NewsletterSubscriber[]
   storageAssets   StorageAsset[]
+  blogPosts       BlogPost[]
 
   @@map("tenants")
 }
@@ -301,6 +302,39 @@ model ContactMessage {
 
   @@index([tenantId, createdAt])
   @@map("contact_messages")
+}
+
+/// Entrada del blog. `status` es `draft` | `published` | `scheduled`; una `scheduled` se
+/// vuelve visible sola cuando `publishedAt` llega, resuelto en la consulta del repositorio.
+model BlogPost {
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @map("tenant_id")
+  slug     String @db.VarChar(255)
+  title    String @db.VarChar(255)
+  excerpt  String
+
+  /// `key` del bucket privado, nunca una URL: se firma al vuelo en cada lectura.
+  coverImageKey String? @map("cover_image_key") @db.VarChar(500)
+  /// Bloques de contenido enriquecido, validados por `BlogContentSchema` (zod).
+  content    Json   @default("[]")
+  authorName String @map("author_name") @db.VarChar(255)
+
+  status      String    @default("draft") @db.VarChar(20)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz()
+  tags        String[]  @default([])
+
+  seoTitle       String? @map("seo_title") @db.VarChar(255)
+  seoDescription String? @map("seo_description")
+  /// `key` del bucket privado para compartir en redes; misma regla que `coverImageKey`.
+  ogImageKey String? @map("og_image_key") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status, publishedAt])
+  @@map("blog_posts")
 }
 
 /// Correo suscrito a novedades desde el bloque de suscripción.

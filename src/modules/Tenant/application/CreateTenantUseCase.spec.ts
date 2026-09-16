@@ -145,7 +145,13 @@ describe('CreateTenantUseCase (lo publicado)', () => {
         navigation: [],
         brand: {},
         pages: [
-          { slug: 'home', title: 'Inicio', description: null, isPublished: true, sections: [] },
+          {
+            slug: 'home',
+            title: 'Inicio',
+            description: null,
+            isPublished: true,
+            sections: [],
+          },
         ],
       }),
       listTemplates: jest.fn(),
@@ -160,6 +166,6 @@ describe('CreateTenantUseCase (lo publicado)', () => {
     });
 
     const [, , , written] = repository.createWithContent.mock.calls[0] ?? [];
-    expect((written as SiteContent).pages.every((page) => page.isPublished)).toBe(true);
+    expect(written?.pages.every((page) => page.isPublished)).toBe(true);
   });
 });

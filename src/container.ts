@@ -108,6 +108,20 @@ import {
 } from './modules/Catalog/infrastructure/HttpCatalogProvider';
 import { GetCatalogUseCase } from './modules/Catalog/application/GetCatalogUseCase';
 import { CatalogController } from './modules/Catalog/presentation/CatalogController';
+import { BlogPostRepository } from './modules/Blog/domain/BlogPostRepository';
+import { PrismaBlogPostRepository } from './modules/Blog/infrastructure/PrismaBlogPostRepository';
+import { ResolveBlogImagesUseCase } from './modules/Blog/application/ResolveBlogImagesUseCase';
+import { ListBlogPostsUseCase } from './modules/Blog/application/ListBlogPostsUseCase';
+import { GetBlogPostUseCase } from './modules/Blog/application/GetBlogPostUseCase';
+import {
+  CreateBlogPostUseCase,
+  DeleteBlogPostUseCase,
+  GetBlogPostByIdUseCase,
+  ListAllBlogPostsUseCase,
+  UpdateBlogPostUseCase,
+} from './modules/Blog/application/AdminBlogUseCases';
+import { BlogController } from './modules/Blog/presentation/BlogController';
+import { AdminBlogController } from './modules/Blog/presentation/AdminBlogController';
 import { NewsletterRepository } from './modules/Newsletter/domain/NewsletterRepository';
 import { PrismaNewsletterRepository } from './modules/Newsletter/infrastructure/PrismaNewsletterRepository';
 import { SubscribeToNewsletterUseCase } from './modules/Newsletter/application/SubscribeToNewsletterUseCase';
@@ -461,6 +475,36 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([PageRepository, GlobalSettingsRepository]);
   builder.registerAndUse(LegalPageController).withDependencies([CreateLegalPageUseCase]);
 
+  // Blog
+  builder
+    .register(BlogPostRepository)
+    .use(PrismaBlogPostRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(ResolveBlogImagesUseCase).withDependencies([StorageProvider]);
+  builder
+    .registerAndUse(ListBlogPostsUseCase)
+    .withDependencies([BlogPostRepository, ResolveBlogImagesUseCase]);
+  builder
+    .registerAndUse(GetBlogPostUseCase)
+    .withDependencies([BlogPostRepository, ResolveBlogImagesUseCase]);
+  builder.registerAndUse(ListAllBlogPostsUseCase).withDependencies([BlogPostRepository]);
+  builder.registerAndUse(GetBlogPostByIdUseCase).withDependencies([BlogPostRepository]);
+  builder.registerAndUse(CreateBlogPostUseCase).withDependencies([BlogPostRepository]);
+  builder.registerAndUse(UpdateBlogPostUseCase).withDependencies([BlogPostRepository]);
+  builder.registerAndUse(DeleteBlogPostUseCase).withDependencies([BlogPostRepository]);
+  builder
+    .registerAndUse(BlogController)
+    .withDependencies([ListBlogPostsUseCase, GetBlogPostUseCase]);
+  builder
+    .registerAndUse(AdminBlogController)
+    .withDependencies([
+      ListAllBlogPostsUseCase,
+      GetBlogPostByIdUseCase,
+      CreateBlogPostUseCase,
+      UpdateBlogPostUseCase,
+      DeleteBlogPostUseCase,
+    ]);
+
   // Newsletter: comparte el limitador con contacto y con las claves de agente.
   builder
     .register(NewsletterRepository)
@@ -507,6 +551,8 @@ export class Container {
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
         mediaController: this.services.get(MediaController),
+        blogController: this.services.get(BlogController),
+        adminBlogController: this.services.get(AdminBlogController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),

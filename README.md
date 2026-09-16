@@ -107,6 +107,25 @@ no tiene dominios propios todavía y publicarla debería ser una decisión.
 
 `GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
 
+## Blog
+
+Opcional por cliente: un tenant sin publicaciones devuelve listados vacíos, sin
+flag que activar. La ausencia ya lo dice.
+
+Una publicación es visible para el público si está `published`, o si está
+`scheduled` y su fecha ya llegó. **Eso se resuelve en la cláusula WHERE, no con
+un cron**: una publicación programada aparece sola al llegar su hora, y la
+consulta cuesta lo mismo con 10 que con 10.000 publicaciones. Un borrador
+responde 404 aunque se adivine su slug.
+
+El tiempo de lectura **no se guarda**: se recalcula en cada lectura a partir del
+contenido. Guardarlo significa que editar el texto y olvidar el número lo deja
+mal para siempre.
+
+- `GET /api/blog?page=&perPage=&tag=` y `GET /api/blog/:slug` (públicos, con
+  las imágenes ya firmadas y hasta 3 publicaciones relacionadas por etiqueta).
+- CRUD en `/api/admin/tenants/:tenantId/posts`, que sí incluye los borradores.
+
 ## Borrador, publicación e historial
 
 Las filas de `page_sections` son el **borrador**. El público lee

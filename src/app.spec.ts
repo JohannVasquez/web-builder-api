@@ -39,6 +39,14 @@ describe('buildApp (rutas protegidas)', () => {
         describe: ok(200),
         remove: ok(200),
       },
+      blogController: { list: ok(200), get: ok(200) },
+      adminBlogController: {
+        list: ok(200),
+        get: ok(200),
+        create: ok(201),
+        update: ok(200),
+        remove: ok(204),
+      },
       adminContactMessageController: {
         list: ok(200),
         markRead: ok(200),
