@@ -20,6 +20,8 @@ export class GlobalSettingsController {
     ]);
     res.json({
       ...settings.toPrimitives(),
+      // El dominio canónico, para que un tenant con varios dominios no se duplique en buscadores.
+      primaryDomain: tenant.primaryDomain,
       brand: await this.resolveBrandAssetsUseCase.execute(brand),
     });
   };
