@@ -98,6 +98,11 @@ import {
 } from './modules/Catalog/infrastructure/HttpCatalogProvider';
 import { GetCatalogUseCase } from './modules/Catalog/application/GetCatalogUseCase';
 import { CatalogController } from './modules/Catalog/presentation/CatalogController';
+import { NewsletterRepository } from './modules/Newsletter/domain/NewsletterRepository';
+import { PrismaNewsletterRepository } from './modules/Newsletter/infrastructure/PrismaNewsletterRepository';
+import { SubscribeToNewsletterUseCase } from './modules/Newsletter/application/SubscribeToNewsletterUseCase';
+import { ListSubscribersUseCase } from './modules/Newsletter/application/ListSubscribersUseCase';
+import { NewsletterController } from './modules/Newsletter/presentation/NewsletterController';
 import { CreateLegalPageUseCase } from './modules/LegalPages/application/CreateLegalPageUseCase';
 import { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import { SiteCacheInvalidator } from './modules/SiteCache/domain/SiteCacheInvalidator';
@@ -411,6 +416,23 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([PageRepository, GlobalSettingsRepository]);
   builder.registerAndUse(LegalPageController).withDependencies([CreateLegalPageUseCase]);
 
+  // Newsletter: comparte el limitador con contacto y con las claves de agente.
+  builder
+    .register(NewsletterRepository)
+    .use(PrismaNewsletterRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(SubscribeToNewsletterUseCase)
+    .withDependencies([NewsletterRepository]);
+  builder.registerAndUse(ListSubscribersUseCase).withDependencies([NewsletterRepository]);
+  builder
+    .registerAndUse(NewsletterController)
+    .withDependencies([
+      SubscribeToNewsletterUseCase,
+      ListSubscribersUseCase,
+      RateLimiter,
+    ]);
+
   return builder.build();
 };
 
@@ -438,6 +460,7 @@ export class Container {
         adminContactMessageController: this.services.get(AdminContactMessageController),
         catalogController: this.services.get(CatalogController),
         legalPageController: this.services.get(LegalPageController),
+        newsletterController: this.services.get(NewsletterController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),

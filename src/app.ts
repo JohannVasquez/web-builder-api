@@ -26,6 +26,11 @@ import {
 } from './modules/ApiKey/presentation/actorMiddleware';
 import type { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
 import { createAdminContactMessageRouter } from './modules/Contact/presentation/adminContactMessageRouter';
+import type { NewsletterController } from './modules/Newsletter/presentation/NewsletterController';
+import {
+  createAdminNewsletterRouter,
+  createNewsletterRouter,
+} from './modules/Newsletter/presentation/newsletterRouter';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
@@ -50,6 +55,7 @@ export interface AppControllers {
   readonly catalogController: CatalogController;
   readonly adminContactMessageController: AdminContactMessageController;
   readonly legalPageController: LegalPageController;
+  readonly newsletterController: NewsletterController;
 }
 
 export const buildApp = (
@@ -93,6 +99,11 @@ export const buildApp = (
     createContactRouter(controllers.contactController),
   );
   // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
+  app.use(
+    '/api/newsletter',
+    tenantResolver,
+    createNewsletterRouter(controllers.newsletterController),
+  );
   app.use(
     '/api/files',
     actorMiddleware,
@@ -144,6 +155,11 @@ export const buildApp = (
     ...adminGuards,
     cacheInvalidation,
     controllers.legalPageController.create,
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/subscribers',
+    ...adminGuards,
+    createAdminNewsletterRouter(controllers.newsletterController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/messages',

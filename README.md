@@ -107,6 +107,18 @@ no tiene dominios propios todavía y publicarla debería ser una decisión.
 
 `GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
 
+## Suscripción a novedades
+
+`POST /api/newsletter` (público, scoped por el dominio del visitante) guarda un
+correo. Es idempotente: suscribirse dos veces no crea dos filas, y volver a
+suscribirse reactiva una baja previa. El correo se normaliza en minúsculas, así
+que `Ana@Ejemplo.CL` y `ana@ejemplo.cl` son la misma persona.
+
+Comparte con el formulario de contacto el campo trampa y el límite por IP.
+
+`GET /api/admin/tenants/:tenantId/subscribers` y `.../subscribers/export.csv`
+para leerlos y exportarlos.
+
 ## Páginas legales
 
 `POST /api/admin/tenants/:tenantId/legal-pages` con `{ kind }` crea la política

@@ -1,0 +1,138 @@
+import express, { type Express } from 'express';
+import request from 'supertest';
+import { NewsletterController } from './NewsletterController';
+import { createAdminNewsletterRouter, createNewsletterRouter } from './newsletterRouter';
+import { RateLimiter } from '../../ApiKey/application/RateLimiter';
+import { SubscribeToNewsletterUseCase } from '../application/SubscribeToNewsletterUseCase';
+import { ListSubscribersUseCase } from '../application/ListSubscribersUseCase';
+import type { NewsletterRepository } from '../domain/NewsletterRepository';
+import { Tenant } from '../../Tenant/domain/Tenant';
+import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+
+describe('NewsletterController (HTTP)', () => {
+  const buildRepository = (): jest.Mocked<NewsletterRepository> => ({
+    subscribe: jest.fn().mockResolvedValue(undefined),
+    list: jest.fn().mockResolvedValue({
+      subscribers: [
+        {
+          id: 1,
+          email: 'ana@ejemplo.cl',
+          unsubscribedAt: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      total: 1,
+    }),
+  });
+
+  const buildApp = (
+    repository: NewsletterRepository,
+    rateLimiter = new RateLimiter(),
+    tenantId = 1,
+  ): Express => {
+    const controller = new NewsletterController(
+      new SubscribeToNewsletterUseCase(repository),
+      new ListSubscribersUseCase(repository),
+      rateLimiter,
+    );
+    const app = express();
+    app.use(express.json());
+    app.use((_req, res, next) => {
+      (res.locals as { tenant?: Tenant }).tenant = new Tenant(
+        tenantId,
+        'demo',
+        'Demo',
+        'demo.cl',
+      );
+      next();
+    });
+    app.use('/api/newsletter', createNewsletterRouter(controller));
+    app.use(
+      '/api/admin/tenants/:tenantId/subscribers',
+      createAdminNewsletterRouter(controller),
+    );
+    app.use(new ErrorHandler().handle);
+    return app;
+  };
+
+  it('guarda la suscripción del visitante', async () => {
+    const repository = buildRepository();
+
+    const response = await request(buildApp(repository))
+      .post('/api/newsletter')
+      .send({ email: 'ana@ejemplo.cl' });
+
+    expect(response.status).toBe(200);
+    expect(repository.subscribe).toHaveBeenCalledWith(1, 'ana@ejemplo.cl');
+  });
+
+  it('rechaza un correo inválido con un mensaje entendible', async () => {
+    const response = await request(buildApp(buildRepository()))
+      .post('/api/newsletter')
+      .send({ email: 'no-es-un-correo' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('descarta el envío de un bot que llenó el campo trampa', async () => {
+    const repository = buildRepository();
+
+    const response = await request(buildApp(repository))
+      .post('/api/newsletter')
+      .send({ email: 'ana@ejemplo.cl', website: 'http://spam.cl' });
+
+    expect(response.status).toBe(400);
+    expect(repository.subscribe).not.toHaveBeenCalled();
+  });
+
+  it('corta al sexto envío seguido desde la misma conexión', async () => {
+    const app = buildApp(buildRepository());
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app).post('/api/newsletter').send({ email: 'ana@ejemplo.cl' });
+    }
+    const blocked = await request(app)
+      .post('/api/newsletter')
+      .send({ email: 'ana@ejemplo.cl' });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers['retry-after']).toBeDefined();
+  });
+
+  it('la cuota es por tenant: agotar uno no bloquea a otro', async () => {
+    const rateLimiter = new RateLimiter();
+    const first = buildApp(buildRepository(), rateLimiter, 1);
+    const second = buildApp(buildRepository(), rateLimiter, 2);
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await request(first).post('/api/newsletter').send({ email: 'ana@ejemplo.cl' });
+    }
+    const other = await request(second)
+      .post('/api/newsletter')
+      .send({ email: 'ana@ejemplo.cl' });
+
+    expect(other.status).toBe(200);
+  });
+
+  it('lista los suscriptores del cliente de la ruta', async () => {
+    const repository = buildRepository();
+
+    const response = await request(buildApp(repository)).get(
+      '/api/admin/tenants/7/subscribers',
+    );
+
+    expect(response.status).toBe(200);
+    expect(repository.list).toHaveBeenCalledWith(7, 100, 0);
+  });
+
+  it('exporta los suscriptores como CSV descargable', async () => {
+    const response = await request(buildApp(buildRepository())).get(
+      '/api/admin/tenants/7/subscribers/export.csv',
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/csv');
+    expect(response.headers['content-disposition']).toContain('attachment');
+    expect(response.text).toContain('"ana@ejemplo.cl"');
+  });
+});

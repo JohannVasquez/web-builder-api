@@ -23,6 +23,7 @@ model Tenant {
   apiKeyScopes    ApiKeyTenant[]
   activityLogs    ActivityLog[]
   contactMessages ContactMessage[]
+  subscribers     NewsletterSubscriber[]
 
   @@map("tenants")
 }
@@ -259,4 +260,21 @@ model ContactMessage {
 
   @@index([tenantId, createdAt])
   @@map("contact_messages")
+}
+
+/// Correo suscrito a novedades desde el bloque de suscripción.
+model NewsletterSubscriber {
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @map("tenant_id")
+  email    String @db.VarChar(255)
+
+  /// Nulo si la persona se dio de baja; la fila se conserva para no volver a escribirle.
+  confirmedAt    DateTime? @map("confirmed_at") @db.Timestamptz()
+  unsubscribedAt DateTime? @map("unsubscribed_at") @db.Timestamptz()
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@index([tenantId, createdAt])
+  @@map("newsletter_subscribers")
 }
