@@ -81,7 +81,12 @@ describe('herramientas del MCP', () => {
     const withConfirm = tools(api)
       .filter((tool) => 'confirm' in tool.inputSchema)
       .map((tool) => tool.name);
-    expect(withConfirm.sort()).toEqual(['delete_block', 'delete_page', 'delete_post']);
+    expect(withConfirm.sort()).toEqual([
+      'delete_block',
+      'delete_page',
+      'delete_post',
+      'delete_product',
+    ]);
   });
 
   it('publicar es una acción separada de editar', async () => {

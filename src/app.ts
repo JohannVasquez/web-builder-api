@@ -28,6 +28,13 @@ import type { AdminContactMessageController } from './modules/Contact/presentati
 import { createAdminContactMessageRouter } from './modules/Contact/presentation/adminContactMessageRouter';
 import type { MediaController } from './modules/FileStorage/presentation/MediaController';
 import { createMediaRouter } from './modules/FileStorage/presentation/mediaRouter';
+import type { StoreController } from './modules/Store/presentation/StoreController';
+import type { AdminStoreController } from './modules/Store/presentation/AdminStoreController';
+import {
+  createAdminStoreRouter,
+  createProductCategoryRouter,
+  createStoreRouter,
+} from './modules/Store/presentation/storeRouter';
 import type { BlogController } from './modules/Blog/presentation/BlogController';
 import type { AdminBlogController } from './modules/Blog/presentation/AdminBlogController';
 import {
@@ -67,6 +74,8 @@ export interface AppControllers {
   readonly mediaController: MediaController;
   readonly blogController: BlogController;
   readonly adminBlogController: AdminBlogController;
+  readonly storeController: StoreController;
+  readonly adminStoreController: AdminStoreController;
 }
 
 export const buildApp = (
@@ -111,6 +120,16 @@ export const buildApp = (
   );
   // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
   app.use('/api/blog', tenantResolver, createBlogRouter(controllers.blogController));
+  app.use(
+    '/api/products',
+    tenantResolver,
+    createStoreRouter(controllers.storeController),
+  );
+  app.use(
+    '/api/product-categories',
+    tenantResolver,
+    createProductCategoryRouter(controllers.storeController),
+  );
   app.use(
     '/api/newsletter',
     tenantResolver,
@@ -167,6 +186,12 @@ export const buildApp = (
     ...adminGuards,
     cacheInvalidation,
     controllers.legalPageController.create,
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/products',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminStoreRouter(controllers.adminStoreController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/posts',

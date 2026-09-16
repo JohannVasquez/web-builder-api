@@ -459,6 +459,90 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'list_products',
+      'Ver el catálogo de un cliente',
+      'Lista los productos de un cliente, incluidos los inactivos, con su precio en centavos y su estado.',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/products`),
+    ),
+
+    tool(
+      'create_product',
+      'Agregar un producto',
+      'Crea un producto del catálogo. Los precios van en enteros de pesos (29990 = $29.990), nunca con decimales. El precio de oferta tiene que ser menor que el normal.',
+      {
+        tenantId,
+        slug: z.string().describe('Dirección en minúsculas con guiones'),
+        name: z.string(),
+        description: z.string().optional(),
+        priceCents: z.number().int().min(0).describe('Precio en pesos enteros'),
+        salePriceCents: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('Precio de oferta; tiene que ser menor que el normal'),
+        imageKeys: z
+          .array(z.string())
+          .optional()
+          .describe('`keys` de la biblioteca de imágenes, no URLs'),
+        variants: z
+          .array(z.object({ name: z.string(), options: z.array(z.string()) }))
+          .optional()
+          .describe('Ej. [{ name: "Talla", options: ["S","M","L"] }]'),
+        categoryId: z.number().int().positive().nullable().optional(),
+        featured: z.boolean().optional().describe('Aparece en "productos destacados"'),
+        isActive: z
+          .boolean()
+          .optional()
+          .describe('Un producto inactivo no se ve en el sitio'),
+      },
+      (args) => {
+        const { tenantId: id, ...body } = args;
+        return api.request('POST', `/api/admin/tenants/${String(id)}/products`, body);
+      },
+    ),
+
+    tool(
+      'update_product',
+      'Editar un producto',
+      'Cambia un producto existente. Lo que no envíes no se toca.',
+      {
+        tenantId,
+        productId: z.number().int().positive(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        priceCents: z.number().int().min(0).optional(),
+        salePriceCents: z.number().int().min(0).nullable().optional(),
+        imageKeys: z.array(z.string()).optional(),
+        featured: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+      },
+      (args) => {
+        const { tenantId: id, productId, ...body } = args;
+        return api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(id)}/products/${String(productId)}`,
+          body,
+        );
+      },
+    ),
+
+    tool(
+      'delete_product',
+      'Eliminar un producto',
+      'Borra un producto del catálogo. Requiere permiso "full" y confirmación explícita. Si solo quieres dejar de venderlo, usa update_product con isActive: false.',
+      { tenantId, productId: z.number().int().positive(), confirm },
+      (args) =>
+        api.request(
+          'DELETE',
+          `/api/admin/tenants/${String(args.tenantId)}/products/${String(args.productId)}`,
+        ),
+    ),
+
+    tool(
       'get_preview_url',
       'Obtener el enlace de vista previa',
       'Devuelve el enlace para que una persona revise el sitio antes de publicarlo.',

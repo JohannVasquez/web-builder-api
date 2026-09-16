@@ -40,6 +40,23 @@ describe('buildApp (rutas protegidas)', () => {
         remove: ok(200),
       },
       blogController: { list: ok(200), get: ok(200) },
+      storeController: {
+        list: ok(200),
+        featured: ok(200),
+        get: ok(200),
+        categories: ok(200),
+      },
+      adminStoreController: {
+        list: ok(200),
+        get: ok(200),
+        create: ok(201),
+        update: ok(200),
+        remove: ok(204),
+        listCategories: ok(200),
+        createCategory: ok(201),
+        updateCategory: ok(200),
+        removeCategory: ok(204),
+      },
       adminBlogController: {
         list: ok(200),
         get: ok(200),

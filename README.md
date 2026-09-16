@@ -107,6 +107,31 @@ no tiene dominios propios todavía y publicarla debería ser una decisión.
 
 `GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
 
+## Tienda (etapa 1)
+
+Catálogo con pedido por WhatsApp: se vende desde el primer día sin procesar
+pagos. Opcional por cliente, sin flag — un tenant sin productos devuelve
+listados vacíos.
+
+**El dinero va en enteros de pesos**, nunca en coma flotante: es un error que
+aparece tarde y en la factura. El formateo a `$29.990` vive en el dominio, no
+en el frontend, porque la misma regla la usan el catálogo, el detalle y el
+mensaje de WhatsApp.
+
+`buildWhatsAppOrderUrl` arma el enlace con el pedido ya escrito: normaliza el
+número a solo dígitos (un `+56 9 1234 5678` pegado tal cual no abre la
+conversación), incluye las opciones elegidas, la cantidad cuando es más de una,
+y el precio vigente. Sin WhatsApp configurado devuelve `null` y el sitio decide
+qué mostrar, en vez de generar un enlace roto.
+
+Un producto inactivo no existe para el visitante, aunque adivine su dirección.
+Una oferta que no es más barata que el precio normal se rechaza: o es un error
+de carga, o engaña a quien compra.
+
+- `GET /api/products?search=&category=&page=&perPage=`, `GET /api/products/destacados`,
+  `GET /api/products/:slug` y `GET /api/product-categories` (públicos).
+- CRUD en `/api/admin/tenants/:tenantId/products`, que sí incluye los inactivos.
+
 ## Blog
 
 Opcional por cliente: un tenant sin publicaciones devuelve listados vacíos, sin

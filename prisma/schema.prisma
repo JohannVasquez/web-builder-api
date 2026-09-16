@@ -26,6 +26,8 @@ model Tenant {
   subscribers     NewsletterSubscriber[]
   storageAssets   StorageAsset[]
   blogPosts       BlogPost[]
+  products        Product[]
+  productCategories ProductCategory[]
 
   @@map("tenants")
 }
@@ -352,4 +354,56 @@ model NewsletterSubscriber {
   @@unique([tenantId, email])
   @@index([tenantId, createdAt])
   @@map("newsletter_subscribers")
+}
+
+/// Categoría del catálogo de un cliente.
+model ProductCategory {
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @map("tenant_id")
+  slug     String @db.VarChar(255)
+  name     String @db.VarChar(255)
+  position Int    @default(0)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("product_categories")
+}
+
+/// Producto del catálogo. La etapa 1 vende por WhatsApp: no hay carrito ni pagos todavía.
+model Product {
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @map("tenant_id")
+  slug     String @db.VarChar(255)
+  name     String @db.VarChar(255)
+
+  description String
+  /// `keys` del bucket privado, nunca URLs: se firman al vuelo en cada lectura.
+  imageKeys String[] @default([]) @map("image_keys")
+
+  /// Dinero en enteros, nunca en coma flotante: el error aparece tarde y en la factura.
+  priceCents     Int     @map("price_cents")
+  salePriceCents Int?    @map("sale_price_cents")
+  currency       String  @default("CLP") @db.VarChar(3)
+
+  categoryId Int? @map("category_id")
+  /// `[{ name: "Talla", options: ["S","M","L"] }]`.
+  variants Json @default("[]")
+
+  isActive Boolean @default(true) @map("is_active")
+  featured Boolean @default(false)
+  position Int     @default(0)
+
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category  ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, isActive])
+  @@index([tenantId, featured])
+  @@map("products")
 }

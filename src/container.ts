@@ -108,6 +108,17 @@ import {
 } from './modules/Catalog/infrastructure/HttpCatalogProvider';
 import { GetCatalogUseCase } from './modules/Catalog/application/GetCatalogUseCase';
 import { CatalogController } from './modules/Catalog/presentation/CatalogController';
+import { ProductRepository } from './modules/Store/domain/ProductRepository';
+import { PrismaProductRepository } from './modules/Store/infrastructure/PrismaProductRepository';
+import {
+  CreateProductUseCase,
+  DeleteProductUseCase,
+  ListAllProductsUseCase,
+  PublicCatalogUseCase,
+  UpdateProductUseCase,
+} from './modules/Store/application/StoreUseCases';
+import { StoreController } from './modules/Store/presentation/StoreController';
+import { AdminStoreController } from './modules/Store/presentation/AdminStoreController';
 import { BlogPostRepository } from './modules/Blog/domain/BlogPostRepository';
 import { PrismaBlogPostRepository } from './modules/Blog/infrastructure/PrismaBlogPostRepository';
 import { ResolveBlogImagesUseCase } from './modules/Blog/application/ResolveBlogImagesUseCase';
@@ -475,6 +486,29 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([PageRepository, GlobalSettingsRepository]);
   builder.registerAndUse(LegalPageController).withDependencies([CreateLegalPageUseCase]);
 
+  // Store: etapa 1, catálogo con pedido por WhatsApp.
+  builder
+    .register(ProductRepository)
+    .use(PrismaProductRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(PublicCatalogUseCase)
+    .withDependencies([ProductRepository, GlobalSettingsRepository, StorageProvider]);
+  builder.registerAndUse(ListAllProductsUseCase).withDependencies([ProductRepository]);
+  builder.registerAndUse(CreateProductUseCase).withDependencies([ProductRepository]);
+  builder.registerAndUse(UpdateProductUseCase).withDependencies([ProductRepository]);
+  builder.registerAndUse(DeleteProductUseCase).withDependencies([ProductRepository]);
+  builder.registerAndUse(StoreController).withDependencies([PublicCatalogUseCase]);
+  builder
+    .registerAndUse(AdminStoreController)
+    .withDependencies([
+      ListAllProductsUseCase,
+      CreateProductUseCase,
+      UpdateProductUseCase,
+      DeleteProductUseCase,
+      ProductRepository,
+    ]);
+
   // Blog
   builder
     .register(BlogPostRepository)
@@ -553,6 +587,8 @@ export class Container {
         mediaController: this.services.get(MediaController),
         blogController: this.services.get(BlogController),
         adminBlogController: this.services.get(AdminBlogController),
+        storeController: this.services.get(StoreController),
+        adminStoreController: this.services.get(AdminStoreController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
