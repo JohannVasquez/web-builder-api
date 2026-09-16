@@ -189,6 +189,9 @@ contacto, sin arreglar nada.
 - `GET/PATCH /api/admin/tenants/:tenantId/messages` y
   `GET .../messages/export.csv` para leerlos, marcarlos y exportarlos.
 
+Para el paso a paso de dar de alta un cliente, ver
+[docs/dar-de-alta-un-cliente.md](docs/dar-de-alta-un-cliente.md).
+
 ## Claves de acceso y agentes de IA
 
 El panel y los agentes entran por **las mismas rutas** `/api/admin/**`. Es lo
