@@ -83,8 +83,20 @@ import {
   JwtTokenService,
 } from './modules/Auth/infrastructure/JwtTokenService';
 import { LoginUseCase } from './modules/Auth/application/LoginUseCase';
+import { LoginAttempts } from './modules/Auth/application/LoginAttempts';
 import { VerifyTokenUseCase } from './modules/Auth/application/VerifyTokenUseCase';
 import { AuthController } from './modules/Auth/presentation/AuthController';
+import { AdminUserController } from './modules/Auth/presentation/AdminUserController';
+import { ManageAdminUsersUseCase } from './modules/Auth/application/ManageAdminUsersUseCase';
+import {
+  PasswordResetConfig,
+  RequestPasswordResetUseCase,
+} from './modules/Auth/application/RequestPasswordResetUseCase';
+import { ResetPasswordUseCase } from './modules/Auth/application/ResetPasswordUseCase';
+import { PasswordResetRepository } from './modules/Auth/domain/PasswordResetRepository';
+import { PasswordResetMailer } from './modules/Auth/domain/PasswordResetMailer';
+import { PrismaPasswordResetRepository } from './modules/Auth/infrastructure/PrismaPasswordResetRepository';
+import { SmtpPasswordResetMailer } from './modules/Auth/infrastructure/SmtpPasswordResetMailer';
 import { ApiKeyRepository } from './modules/ApiKey/domain/ApiKeyRepository';
 import { PrismaApiKeyRepository } from './modules/ApiKey/infrastructure/PrismaApiKeyRepository';
 import { AuthenticateApiKeyUseCase } from './modules/ApiKey/application/AuthenticateApiKeyUseCase';
@@ -422,13 +434,50 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     )
     .asSingleton();
   builder.register(TokenService).use(JwtTokenService).withDependencies([JwtConfig]);
+  // Estado en memoria del bloqueo por intentos fallidos: debe ser el mismo objeto en cada
+  // request, de ahí el singleton (si no, cada login reiniciaría el conteo de intentos).
+  builder.registerAndUse(LoginAttempts).withDependencies([]).asSingleton();
   builder
     .registerAndUse(LoginUseCase)
-    .withDependencies([AdminUserRepository, PasswordHasher, TokenService]);
+    .withDependencies([AdminUserRepository, PasswordHasher, TokenService, LoginAttempts]);
   builder
     .registerAndUse(VerifyTokenUseCase)
     .withDependencies([TokenService, AdminUserRepository]);
-  builder.registerAndUse(AuthController).withDependencies([LoginUseCase]);
+  builder
+    .register(PasswordResetRepository)
+    .use(PrismaPasswordResetRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(PasswordResetMailer)
+    .use(SmtpPasswordResetMailer)
+    .withDependencies([SmtpConfig]);
+  builder
+    .register(PasswordResetConfig)
+    .useFactory(() => new PasswordResetConfig(env.get('ADMIN_PANEL_URL')))
+    .asSingleton();
+  builder
+    .registerAndUse(RequestPasswordResetUseCase)
+    .withDependencies([
+      AdminUserRepository,
+      PasswordResetRepository,
+      PasswordResetMailer,
+      PasswordResetConfig,
+    ]);
+  builder
+    .registerAndUse(ResetPasswordUseCase)
+    .withDependencies([AdminUserRepository, PasswordResetRepository, PasswordHasher]);
+  builder
+    .registerAndUse(ManageAdminUsersUseCase)
+    .withDependencies([
+      AdminUserRepository,
+      PasswordHasher,
+      RequestPasswordResetUseCase,
+      PasswordResetMailer,
+    ]);
+  builder
+    .registerAndUse(AuthController)
+    .withDependencies([LoginUseCase, RequestPasswordResetUseCase, ResetPasswordUseCase]);
+  builder.registerAndUse(AdminUserController).withDependencies([ManageAdminUsersUseCase]);
 
   // ApiKey: el mismo middleware de actor resuelve una sesión de panel o una clave de
   // agente, para que ambos entren por las mismas rutas con las mismas reglas (Épica 10).
@@ -575,6 +624,7 @@ export class Container {
         fileController: this.services.get(FileController),
         tenantController: this.services.get(TenantController),
         authController: this.services.get(AuthController),
+        adminUserController: this.services.get(AdminUserController),
         adminTenantController: this.services.get(AdminTenantController),
         adminPageController: this.services.get(AdminPageController),
         adminBrandController: this.services.get(AdminBrandController),

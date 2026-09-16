@@ -81,6 +81,7 @@ describe('AdminPageController (HTTP)', () => {
         type: 'admin',
         id: 1,
         name: 'Admin',
+        role: 'owner',
         permission: 'full',
         tenantScope: null,
         rateLimitPerMinute: null,

@@ -166,7 +166,13 @@ model AdminUser {
   name         String   @db.VarChar(255)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-  apiKeys      ApiKey[]
+  /// `owner` gestiona usuarios y claves; `editor` solo contenido de todos los clientes.
+  role String @default("owner") @db.VarChar(20)
+  /// Un usuario desactivado no entra y sus tokens dejan de valer.
+  disabledAt DateTime? @map("disabled_at") @db.Timestamptz()
+
+  apiKeys       ApiKey[]
+  passwordResets PasswordReset[]
 
   @@map("admin_users")
 }
@@ -406,4 +412,18 @@ model Product {
   @@index([tenantId, isActive])
   @@index([tenantId, featured])
   @@map("products")
+}
+
+/// Enlace de un solo uso para recuperar la contraseña. Se guarda el hash, nunca el token.
+model PasswordReset {
+  id          Int       @id @default(autoincrement())
+  adminUserId Int       @map("admin_user_id")
+  tokenHash   String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz()
+  usedAt      DateTime? @map("used_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@map("password_resets")
 }

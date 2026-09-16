@@ -21,7 +21,18 @@ describe('buildApp (rutas protegidas)', () => {
       contactController: { send: ok(200) },
       fileController: { upload: ok(201), remove: ok(204) },
       tenantController: { checkDomainAllowed: ok(200) },
-      authController: { login: ok(200), me: ok(200) },
+      authController: {
+        login: ok(200),
+        me: ok(200),
+        forgotPassword: ok(200),
+        resetPassword: ok(200),
+      },
+      adminUserController: {
+        list: ok(200),
+        invite: ok(201),
+        changeRole: ok(200),
+        setDisabled: ok(200),
+      },
       adminTenantController: { list: ok(200), create: ok(201), listTemplates: ok(200) },
       apiKeyController: {
         list: ok(200),
@@ -101,6 +112,7 @@ describe('buildApp (rutas protegidas)', () => {
       type: 'admin',
       id: 1,
       name: 'Admin',
+      role: 'owner',
       permission: 'full',
       tenantScope: null,
       rateLimitPerMinute: null,

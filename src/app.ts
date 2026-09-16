@@ -13,6 +13,8 @@ import { createFileRouter } from './modules/FileStorage/presentation/fileRouter'
 import type { TenantController } from './modules/Tenant/presentation/TenantController';
 import { createTenantInternalRouter } from './modules/Tenant/presentation/tenantRouter';
 import type { AuthController } from './modules/Auth/presentation/AuthController';
+import type { AdminUserController } from './modules/Auth/presentation/AdminUserController';
+import { createAdminUserRouter } from './modules/Auth/presentation/adminUserRouter';
 import { createAuthRouter } from './modules/Auth/presentation/authRouter';
 import type { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
 import { createAdminTenantRouter } from './modules/Tenant/presentation/adminTenantRouter';
@@ -22,6 +24,7 @@ import type { ApiKeyController } from './modules/ApiKey/presentation/ApiKeyContr
 import { createApiKeyRouter } from './modules/ApiKey/presentation/apiKeyRouter';
 import {
   requireMethodPermission,
+  requireRole,
   requireTenantScope,
 } from './modules/ApiKey/presentation/actorMiddleware';
 import type { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
@@ -62,6 +65,7 @@ export interface AppControllers {
   readonly fileController: FileController;
   readonly tenantController: TenantController;
   readonly authController: AuthController;
+  readonly adminUserController: AdminUserController;
   readonly adminTenantController: AdminTenantController;
   readonly adminPageController: AdminPageController;
   readonly adminBrandController: AdminBrandController;
@@ -159,11 +163,21 @@ export const buildApp = (
 
   // Resto de /api/admin/**: mismo middleware, scoped por :tenantId en la ruta
   // (no por dominio — un admin gestiona todos los tenants desde un login).
+  // Emitir claves y administrar personas son las dos formas de repartir acceso: ambas
+  // quedan detrás de `requireRole('owner')`, y una clave de agente nunca pasa (rol null).
   app.use(
     '/api/admin/api-keys',
     actorMiddleware,
+    requireRole('owner'),
     activityRecording,
     createApiKeyRouter(controllers.apiKeyController),
+  );
+  app.use(
+    '/api/admin/users',
+    actorMiddleware,
+    requireRole('owner'),
+    activityRecording,
+    createAdminUserRouter(controllers.adminUserController),
   );
   app.use(
     '/api/admin/activity',

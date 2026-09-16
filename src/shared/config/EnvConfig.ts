@@ -39,6 +39,8 @@ const envSchema = z.strictObject({
   // fábrica" que alguien olvide cambiar en producción.
   AUTH_JWT_SECRET: z.string().min(32),
   AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(168),
+  // Base del enlace que se manda por correo para recuperar la contraseña (SPEC 9.1).
+  ADMIN_PANEL_URL: z.string().min(1).default('http://localhost:3000/admin'),
   // Revalidación de la caché del frontend (SPEC 0.2); vacía = apagada.
   WEBAPP_REVALIDATE_URL: z.string().default(''),
   REVALIDATE_SECRET: z.string().default(''),
@@ -73,6 +75,7 @@ export class EnvConfig {
       MAX_FILE_SIZE_MB: source.MAX_FILE_SIZE_MB,
       AUTH_JWT_SECRET: source.AUTH_JWT_SECRET,
       AUTH_TOKEN_TTL_HOURS: source.AUTH_TOKEN_TTL_HOURS,
+      ADMIN_PANEL_URL: source.ADMIN_PANEL_URL,
       WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
       REVALIDATE_SECRET: source.REVALIDATE_SECRET,
       WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,

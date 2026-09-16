@@ -31,6 +31,7 @@ export class AuthenticateApiKeyUseCase {
       type: 'apiKey',
       id: apiKey.id,
       name: apiKey.name,
+      role: null,
       permission: apiKey.permission,
       tenantScope: apiKey.scope(),
       rateLimitPerMinute: apiKey.rateLimitPerMinute,

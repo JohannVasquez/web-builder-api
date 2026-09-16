@@ -1,3 +1,5 @@
+import type { AdminRole } from '../../Auth/domain/AdminUser';
+
 // Quien ejecuta una acción de administración: una persona del panel o una clave de agente.
 export const PERMISSIONS = ['read', 'write', 'full'] as const;
 export type Permission = (typeof PERMISSIONS)[number];
@@ -12,6 +14,9 @@ export interface Actor {
   readonly id: number;
   readonly name: string;
   readonly permission: Permission;
+  // Solo las personas tienen rol. `null` en una clave de agente es deliberado: ninguna
+  // clave debería poder crear usuarios ni emitir otras claves.
+  readonly role: AdminRole | null;
   // `null` = todos los clientes. Una lista vacía sería "ninguno", que es distinto.
   readonly tenantScope: readonly number[] | null;
   // Viaja con el actor para no volver a consultar la base en cada petición.

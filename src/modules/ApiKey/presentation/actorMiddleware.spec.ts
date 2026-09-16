@@ -5,6 +5,7 @@ import {
   getRequestActor,
   requireMethodPermission,
   requirePermission,
+  requireRole,
   requireTenantScope,
 } from './actorMiddleware';
 import type { VerifyTokenUseCase } from '../../Auth/application/VerifyTokenUseCase';
@@ -25,6 +26,7 @@ describe('actorMiddleware', () => {
       type: 'apiKey',
       id: 7,
       name: 'Agente MCP',
+      role: null,
       permission: 'write',
       tenantScope: null,
       rateLimitPerMinute: 120,
@@ -59,6 +61,7 @@ describe('actorMiddleware', () => {
     app.get('/tenants/:tenantId/pages', requireTenantScope, (_req, res) =>
       res.json({ ok: true }),
     );
+    app.get('/owner-only', requireRole('owner'), (_req, res) => res.json({ ok: true }));
     app.use(new ErrorHandler().handle);
     return app;
   };
@@ -120,6 +123,7 @@ describe('actorMiddleware', () => {
         type: 'apiKey',
         id: 7,
         name: 'Agente MCP',
+        role: null,
         permission: 'write',
         tenantScope: null,
         rateLimitPerMinute: 120,
@@ -137,6 +141,7 @@ describe('actorMiddleware', () => {
       type: 'apiKey',
       id: 7,
       name: 'Agente MCP',
+      role: null,
       permission: 'read',
       tenantScope: null,
       rateLimitPerMinute: 120,
@@ -209,6 +214,7 @@ describe('actorMiddleware', () => {
       type: 'apiKey',
       id: 7,
       name: 'Agente MCP',
+      role: null,
       permission: 'full',
       tenantScope: [2],
       rateLimitPerMinute: 120,
@@ -268,6 +274,7 @@ describe('actorMiddleware', () => {
         type: 'apiKey',
         id: 7,
         name: 'Agente MCP',
+        role: null,
         permission: 'read',
         tenantScope: null,
         rateLimitPerMinute: 1,
@@ -279,5 +286,49 @@ describe('actorMiddleware', () => {
 
     expect(response.status).toBe(429);
     expect(response.headers['retry-after']).toBeDefined();
+  });
+
+  it('lets an owner into an owner-only route', async () => {
+    const app = buildApp(buildVerifyTokenUseCase(), buildAuthenticateApiKeyUseCase());
+
+    const response = await request(app)
+      .get('/owner-only')
+      .set('Authorization', 'Bearer jwt-de-panel');
+
+    expect(response.status).toBe(200);
+  });
+
+  it('answers 403 to an editor on an owner-only route', async () => {
+    const verify = {
+      execute: jest
+        .fn()
+        .mockResolvedValue(new AdminUser(2, 'pau@a.com', 'Pau', 'hash', 'editor')),
+    } as unknown as jest.Mocked<VerifyTokenUseCase>;
+    const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
+
+    const response = await request(app)
+      .get('/owner-only')
+      .set('Authorization', 'Bearer jwt-de-panel');
+
+    expect(response.status).toBe(403);
+  });
+
+  it('answers 403 to an api key on an owner-only route, whatever its permission', async () => {
+    const app = buildApp(
+      buildVerifyTokenUseCase(),
+      buildAuthenticateApiKeyUseCase({
+        type: 'apiKey',
+        id: 7,
+        name: 'Agente MCP',
+        role: null,
+        permission: 'full',
+        tenantScope: null,
+        rateLimitPerMinute: 120,
+      }),
+    );
+
+    const response = await request(app).get('/owner-only').set('X-Api-Key', 'wb_token');
+
+    expect(response.status).toBe(403);
   });
 });

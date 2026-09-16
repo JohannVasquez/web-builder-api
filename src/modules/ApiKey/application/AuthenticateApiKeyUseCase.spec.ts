@@ -68,6 +68,7 @@ describe('AuthenticateApiKeyUseCase', () => {
       type: 'apiKey',
       id: 1,
       name: 'Agente MCP',
+      role: null,
       permission: 'write',
       tenantScope: null,
       rateLimitPerMinute: 120,

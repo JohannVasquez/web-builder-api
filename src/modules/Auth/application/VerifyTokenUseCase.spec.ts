@@ -1,5 +1,6 @@
 import { VerifyTokenUseCase } from './VerifyTokenUseCase';
 import { AdminUser } from '../domain/AdminUser';
+import { AccountDisabledError } from '../domain/AccountDisabledError';
 import type { AdminUserRepository } from '../domain/AdminUserRepository';
 import type { TokenService } from '../domain/TokenService';
 import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
@@ -19,6 +20,11 @@ describe('VerifyTokenUseCase', () => {
   ): jest.Mocked<AdminUserRepository> => ({
     findByEmail: jest.fn(),
     findById: jest.fn().mockResolvedValue(found),
+    findAll: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    setRole: jest.fn(),
+    setDisabled: jest.fn(),
+    setPassword: jest.fn(),
   });
 
   it('resolves the admin user for a valid token', async () => {
@@ -46,6 +52,26 @@ describe('VerifyTokenUseCase', () => {
 
     await expect(useCase.execute('stale-token')).rejects.toBeInstanceOf(
       UnauthorizedError,
+    );
+  });
+
+  it('rejects the token of a user that was disabled after signing in', async () => {
+    const disabled = new AdminUser(
+      1,
+      'ex@webbuilder.co',
+      'Ex',
+      'hash',
+      'editor',
+      new Date('2026-01-01T00:00:00.000Z'),
+    );
+    const repository = buildRepository(disabled);
+    const useCase = new VerifyTokenUseCase(
+      buildTokenService({ adminUserId: 1 }),
+      repository,
+    );
+
+    await expect(useCase.execute('token-vigente')).rejects.toBeInstanceOf(
+      AccountDisabledError,
     );
   });
 });

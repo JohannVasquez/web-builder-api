@@ -25,6 +25,7 @@ describe('actorReachesTenant', () => {
     type: 'apiKey',
     id: 1,
     name: 'Agente MCP',
+    role: null,
     permission: 'read',
     tenantScope,
     rateLimitPerMinute: 120,

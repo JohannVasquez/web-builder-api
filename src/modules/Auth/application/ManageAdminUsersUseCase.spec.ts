@@ -1,0 +1,187 @@
+import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { AdminUser, type AdminRole } from '../domain/AdminUser';
+import type { AdminUserRepository } from '../domain/AdminUserRepository';
+import type { PasswordHasher } from '../domain/PasswordHasher';
+import type { PasswordResetMailer } from '../domain/PasswordResetMailer';
+import { ManageAdminUsersUseCase } from './ManageAdminUsersUseCase';
+import type { RequestPasswordResetUseCase } from './RequestPasswordResetUseCase';
+
+describe('ManageAdminUsersUseCase', () => {
+  const owner = new AdminUser(1, 'johann@webbuilder.co', 'Johann', 'hash', 'owner');
+  const editor = new AdminUser(2, 'pau@webbuilder.co', 'Pau', 'hash', 'editor');
+
+  const buildRepository = (users: AdminUser[]): jest.Mocked<AdminUserRepository> => ({
+    findByEmail: jest
+      .fn()
+      .mockImplementation((email: string) =>
+        Promise.resolve(users.find((user) => user.email === email) ?? null),
+      ),
+    findById: jest
+      .fn()
+      .mockImplementation((id: number) =>
+        Promise.resolve(users.find((user) => user.id === id) ?? null),
+      ),
+    findAll: jest.fn().mockResolvedValue(users),
+    create: jest
+      .fn()
+      .mockImplementation((email: string, name: string, hash: string, role: AdminRole) =>
+        Promise.resolve(new AdminUser(9, email, name, hash, role)),
+      ),
+    setRole: jest.fn().mockResolvedValue(null),
+    setDisabled: jest.fn().mockResolvedValue(null),
+    setPassword: jest.fn(),
+  });
+
+  const buildPasswordReset = (): jest.Mocked<
+    Pick<RequestPasswordResetUseCase, 'issue' | 'buildUrl'>
+  > => ({
+    issue: jest.fn().mockResolvedValue('token-de-invitacion'),
+    buildUrl: jest
+      .fn()
+      .mockReturnValue('https://panel/reset-password?token=token-de-invitacion'),
+  });
+
+  const buildMailer = (): jest.Mocked<PasswordResetMailer> => ({
+    sendResetLink: jest.fn(),
+    sendInvitation: jest.fn(),
+  });
+
+  const buildHasher = (): jest.Mocked<PasswordHasher> => ({
+    hash: jest.fn().mockResolvedValue('hash-aleatorio'),
+    verify: jest.fn(),
+  });
+
+  const build = (
+    users: AdminUser[],
+  ): {
+    useCase: ManageAdminUsersUseCase;
+    repository: jest.Mocked<AdminUserRepository>;
+    mailer: jest.Mocked<PasswordResetMailer>;
+  } => {
+    const repository = buildRepository(users);
+    const mailer = buildMailer();
+    const useCase = new ManageAdminUsersUseCase(
+      repository,
+      buildHasher(),
+      buildPasswordReset() as unknown as RequestPasswordResetUseCase,
+      mailer,
+    );
+    return { useCase, repository, mailer };
+  };
+
+  it('nunca expone el hash de la contraseña al listar', async () => {
+    const { useCase } = build([owner, editor]);
+
+    const users = await useCase.list();
+
+    expect(users).toEqual([
+      {
+        id: 1,
+        email: 'johann@webbuilder.co',
+        name: 'Johann',
+        role: 'owner',
+        disabled: false,
+      },
+      { id: 2, email: 'pau@webbuilder.co', name: 'Pau', role: 'editor', disabled: false },
+    ]);
+    expect(JSON.stringify(users)).not.toContain('hash');
+  });
+
+  it('invita con una contraseña aleatoria y manda el enlace para definirla', async () => {
+    const { useCase, repository, mailer } = build([owner]);
+
+    const created = await useCase.invite({
+      email: '  Nueva@WebBuilder.co ',
+      name: '  Nueva  ',
+      role: 'editor',
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      'nueva@webbuilder.co',
+      'Nueva',
+      'hash-aleatorio',
+      'editor',
+    );
+    expect(mailer.sendInvitation).toHaveBeenCalledWith(
+      'nueva@webbuilder.co',
+      'Nueva',
+      'https://panel/reset-password?token=token-de-invitacion',
+    );
+    expect(created.role).toBe('editor');
+  });
+
+  it('rechaza invitar un correo que ya tiene cuenta', async () => {
+    const { useCase } = build([owner]);
+
+    await expect(
+      useCase.invite({ email: 'johann@webbuilder.co', name: 'Otro', role: 'editor' }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('deja ascender a un editor', async () => {
+    const { useCase, repository } = build([owner, editor]);
+
+    await useCase.changeRole(1, 2, 'owner');
+
+    expect(repository.setRole).toHaveBeenCalledWith(2, 'owner');
+  });
+
+  it('impide que alguien se quite a sí mismo el rol de dueña', async () => {
+    const { useCase } = build([owner, editor]);
+
+    await expect(useCase.changeRole(1, 1, 'editor')).rejects.toBeInstanceOf(
+      BadRequestError,
+    );
+  });
+
+  it('impide dejar el panel sin ninguna dueña activa', async () => {
+    // La otra dueña está desactivada, así que no cuenta como reemplazo.
+    const suspended = new AdminUser(
+      3,
+      'otra@webbuilder.co',
+      'Otra',
+      'hash',
+      'owner',
+      new Date(),
+    );
+    const { useCase } = build([owner, suspended, editor]);
+
+    await expect(useCase.changeRole(3, 1, 'editor')).rejects.toBeInstanceOf(
+      BadRequestError,
+    );
+    await expect(useCase.setDisabled(3, 1, true)).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('deja degradar a una dueña si queda otra activa', async () => {
+    const second = new AdminUser(3, 'otra@webbuilder.co', 'Otra', 'hash', 'owner');
+    const third = new AdminUser(4, 'tercera@webbuilder.co', 'Tercera', 'hash', 'owner');
+    const { useCase, repository } = build([owner, second, third]);
+
+    await useCase.changeRole(1, 3, 'editor');
+
+    expect(repository.setRole).toHaveBeenCalledWith(3, 'editor');
+  });
+
+  it('desactiva a un editor y deja sus tokens sin valor', async () => {
+    const { useCase, repository } = build([owner, editor]);
+
+    await useCase.setDisabled(1, 2, true);
+
+    expect(repository.setDisabled).toHaveBeenCalledWith(2, true);
+  });
+
+  it('impide desactivarse a uno mismo', async () => {
+    const { useCase } = build([owner, editor]);
+
+    await expect(useCase.setDisabled(1, 1, true)).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('responde 404 cuando la persona no existe', async () => {
+    const { useCase } = build([owner]);
+
+    await expect(useCase.changeRole(1, 99, 'editor')).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+  });
+});
