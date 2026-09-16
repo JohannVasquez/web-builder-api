@@ -11,6 +11,7 @@ import type {
   PageSectionUpdateInput,
 } from '../domain/PageSectionSchema';
 import { PageIdNotFoundError } from '../domain/PageIdNotFoundError';
+import { pageFromSnapshot, snapshotOf, type PageSnapshot } from '../domain/PageSnapshot';
 import { PageSlugConflictError } from '../domain/PageSlugConflictError';
 import { SectionNotFoundError } from '../domain/SectionNotFoundError';
 import { SectionPositionConflictError } from '../domain/SectionPositionConflictError';
@@ -44,15 +45,68 @@ interface SectionRecord {
 
 const SECTIONS_INCLUDE = { sections: { orderBy: { position: 'asc' as const } } };
 
+// Prisma tipa las columnas JSON con su propio `InputJsonValue`, que no acepta un tipo
+// inferido por zod. Este es el único punto donde se cruza; `unknown` de por medio evita
+// que el `as` quede marcado como innecesario cuando el linter resuelve otro tipo.
+const asJsonColumn = (value: unknown): object => value as object;
+
 export class PrismaPageRepository implements PageRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  // Sirve la foto publicada, nunca las filas de `sections`: esas son el borrador que
+  // alguien puede estar editando ahora mismo.
   public async findBySlug(tenantId: number, slug: string): Promise<Page | null> {
     const record = await this.prisma.page.findUnique({
       where: { tenantId_slug: { tenantId, slug }, isPublished: true },
-      include: SECTIONS_INCLUDE,
+      select: { publishedContent: true },
     });
-    return record === null ? null : this.toDomain(record);
+    if (record === null || record.publishedContent === null) {
+      return null;
+    }
+    return pageFromSnapshot(slug, record.publishedContent);
+  }
+
+  public async publish(tenantId: number, id: number): Promise<Page> {
+    const draft = await this.findById(tenantId, id);
+    if (draft === null) {
+      throw new PageIdNotFoundError(id);
+    }
+    await this.prisma.page.update({
+      where: { id },
+      data: {
+        publishedContent: asJsonColumn(snapshotOf(draft)),
+        publishedAt: new Date(),
+        isPublished: true,
+      },
+    });
+    return this.reload(tenantId, id);
+  }
+
+  public async replaceDraft(
+    tenantId: number,
+    id: number,
+    snapshot: PageSnapshot,
+  ): Promise<Page> {
+    await this.ensurePageOwnership(tenantId, id);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.pageSection.deleteMany({ where: { pageId: id } });
+      await tx.page.update({
+        where: { id },
+        data: {
+          title: snapshot.title,
+          description: snapshot.description,
+          sections: {
+            create: snapshot.sections.map((section, index) => ({
+              type: section.type,
+              position: index + 1,
+              props: asJsonColumn(section.props),
+              anchor: section.anchor,
+            })),
+          },
+        },
+      });
+    });
+    return this.reload(tenantId, id);
   }
 
   public async findAllByTenant(tenantId: number): Promise<Page[]> {

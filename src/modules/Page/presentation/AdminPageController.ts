@@ -9,6 +9,13 @@ import type { AddSectionUseCase } from '../application/AddSectionUseCase';
 import type { UpdateSectionUseCase } from '../application/UpdateSectionUseCase';
 import type { DeleteSectionUseCase } from '../application/DeleteSectionUseCase';
 import type { ReorderSectionsUseCase } from '../application/ReorderSectionsUseCase';
+import type { PublishPageUseCase } from '../application/PublishPageUseCase';
+import type { ListPageVersionsUseCase } from '../application/ListPageVersionsUseCase';
+import type { RestorePageVersionUseCase } from '../application/RestorePageVersionUseCase';
+import type { RecordPageVersionUseCase } from '../application/RecordPageVersionUseCase';
+import type { PageVersionActor } from '../domain/PageVersionRepository';
+import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
+import type { Page } from '../domain/Page';
 import { PageInputSchema, PageUpdateSchema } from '../domain/PageSchema';
 import {
   PageSectionInputSchema,
@@ -16,12 +23,23 @@ import {
   ReorderSectionsSchema,
 } from '../domain/PageSectionSchema';
 
+const actorOf = (res: Response): PageVersionActor => {
+  const actor = getRequestActor(res);
+  return { type: actor.type, id: actor.id, name: actor.name };
+};
+
 const tenantParamsSchema = z.object({ tenantId: z.coerce.number().int().positive() });
 const pageParamsSchema = tenantParamsSchema.extend({
   pageId: z.coerce.number().int().positive(),
 });
 const sectionParamsSchema = pageParamsSchema.extend({
   sectionId: z.coerce.number().int().positive(),
+});
+const versionParamsSchema = pageParamsSchema.extend({
+  versionId: z.coerce.number().int().positive(),
+});
+const versionQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
 export class AdminPageController {
@@ -35,7 +53,17 @@ export class AdminPageController {
     private readonly updateSectionUseCase: UpdateSectionUseCase,
     private readonly deleteSectionUseCase: DeleteSectionUseCase,
     private readonly reorderSectionsUseCase: ReorderSectionsUseCase,
+    private readonly publishPageUseCase: PublishPageUseCase,
+    private readonly listPageVersionsUseCase: ListPageVersionsUseCase,
+    private readonly restorePageVersionUseCase: RestorePageVersionUseCase,
+    private readonly recordPageVersionUseCase: RecordPageVersionUseCase,
   ) {}
+
+  // El historial se escribe aquí y no dentro de cada caso de uso: es el único punto que
+  // conoce al actor y ya tiene la página resultante, así que no hay que repetirlo seis veces.
+  private async remember(res: Response, page: Page, summary: string): Promise<void> {
+    await this.recordPageVersionUseCase.execute(page, summary, actorOf(res));
+  }
 
   public readonly list = async (req: Request, res: Response): Promise<void> => {
     const { tenantId } = tenantParamsSchema.parse(req.params);
@@ -53,6 +81,7 @@ export class AdminPageController {
     const { tenantId } = tenantParamsSchema.parse(req.params);
     const input = PageInputSchema.parse(req.body);
     const page = await this.createPageUseCase.execute(tenantId, input);
+    await this.remember(res, page, 'Creó la página');
     res.status(201).json({ page: page.toAdminPrimitives() });
   };
 
@@ -60,6 +89,7 @@ export class AdminPageController {
     const { tenantId, pageId } = pageParamsSchema.parse(req.params);
     const input = PageUpdateSchema.parse(req.body);
     const page = await this.updatePageUseCase.execute(tenantId, pageId, input);
+    await this.remember(res, page, 'Editó los datos de la página');
     res.status(200).json({ page: page.toAdminPrimitives() });
   };
 
@@ -73,6 +103,7 @@ export class AdminPageController {
     const { tenantId, pageId } = pageParamsSchema.parse(req.params);
     const input = PageSectionInputSchema.parse(req.body);
     const page = await this.addSectionUseCase.execute(tenantId, pageId, input);
+    await this.remember(res, page, `Agregó el bloque ${input.type}`);
     res.status(201).json({ page: page.toAdminPrimitives() });
   };
 
@@ -85,12 +116,14 @@ export class AdminPageController {
       sectionId,
       input,
     );
+    await this.remember(res, page, 'Editó un bloque');
     res.status(200).json({ page: page.toAdminPrimitives() });
   };
 
   public readonly deleteSection = async (req: Request, res: Response): Promise<void> => {
     const { tenantId, pageId, sectionId } = sectionParamsSchema.parse(req.params);
     const page = await this.deleteSectionUseCase.execute(tenantId, pageId, sectionId);
+    await this.remember(res, page, 'Eliminó un bloque');
     res.status(200).json({ page: page.toAdminPrimitives() });
   };
 
@@ -101,6 +134,32 @@ export class AdminPageController {
     const { tenantId, pageId } = pageParamsSchema.parse(req.params);
     const { sectionIds } = ReorderSectionsSchema.parse(req.body);
     const page = await this.reorderSectionsUseCase.execute(tenantId, pageId, sectionIds);
+    await this.remember(res, page, 'Reordenó los bloques');
+    res.status(200).json({ page: page.toAdminPrimitives() });
+  };
+
+  public readonly publish = async (req: Request, res: Response): Promise<void> => {
+    const { tenantId, pageId } = pageParamsSchema.parse(req.params);
+    const page = await this.publishPageUseCase.execute(tenantId, pageId, actorOf(res));
+    res.status(200).json({ page: page.toAdminPrimitives() });
+  };
+
+  public readonly listVersions = async (req: Request, res: Response): Promise<void> => {
+    const { tenantId, pageId } = pageParamsSchema.parse(req.params);
+    const { limit } = versionQuerySchema.parse(req.query);
+    res.json({
+      versions: await this.listPageVersionsUseCase.execute(tenantId, pageId, limit),
+    });
+  };
+
+  public readonly restoreVersion = async (req: Request, res: Response): Promise<void> => {
+    const { tenantId, pageId, versionId } = versionParamsSchema.parse(req.params);
+    const page = await this.restorePageVersionUseCase.execute(
+      tenantId,
+      pageId,
+      versionId,
+      actorOf(res),
+    );
     res.status(200).json({ page: page.toAdminPrimitives() });
   };
 }

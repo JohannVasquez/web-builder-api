@@ -11,6 +11,12 @@ import { AddSectionUseCase } from '../application/AddSectionUseCase';
 import { UpdateSectionUseCase } from '../application/UpdateSectionUseCase';
 import { DeleteSectionUseCase } from '../application/DeleteSectionUseCase';
 import { ReorderSectionsUseCase } from '../application/ReorderSectionsUseCase';
+import { PublishPageUseCase } from '../application/PublishPageUseCase';
+import { ListPageVersionsUseCase } from '../application/ListPageVersionsUseCase';
+import { RestorePageVersionUseCase } from '../application/RestorePageVersionUseCase';
+import { RecordPageVersionUseCase } from '../application/RecordPageVersionUseCase';
+import type { PageVersionRepository } from '../domain/PageVersionRepository';
+import { setRequestActor } from '../../ApiKey/presentation/actorMiddleware';
 import { Page, PageSection } from '../domain/Page';
 import { PageIdNotFoundError } from '../domain/PageIdNotFoundError';
 import { PageSlugConflictError } from '../domain/PageSlugConflictError';
@@ -37,11 +43,20 @@ describe('AdminPageController (HTTP)', () => {
     create: jest.fn().mockResolvedValue(buildPage()),
     update: jest.fn().mockResolvedValue(buildPage()),
     delete: jest.fn().mockResolvedValue(undefined),
+    publish: jest.fn(),
+    replaceDraft: jest.fn(),
     addSection: jest.fn().mockResolvedValue(buildPage()),
     updateSection: jest.fn().mockResolvedValue(buildPage()),
     deleteSection: jest.fn().mockResolvedValue(buildPage()),
     reorderSections: jest.fn().mockResolvedValue(buildPage()),
   });
+
+  const versionRepository: jest.Mocked<PageVersionRepository> = {
+    record: jest.fn().mockResolvedValue(undefined),
+    list: jest.fn().mockResolvedValue([]),
+    findSnapshot: jest.fn().mockResolvedValue(null),
+    markPublished: jest.fn().mockResolvedValue(undefined),
+  };
 
   const buildApp = (repository: PageRepository): Express => {
     const controller = new AdminPageController(
@@ -54,9 +69,24 @@ describe('AdminPageController (HTTP)', () => {
       new UpdateSectionUseCase(repository),
       new DeleteSectionUseCase(repository),
       new ReorderSectionsUseCase(repository),
+      new PublishPageUseCase(repository, versionRepository),
+      new ListPageVersionsUseCase(versionRepository),
+      new RestorePageVersionUseCase(repository, versionRepository),
+      new RecordPageVersionUseCase(versionRepository),
     );
     const app = express();
     app.use(express.json());
+    app.use((_req, res, next) => {
+      setRequestActor(res, {
+        type: 'admin',
+        id: 1,
+        name: 'Admin',
+        permission: 'full',
+        tenantScope: null,
+        rateLimitPerMinute: null,
+      });
+      next();
+    });
     app.use('/api/admin/tenants/:tenantId/pages', createAdminPageRouter(controller));
     app.use(new ErrorHandler().handle);
     return app;

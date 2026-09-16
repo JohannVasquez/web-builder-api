@@ -18,6 +18,12 @@ import { DeleteSectionUseCase } from './modules/Page/application/DeleteSectionUs
 import { ReorderSectionsUseCase } from './modules/Page/application/ReorderSectionsUseCase';
 import { PageController } from './modules/Page/presentation/PageController';
 import { AdminPageController } from './modules/Page/presentation/AdminPageController';
+import { PageVersionRepository } from './modules/Page/domain/PageVersionRepository';
+import { PrismaPageVersionRepository } from './modules/Page/infrastructure/PrismaPageVersionRepository';
+import { RecordPageVersionUseCase } from './modules/Page/application/RecordPageVersionUseCase';
+import { PublishPageUseCase } from './modules/Page/application/PublishPageUseCase';
+import { ListPageVersionsUseCase } from './modules/Page/application/ListPageVersionsUseCase';
+import { RestorePageVersionUseCase } from './modules/Page/application/RestorePageVersionUseCase';
 import { GlobalSettingsRepository } from './modules/GlobalSettings/domain/GlobalSettingsRepository';
 import { PrismaGlobalSettingsRepository } from './modules/GlobalSettings/infrastructure/PrismaGlobalSettingsRepository';
 import { GetGlobalSettingsUseCase } from './modules/GlobalSettings/application/GetGlobalSettingsUseCase';
@@ -285,6 +291,22 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(DeleteSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(ReorderSectionsUseCase).withDependencies([PageRepository]);
   builder
+    .register(PageVersionRepository)
+    .use(PrismaPageVersionRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(RecordPageVersionUseCase)
+    .withDependencies([PageVersionRepository]);
+  builder
+    .registerAndUse(PublishPageUseCase)
+    .withDependencies([PageRepository, PageVersionRepository]);
+  builder
+    .registerAndUse(ListPageVersionsUseCase)
+    .withDependencies([PageVersionRepository]);
+  builder
+    .registerAndUse(RestorePageVersionUseCase)
+    .withDependencies([PageRepository, PageVersionRepository]);
+  builder
     .registerAndUse(AdminPageController)
     .withDependencies([
       ListPagesUseCase,
@@ -296,6 +318,10 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       UpdateSectionUseCase,
       DeleteSectionUseCase,
       ReorderSectionsUseCase,
+      PublishPageUseCase,
+      ListPageVersionsUseCase,
+      RestorePageVersionUseCase,
+      RecordPageVersionUseCase,
     ]);
 
   // Brand: identidad de marca y estilo visual. Va antes que GlobalSettings, que lo expone.

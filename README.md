@@ -107,6 +107,30 @@ no tiene dominios propios todavía y publicarla debería ser una decisión.
 
 `GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
 
+## Borrador, publicación e historial
+
+Las filas de `page_sections` son el **borrador**. El público lee
+`pages.published_content`, una foto del contenido tomada al publicar. Editar un
+bloque no cambia el sitio hasta que alguien llama a
+`POST /api/admin/tenants/:t/pages/:p/publish`.
+
+Esto es lo que hace segura la Épica 10: un agente puede reescribir una página
+entera y nadie lo ve hasta que una persona revisa y publica.
+
+Cada escritura del borrador guarda una versión con quién la hizo y qué cambió.
+Se registra en el controller y no dentro de cada caso de uso porque es el único
+punto que conoce al actor y ya tiene la página resultante; escribir la versión
+nunca hace fallar la edición que la originó.
+
+- `GET .../pages/:p/versions` lista el historial.
+- `POST .../pages/:p/versions/:v/restore` devuelve el **borrador** a esa
+  versión. No publica, y **crea una versión nueva** en vez de borrar lo
+  posterior: restaurar por error tiene que poder deshacerse también.
+
+Se conservan las últimas 50 versiones por página, más la publicada. Un
+historial infinito crece sin límite y nadie mira más allá de las últimas
+decenas, pero perder la versión publicada sí rompería el "volver atrás".
+
 ## Biblioteca de imágenes
 
 Cada cliente tiene la suya: `storage_assets` lleva `tenant_id`, y toda consulta

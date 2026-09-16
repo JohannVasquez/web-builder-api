@@ -62,8 +62,14 @@ model Page {
   isPublished Boolean       @default(true) @map("is_published")
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sections    PageSection[]
+  /// Lo que ve el público. Nulo = nunca se publicó. Las filas de `sections` son el
+  /// borrador: editarlas no cambia el sitio hasta que alguien publica.
+  publishedContent Json?     @map("published_content")
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz()
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sections PageSection[]
+  versions PageVersion[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -82,6 +88,30 @@ model PageSection {
   @@unique([pageId, position])
   @@index([pageId])
   @@map("page_sections")
+}
+
+/// Foto del borrador de una página en un momento dado. Permite deshacer cualquier cambio,
+/// venga de una persona o de un agente.
+model PageVersion {
+  id     Int @id @default(autoincrement())
+  pageId Int @map("page_id")
+
+  /// Contenido completo: título, descripción y secciones con sus props.
+  snapshot Json
+  /// Qué pasó, en una línea: "Editó el bloque Hero", "Restauró la versión del 3 de marzo".
+  summary String @db.VarChar(255)
+
+  actorType String  @map("actor_type") @db.VarChar(20)
+  actorId   Int?    @map("actor_id")
+  actorName String  @map("actor_name") @db.VarChar(255)
+  /// Marca la versión que corresponde a lo que está publicado ahora.
+  published Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, createdAt])
+  @@map("page_versions")
 }
 
 model NavigationLink {

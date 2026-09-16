@@ -87,15 +87,27 @@ describe('herramientas del MCP', () => {
   it('publicar es una acción separada de editar', async () => {
     const api = buildApi();
 
-    await find(api, 'publish_page').handler({
+    await find(api, 'publish_page').handler({ tenantId: 3, pageId: 7 });
+
+    expect(api.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/admin/tenants/3/pages/7/publish',
+    );
+  });
+
+  it('restaurar no publica: son dos herramientas distintas', async () => {
+    const api = buildApi();
+
+    await find(api, 'restore_page_version').handler({
       tenantId: 3,
       pageId: 7,
-      isPublished: true,
+      versionId: 12,
     });
 
-    expect(api.request).toHaveBeenCalledWith('PATCH', '/api/admin/tenants/3/pages/7', {
-      isPublished: true,
-    });
+    expect(api.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/admin/tenants/3/pages/7/versions/12/restore',
+    );
   });
 
   it('no manda tenantId ni pageId dentro del cuerpo al editar un bloque', async () => {

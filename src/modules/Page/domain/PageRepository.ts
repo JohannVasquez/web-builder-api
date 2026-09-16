@@ -1,6 +1,7 @@
 import type { Page } from './Page';
 import type { PageInput, PageUpdateInput } from './PageSchema';
 import type { PageSectionInput, PageSectionUpdateInput } from './PageSectionSchema';
+import type { PageSnapshot } from './PageSnapshot';
 
 /**
  * Clase abstracta usada como token de inyección de dependencias (diod).
@@ -9,7 +10,7 @@ import type { PageSectionInput, PageSectionUpdateInput } from './PageSectionSche
  * a través del contenedor.
  */
 export abstract class PageRepository {
-  // Público (AC1.2): la única consulta que necesita el sitio en vivo.
+  // Público: lee el contenido PUBLICADO, no el borrador que se está editando.
   public abstract findBySlug(tenantId: number, slug: string): Promise<Page | null>;
 
   // Admin: todo scoped por `tenantId`, para que un id adivinado nunca cruce
@@ -23,6 +24,14 @@ export abstract class PageRepository {
     input: PageUpdateInput,
   ): Promise<Page>;
   public abstract delete(tenantId: number, id: number): Promise<void>;
+  // Copia el borrador actual a lo publicado. Devuelve la página ya publicada.
+  public abstract publish(tenantId: number, id: number): Promise<Page>;
+  // Reemplaza el borrador por una foto anterior, sin tocar lo publicado.
+  public abstract replaceDraft(
+    tenantId: number,
+    id: number,
+    snapshot: PageSnapshot,
+  ): Promise<Page>;
 
   public abstract addSection(
     tenantId: number,

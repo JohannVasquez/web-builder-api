@@ -18,6 +18,8 @@ describe('GetPageBySlugUseCase', () => {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    publish: jest.fn(),
+    replaceDraft: jest.fn(),
     addSection: jest.fn(),
     updateSection: jest.fn(),
     deleteSection: jest.fn(),

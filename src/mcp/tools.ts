@@ -142,14 +142,52 @@ export const buildTools = (api: ApiClient): McpTool[] => {
 
     tool(
       'publish_page',
-      'Publicar o despublicar una página',
-      'Hace visible (o deja de hacer visible) una página en el sitio público. Requiere permiso "full".',
-      { tenantId, pageId, isPublished: z.boolean() },
+      'Publicar una página',
+      'Copia el borrador al sitio público. Hasta que se publica, lo que editas no lo ve nadie. Requiere permiso "full".',
+      { tenantId, pageId },
+      (args) =>
+        api.request(
+          'POST',
+          `/api/admin/tenants/${String(args.tenantId)}/pages/${String(args.pageId)}/publish`,
+        ),
+    ),
+
+    tool(
+      'unpublish_page',
+      'Quitar una página del sitio público',
+      'Deja de mostrar la página sin borrar su contenido. Requiere permiso "full".',
+      { tenantId, pageId },
       (args) =>
         api.request(
           'PATCH',
           `/api/admin/tenants/${String(args.tenantId)}/pages/${String(args.pageId)}`,
-          { isPublished: args.isPublished },
+          { isPublished: false },
+        ),
+    ),
+
+    tool(
+      'list_page_versions',
+      'Ver el historial de una página',
+      'Lista las versiones guardadas de una página, con quién hizo cada cambio y cuándo. Cada edición del borrador guarda una.',
+      { tenantId, pageId, limit: z.number().int().min(1).max(100).optional() },
+      (args) => {
+        const limit = (args.limit as number | undefined) ?? 30;
+        return api.request(
+          'GET',
+          `/api/admin/tenants/${String(args.tenantId)}/pages/${String(args.pageId)}/versions?limit=${String(limit)}`,
+        );
+      },
+    ),
+
+    tool(
+      'restore_page_version',
+      'Restaurar una versión anterior',
+      'Devuelve el borrador de la página a una versión anterior. No publica: publicar sigue siendo una acción aparte. Restaurar crea una versión nueva, así que también se puede deshacer.',
+      { tenantId, pageId, versionId: z.number().int().positive() },
+      (args) =>
+        api.request(
+          'POST',
+          `/api/admin/tenants/${String(args.tenantId)}/pages/${String(args.pageId)}/versions/${String(args.versionId)}/restore`,
         ),
     ),
 

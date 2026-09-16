@@ -33,11 +33,26 @@ export class PageSeeder implements Seeder<PageSeedParams> {
         anchor: section.anchor ?? null,
       }));
 
+      // El público lee `publishedContent`, no las filas de `sections`, así que sembrar solo
+      // el borrador dejaría los sitios de demostración en blanco.
+      const publishedContent = {
+        title: page.title,
+        description: page.description ?? null,
+        sections: sections.map((section) => ({
+          type: section.type,
+          position: section.position,
+          props: section.props,
+          anchor: section.anchor,
+        })),
+      };
+
       await this.prisma.page.upsert({
         where: { tenantId_slug: { tenantId: params.tenantId, slug: page.slug } },
         update: {
           title: page.title,
           description: page.description,
+          publishedContent,
+          publishedAt: new Date(),
           sections: { deleteMany: {}, create: sections },
         },
         create: {
@@ -45,6 +60,8 @@ export class PageSeeder implements Seeder<PageSeedParams> {
           slug: page.slug,
           title: page.title,
           description: page.description,
+          publishedContent,
+          publishedAt: new Date(),
           sections: { create: sections },
         },
       });

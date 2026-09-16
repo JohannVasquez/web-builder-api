@@ -16,5 +16,9 @@ export const createAdminPageRouter = (controller: AdminPageController): Router =
   router.delete('/:pageId/sections/:sectionId', controller.deleteSection);
   router.put('/:pageId/sections/reorder', controller.reorderSections);
 
+  router.post('/:pageId/publish', controller.publish);
+  router.get('/:pageId/versions', controller.listVersions);
+  router.post('/:pageId/versions/:versionId/restore', controller.restoreVersion);
+
   return router;
 };

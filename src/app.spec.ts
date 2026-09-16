@@ -59,6 +59,9 @@ describe('buildApp (rutas protegidas)', () => {
         updateSection: ok(200),
         deleteSection: ok(204),
         reorderSections: ok(200),
+        publish: ok(200),
+        listVersions: ok(200),
+        restoreVersion: ok(200),
       },
     } as unknown as AppControllers;
   };
