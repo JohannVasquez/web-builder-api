@@ -3,11 +3,7 @@ import { AdminUserRepository } from '../domain/AdminUserRepository';
 import { TokenService } from '../domain/TokenService';
 import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
 
-/**
- * Verifica un token Bearer y resuelve al `AdminUser` vigente — no solo la
- * firma: si el usuario fue borrado después de emitirse el token, sigue
- * fallando. Usado por el middleware que protege `/api/admin/**`.
- */
+// Resuelve el `AdminUser` vigente, no solo la firma: un usuario borrado invalida su token.
 export class VerifyTokenUseCase {
   constructor(
     private readonly tokenService: TokenService,

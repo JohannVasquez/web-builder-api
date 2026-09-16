@@ -18,6 +18,15 @@ import type { AdminTenantController } from './modules/Tenant/presentation/AdminT
 import { createAdminTenantRouter } from './modules/Tenant/presentation/adminTenantRouter';
 import type { AdminPageController } from './modules/Page/presentation/AdminPageController';
 import { createAdminPageRouter } from './modules/Page/presentation/adminPageRouter';
+import type { ApiKeyController } from './modules/ApiKey/presentation/ApiKeyController';
+import { createApiKeyRouter } from './modules/ApiKey/presentation/apiKeyRouter';
+import {
+  requireMethodPermission,
+  requireTenantScope,
+} from './modules/ApiKey/presentation/actorMiddleware';
+import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
+import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
+import { createActivityLogRouter } from './modules/ActivityLog/presentation/activityLogRouter';
 import type { AdminBrandController } from './modules/Brand/presentation/AdminBrandController';
 import { createAdminBrandRouter } from './modules/Brand/presentation/adminBrandRouter';
 import { ErrorHandler } from './shared/presentation/ErrorHandler';
@@ -33,6 +42,9 @@ export interface AppControllers {
   readonly adminTenantController: AdminTenantController;
   readonly adminPageController: AdminPageController;
   readonly adminBrandController: AdminBrandController;
+  readonly apiKeyController: ApiKeyController;
+  readonly activityLogController: ActivityLogController;
+  readonly catalogController: CatalogController;
 }
 
 export const buildApp = (
@@ -40,8 +52,9 @@ export const buildApp = (
   corsOrigin: string[],
   fileUploadMiddleware: RequestHandler,
   tenantResolver: RequestHandler,
-  adminAuthMiddleware: RequestHandler,
+  actorMiddleware: RequestHandler,
   cacheInvalidation: RequestHandler,
+  activityRecording: RequestHandler,
 ): Express => {
   const app = express();
   const errorHandler = new ErrorHandler();
@@ -77,38 +90,62 @@ export const buildApp = (
   // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
   app.use(
     '/api/files',
-    adminAuthMiddleware,
+    actorMiddleware,
+    requireMethodPermission,
+    activityRecording,
     createFileRouter(controllers.fileController, fileUploadMiddleware),
   );
 
   // Auth: /login es público (sería absurdo protegerlo con el propio token
   // que emite); /me exige sesión válida, como cualquier ruta admin futura.
   app.use('/api/admin/auth', createAuthRouter(controllers.authController));
-  app.get('/api/admin/me', adminAuthMiddleware, controllers.authController.me);
+  app.get('/api/admin/me', actorMiddleware, controllers.authController.me);
+
+  // Panel y agentes comparten estas rutas: mismas validaciones, mismos permisos,
+  // mismo registro de actividad. Es lo que exige el principio de la Épica 10.
+  const adminGuards: RequestHandler[] = [
+    actorMiddleware,
+    requireTenantScope,
+    requireMethodPermission,
+    activityRecording,
+  ];
 
   // Resto de /api/admin/**: mismo middleware, scoped por :tenantId en la ruta
   // (no por dominio — un admin gestiona todos los tenants desde un login).
   app.use(
+    '/api/admin/api-keys',
+    actorMiddleware,
+    activityRecording,
+    createApiKeyRouter(controllers.apiKeyController),
+  );
+  app.use(
+    '/api/admin/activity',
+    actorMiddleware,
+    createActivityLogRouter(controllers.activityLogController),
+  );
+  app.get('/api/admin/catalog', actorMiddleware, controllers.catalogController.get);
+
+  app.use(
     '/api/admin/tenants',
-    adminAuthMiddleware,
+    ...adminGuards,
     createAdminTenantRouter(controllers.adminTenantController),
   );
   // `cacheInvalidation` aquí y no en cada caso de uso: cubre toda ruta admin futura (SPEC 0.2).
   app.use(
     '/api/admin/tenants/:tenantId/pages',
-    adminAuthMiddleware,
+    ...adminGuards,
     cacheInvalidation,
     createAdminPageRouter(controllers.adminPageController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/brand',
-    adminAuthMiddleware,
+    ...adminGuards,
     cacheInvalidation,
     createAdminBrandRouter(controllers.adminBrandController),
   );
   app.get(
     '/api/admin/font-pairings',
-    adminAuthMiddleware,
+    actorMiddleware,
     controllers.adminBrandController.listFontPairings,
   );
 

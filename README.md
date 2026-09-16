@@ -86,6 +86,82 @@ Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose
 para cualquier visitante.
 
+## Claves de acceso y agentes de IA
+
+El panel y los agentes entran por **las mismas rutas** `/api/admin/**`. Es lo
+único que garantiza que un agente no pueda hacer algo que el panel no valida,
+ni al revés. Un solo middleware (`createActorMiddleware`) resuelve el actor:
+
+- `Authorization: Bearer <jwt>` → una persona del panel.
+- `Authorization: Bearer wb_...` o `X-Api-Key: wb_...` → una clave de agente.
+
+El prefijo `wb_` es lo que distingue una de otra sin consultar la base.
+
+### Permisos y alcance
+
+| Permiso | Puede                                      |
+| ------- | ------------------------------------------ |
+| `read`  | Solo leer                                  |
+| `write` | Leer y editar contenido (POST, PATCH, PUT) |
+| `full`  | Además publicar y eliminar (DELETE)        |
+
+`requireMethodPermission` deriva el permiso necesario del método HTTP, y
+`requireTenantScope` bloquea con 403 cualquier `:tenantId` fuera del alcance de
+la clave. Una clave revocada o vencida responde 401 con el motivo concreto.
+
+De la clave solo se guarda el `sha256`; el token completo se muestra una vez, al
+crearla. Una clave nunca puede gestionar claves: sería una escalada silenciosa.
+
+### Registro de actividad
+
+`createActivityRecordingMiddleware` registra cada escritura con el actor (persona
+o nombre de la clave), el cliente, la acción y el cuerpo enviado. Va en un
+middleware, como la invalidación de caché, para que toda ruta admin nueva quede
+cubierta sin que nadie tenga que acordarse. Escribir en el registro nunca hace
+fallar la operación de negocio.
+
+Consulta: `GET /api/admin/activity?tenantId=&actorType=&from=&to=&limit=&offset=`
+
+### Servidor MCP
+
+`src/mcp/` expone la plataforma como servidor MCP por stdio. Habla con esta
+misma API por HTTP, así que sirve igual contra local o contra producción: lo
+único que cambia es `WEB_BUILDER_API_URL`.
+
+Para conectarlo a Claude Code:
+
+```bash
+# 1. Crea una clave desde el panel (o con curl, con tu sesión de admin):
+curl -X POST http://localhost:4000/api/admin/api-keys \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Claude Code","permission":"write"}'
+
+# 2. Registra el servidor MCP (la clave se muestra UNA sola vez):
+claude mcp add web-builder \
+  --env WEB_BUILDER_API_URL=http://localhost:4000 \
+  --env WEB_BUILDER_API_KEY=wb_... \
+  -- pnpm --dir /ruta/a/web-builder-api mcp
+```
+
+Herramientas disponibles: `list_tenants`, `get_site`, `get_catalog`,
+`create_page`, `update_page`, `publish_page`, `delete_page`, `add_block`,
+`update_block`, `delete_block`, `reorder_blocks`, `get_brand`, `update_brand`,
+`get_preview_url`, `list_activity`.
+
+Dos reglas que el servidor impone por diseño:
+
+- **Todo nace en borrador.** `create_page` manda `isPublished: false` salvo que
+  se pida lo contrario; publicar es una herramienta aparte que exige `full`.
+- **Lo destructivo exige confirmación en la misma llamada.** `delete_page` y
+  `delete_block` piden `confirm: true`, para que un agente no borre "de paso".
+
+Un error de validación vuelve al agente como la lista de campos mal y por qué,
+no como un 400 opaco: es lo que le permite corregir y reintentar solo.
+
+`get_catalog` se sirve desde el frontend (`WEBAPP_CATALOG_URL`), donde viven los
+componentes. Así agregar un bloque o un estilo lo publica solo para los agentes,
+sin tocar el MCP.
+
 ## Identidad de marca (módulo Brand)
 
 Cada tenant tiene una fila opcional en `tenant_brands` con su paleta,

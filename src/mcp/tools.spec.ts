@@ -1,0 +1,136 @@
+import { z } from 'zod';
+import { buildTools, type McpTool } from './tools';
+import type { ApiClient } from './ApiClient';
+
+describe('herramientas del MCP', () => {
+  const buildApi = (): jest.Mocked<Pick<ApiClient, 'request'>> => ({
+    request: jest.fn().mockResolvedValue({ ok: true }),
+  });
+
+  const tools = (api: jest.Mocked<Pick<ApiClient, 'request'>>): McpTool[] =>
+    buildTools(api as unknown as ApiClient);
+
+  const find = (api: jest.Mocked<Pick<ApiClient, 'request'>>, name: string): McpTool => {
+    const tool = tools(api).find((candidate) => candidate.name === name);
+    if (tool === undefined) {
+      throw new Error(`No existe la herramienta ${name}`);
+    }
+    return tool;
+  };
+
+  it('todas tienen título y descripción: es lo que el agente lee para elegir', () => {
+    for (const tool of tools(buildApi())) {
+      expect(tool.title.length).toBeGreaterThan(0);
+      expect(tool.description.length).toBeGreaterThan(10);
+    }
+  });
+
+  it('no repite nombres', () => {
+    const names = tools(buildApi()).map((tool) => tool.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('crea las páginas en borrador salvo que se pida lo contrario', async () => {
+    const api = buildApi();
+
+    await find(api, 'create_page').handler({
+      tenantId: 3,
+      slug: 'nosotros',
+      title: 'Nosotros',
+    });
+
+    expect(api.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/admin/tenants/3/pages',
+      expect.objectContaining({ isPublished: false }),
+    );
+  });
+
+  it('respeta isPublished cuando el agente lo manda explícito', async () => {
+    const api = buildApi();
+
+    await find(api, 'create_page').handler({
+      tenantId: 3,
+      slug: 'x',
+      title: 'X',
+      isPublished: true,
+    });
+
+    expect(api.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/admin/tenants/3/pages',
+      expect.objectContaining({ isPublished: true }),
+    );
+  });
+
+  it('exige confirmación explícita en todo lo que borra', () => {
+    const api = buildApi();
+    for (const name of ['delete_page', 'delete_block']) {
+      const schema = z.object(find(api, name).inputSchema);
+      expect(schema.safeParse({ tenantId: 1, pageId: 1, sectionId: 1 }).success).toBe(
+        false,
+      );
+      expect(
+        schema.safeParse({ tenantId: 1, pageId: 1, sectionId: 1, confirm: true }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('ninguna otra herramienta pide confirmación: solo estorbaría', () => {
+    const api = buildApi();
+    const withConfirm = tools(api)
+      .filter((tool) => 'confirm' in tool.inputSchema)
+      .map((tool) => tool.name);
+    expect(withConfirm.sort()).toEqual(['delete_block', 'delete_page']);
+  });
+
+  it('publicar es una acción separada de editar', async () => {
+    const api = buildApi();
+
+    await find(api, 'publish_page').handler({
+      tenantId: 3,
+      pageId: 7,
+      isPublished: true,
+    });
+
+    expect(api.request).toHaveBeenCalledWith('PATCH', '/api/admin/tenants/3/pages/7', {
+      isPublished: true,
+    });
+  });
+
+  it('no manda tenantId ni pageId dentro del cuerpo al editar un bloque', async () => {
+    const api = buildApi();
+
+    await find(api, 'update_block').handler({
+      tenantId: 3,
+      pageId: 7,
+      sectionId: 12,
+      props: { title: 'Hola' },
+    });
+
+    expect(api.request).toHaveBeenCalledWith(
+      'PATCH',
+      '/api/admin/tenants/3/pages/7/sections/12',
+      { props: { title: 'Hola' } },
+    );
+  });
+
+  it('el catálogo se pide a la API, no se escribe a mano en el MCP', async () => {
+    const api = buildApi();
+
+    await find(api, 'get_catalog').handler({});
+
+    expect(api.request).toHaveBeenCalledWith('GET', '/api/admin/catalog');
+  });
+
+  it('avisa si el cliente pedido no está al alcance de la clave', async () => {
+    const api = buildApi();
+    api.request.mockResolvedValue({
+      tenants: [{ id: 2, slug: 'acme', primaryDomain: null }],
+    });
+
+    await expect(find(api, 'get_preview_url').handler({ tenantId: 9 })).rejects.toThrow(
+      /No existe un cliente con id 9 a tu alcance/,
+    );
+  });
+});

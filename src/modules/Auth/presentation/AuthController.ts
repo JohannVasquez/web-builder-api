@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { LoginSchema } from '../domain/LoginSchema';
 import type { LoginUseCase } from '../application/LoginUseCase';
-import { getRequestAdminUser } from './adminAuthMiddleware';
+import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
 
 export class AuthController {
   constructor(private readonly loginUseCase: LoginUseCase) {}
@@ -12,8 +12,13 @@ export class AuthController {
     res.status(200).json(result);
   };
 
-  /** Detrás de `adminAuthMiddleware`: confirma la sesión y devuelve quién es. */
+  // Detrás del middleware de actor: confirma la sesión (o la clave) y devuelve quién es.
   public readonly me = (_req: Request, res: Response): void => {
-    res.status(200).json({ user: getRequestAdminUser(res) });
+    const actor = getRequestActor(res);
+    res.status(200).json({
+      user: { id: actor.id, name: actor.name },
+      actorType: actor.type,
+      permission: actor.permission,
+    });
   };
 }

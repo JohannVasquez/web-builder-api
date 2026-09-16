@@ -2,6 +2,7 @@ import type { Express, RequestHandler } from 'express';
 import request from 'supertest';
 import { buildApp, type AppControllers } from './app';
 import { UnauthorizedError } from './shared/domain/UnauthorizedError';
+import { setRequestActor } from './modules/ApiKey/presentation/actorMiddleware';
 
 // Prueba de cableado: el bug de SPEC 0.1 estaba en el montaje, no en un controller.
 describe('buildApp (rutas protegidas)', () => {
@@ -22,6 +23,14 @@ describe('buildApp (rutas protegidas)', () => {
       tenantController: { checkDomainAllowed: ok(200) },
       authController: { login: ok(200), me: ok(200) },
       adminTenantController: { list: ok(200) },
+      apiKeyController: {
+        list: ok(200),
+        create: ok(201),
+        revoke: ok(200),
+        regenerate: ok(201),
+      },
+      activityLogController: { list: ok(200) },
+      catalogController: { get: ok(200) },
       adminBrandController: {
         get: ok(200),
         update: ok(200),
@@ -41,17 +50,25 @@ describe('buildApp (rutas protegidas)', () => {
     } as unknown as AppControllers;
   };
 
-  // Acepta `Bearer valido` y rechaza el resto, como el middleware real.
-  const fakeAdminAuth: RequestHandler = (req, _res, next) => {
+  // Acepta `Bearer valido` y rechaza el resto, como el middleware de actor real.
+  const fakeActor: RequestHandler = (req, res, next) => {
     if (req.headers.authorization !== 'Bearer valido') {
       next(new UnauthorizedError('Falta el token de autenticación'));
       return;
     }
+    setRequestActor(res, {
+      type: 'admin',
+      id: 1,
+      name: 'Admin',
+      permission: 'full',
+      tenantScope: null,
+      rateLimitPerMinute: null,
+    });
     next();
   };
 
   const app = (): Express =>
-    buildApp(buildControllers(), ['*'], noop, noop, fakeAdminAuth, noop);
+    buildApp(buildControllers(), ['*'], noop, noop, fakeActor, noop, noop);
 
   it('rechaza subir un archivo sin sesión de administración', async () => {
     const response = await request(app()).post('/api/files');
@@ -86,6 +103,24 @@ describe('buildApp (rutas protegidas)', () => {
 
     expect(uploaded.status).toBe(201);
     expect(removed.status).toBe(204);
+  });
+
+  it('rechaza consultar la actividad sin token', async () => {
+    const response = await request(app()).get('/api/admin/activity');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('rechaza listar claves de acceso sin token', async () => {
+    const response = await request(app()).get('/api/admin/api-keys');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('rechaza consultar el catálogo sin token', async () => {
+    const response = await request(app()).get('/api/admin/catalog');
+
+    expect(response.status).toBe(401);
   });
 
   it('mantiene públicas las rutas de lectura del sitio', async () => {

@@ -65,7 +65,29 @@ import {
 import { LoginUseCase } from './modules/Auth/application/LoginUseCase';
 import { VerifyTokenUseCase } from './modules/Auth/application/VerifyTokenUseCase';
 import { AuthController } from './modules/Auth/presentation/AuthController';
-import { createAdminAuthMiddleware } from './modules/Auth/presentation/adminAuthMiddleware';
+import { ApiKeyRepository } from './modules/ApiKey/domain/ApiKeyRepository';
+import { PrismaApiKeyRepository } from './modules/ApiKey/infrastructure/PrismaApiKeyRepository';
+import { AuthenticateApiKeyUseCase } from './modules/ApiKey/application/AuthenticateApiKeyUseCase';
+import { CreateApiKeyUseCase } from './modules/ApiKey/application/CreateApiKeyUseCase';
+import { ListApiKeysUseCase } from './modules/ApiKey/application/ListApiKeysUseCase';
+import { RevokeApiKeyUseCase } from './modules/ApiKey/application/RevokeApiKeyUseCase';
+import { RegenerateApiKeyUseCase } from './modules/ApiKey/application/RegenerateApiKeyUseCase';
+import { RateLimiter } from './modules/ApiKey/application/RateLimiter';
+import { ApiKeyController } from './modules/ApiKey/presentation/ApiKeyController';
+import { createActorMiddleware } from './modules/ApiKey/presentation/actorMiddleware';
+import { ActivityLogRepository } from './modules/ActivityLog/domain/ActivityLogRepository';
+import { PrismaActivityLogRepository } from './modules/ActivityLog/infrastructure/PrismaActivityLogRepository';
+import { RecordActivityUseCase } from './modules/ActivityLog/application/RecordActivityUseCase';
+import { SearchActivityUseCase } from './modules/ActivityLog/application/SearchActivityUseCase';
+import { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
+import { createActivityRecordingMiddleware } from './modules/ActivityLog/presentation/activityRecordingMiddleware';
+import { CatalogProvider } from './modules/Catalog/domain/CatalogProvider';
+import {
+  CatalogConfig,
+  HttpCatalogProvider,
+} from './modules/Catalog/infrastructure/HttpCatalogProvider';
+import { GetCatalogUseCase } from './modules/Catalog/application/GetCatalogUseCase';
+import { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import { SiteCacheInvalidator } from './modules/SiteCache/domain/SiteCacheInvalidator';
 import {
   HttpSiteCacheInvalidator,
@@ -295,6 +317,51 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([TokenService, AdminUserRepository]);
   builder.registerAndUse(AuthController).withDependencies([LoginUseCase]);
 
+  // ApiKey: el mismo middleware de actor resuelve una sesión de panel o una clave de
+  // agente, para que ambos entren por las mismas rutas con las mismas reglas (Épica 10).
+  builder
+    .register(ApiKeyRepository)
+    .use(PrismaApiKeyRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(RateLimiter)
+    .useFactory(() => new RateLimiter())
+    .asSingleton();
+  builder.registerAndUse(AuthenticateApiKeyUseCase).withDependencies([ApiKeyRepository]);
+  builder.registerAndUse(CreateApiKeyUseCase).withDependencies([ApiKeyRepository]);
+  builder.registerAndUse(ListApiKeysUseCase).withDependencies([ApiKeyRepository]);
+  builder.registerAndUse(RevokeApiKeyUseCase).withDependencies([ApiKeyRepository]);
+  builder.registerAndUse(RegenerateApiKeyUseCase).withDependencies([ApiKeyRepository]);
+  builder
+    .registerAndUse(ApiKeyController)
+    .withDependencies([
+      CreateApiKeyUseCase,
+      ListApiKeysUseCase,
+      RevokeApiKeyUseCase,
+      RegenerateApiKeyUseCase,
+    ]);
+
+  // ActivityLog
+  builder
+    .register(ActivityLogRepository)
+    .use(PrismaActivityLogRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(RecordActivityUseCase).withDependencies([ActivityLogRepository]);
+  builder.registerAndUse(SearchActivityUseCase).withDependencies([ActivityLogRepository]);
+  builder.registerAndUse(ActivityLogController).withDependencies([SearchActivityUseCase]);
+
+  // Catalog: la API solo reexpone lo que declara el frontend, más las tipografías.
+  builder
+    .register(CatalogConfig)
+    .useFactory(() => new CatalogConfig(env.get('WEBAPP_CATALOG_URL')))
+    .asSingleton();
+  builder
+    .register(CatalogProvider)
+    .use(HttpCatalogProvider)
+    .withDependencies([CatalogConfig]);
+  builder.registerAndUse(GetCatalogUseCase).withDependencies([CatalogProvider]);
+  builder.registerAndUse(CatalogController).withDependencies([GetCatalogUseCase]);
+
   return builder.build();
 };
 
@@ -317,12 +384,20 @@ export class Container {
         adminTenantController: this.services.get(AdminTenantController),
         adminPageController: this.services.get(AdminPageController),
         adminBrandController: this.services.get(AdminBrandController),
+        apiKeyController: this.services.get(ApiKeyController),
+        activityLogController: this.services.get(ActivityLogController),
+        catalogController: this.services.get(CatalogController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
       createTenantResolver(this.services.get(ResolveTenantUseCase)),
-      createAdminAuthMiddleware(this.services.get(VerifyTokenUseCase)),
+      createActorMiddleware(
+        this.services.get(VerifyTokenUseCase),
+        this.services.get(AuthenticateApiKeyUseCase),
+        this.services.get(RateLimiter),
+      ),
       createCacheInvalidationMiddleware(this.services.get(InvalidateTenantCacheUseCase)),
+      createActivityRecordingMiddleware(this.services.get(RecordActivityUseCase)),
     );
   }
 

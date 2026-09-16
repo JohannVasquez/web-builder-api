@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { AdminPageController } from './AdminPageController';
 
-/** Montado bajo `/api/admin/tenants/:tenantId/pages`, detrás de `adminAuthMiddleware`. */
+// Montado bajo `/api/admin/tenants/:tenantId/pages`, detrás del middleware de actor.
 export const createAdminPageRouter = (controller: AdminPageController): Router => {
   const router = Router({ mergeParams: true });
 

@@ -42,6 +42,8 @@ const envSchema = z.strictObject({
   // Revalidación de la caché del frontend (SPEC 0.2); vacía = apagada.
   WEBAPP_REVALIDATE_URL: z.string().default(''),
   REVALIDATE_SECRET: z.string().default(''),
+  // Catálogo de bloques y estilos: vive en el frontend, la API solo lo reexpone (SPEC 10.5).
+  WEBAPP_CATALOG_URL: z.string().default(''),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -73,6 +75,7 @@ export class EnvConfig {
       AUTH_TOKEN_TTL_HOURS: source.AUTH_TOKEN_TTL_HOURS,
       WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
       REVALIDATE_SECRET: source.REVALIDATE_SECRET,
+      WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

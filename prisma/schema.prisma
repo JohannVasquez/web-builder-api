@@ -20,6 +20,8 @@ model Tenant {
   navigationLinks NavigationLink[]
   globalSettings  GlobalSetting[]
   brand           TenantBrand?
+  apiKeyScopes    ApiKeyTenant[]
+  activityLogs    ActivityLog[]
 
   @@map("tenants")
 }
@@ -118,6 +120,7 @@ model AdminUser {
   name         String   @db.VarChar(255)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  apiKeys      ApiKey[]
 
   @@map("admin_users")
 }
@@ -156,4 +159,79 @@ model GlobalSetting {
   @@unique([tenantId, key])
   @@index([tenantId])
   @@map("global_settings")
+}
+
+/// Clave de acceso para agentes de IA y herramientas externas. Solo se guarda el hash.
+model ApiKey {
+  id   Int    @id @default(autoincrement())
+  name String @db.VarChar(255)
+
+  /// Parte visible de la clave, para identificarla en el listado sin poder usarla.
+  prefix String @unique @db.VarChar(24)
+  /// SHA-256 de la clave completa. La clave en claro se muestra una sola vez, al crearla.
+  keyHash String @map("key_hash") @db.VarChar(64)
+
+  /// `read` | `write` | `full`. Solo `full` publica y elimina.
+  permission String @db.VarChar(20)
+  /// Falso = la clave solo alcanza los tenants listados en `tenants`.
+  scopeAllTenants Boolean @default(true) @map("scope_all_tenants")
+  /// Techo de peticiones por minuto, para que un agente en bucle no tumbe la API.
+  rateLimitPerMinute Int @default(120) @map("rate_limit_per_minute")
+
+  createdById Int       @map("created_by_id")
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz()
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz()
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  createdBy AdminUser      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  tenants   ApiKeyTenant[]
+
+  @@index([keyHash])
+  @@map("api_keys")
+}
+
+/// Alcance de una clave limitada a ciertos clientes.
+model ApiKeyTenant {
+  apiKeyId Int    @map("api_key_id")
+  tenantId Int    @map("tenant_id")
+  apiKey   ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([apiKeyId, tenantId])
+  @@index([tenantId])
+  @@map("api_key_tenants")
+}
+
+/// Quién cambió qué y cuándo. Persona o agente: el actor se identifica igual en ambos casos.
+model ActivityLog {
+  id Int @id @default(autoincrement())
+
+  /// Nulo en acciones que no son de un cliente concreto (crear un cliente, gestionar claves).
+  tenantId Int? @map("tenant_id")
+
+  /// `admin` | `apiKey`.
+  actorType String  @map("actor_type") @db.VarChar(20)
+  actorId   Int?    @map("actor_id")
+  /// Nombre legible congelado al momento del hecho: borrar la clave no borra su rastro.
+  actorName String  @map("actor_name") @db.VarChar(255)
+
+  /// Verbo del dominio, ej. `page.update`, `brand.update`, `apiKey.revoke`.
+  action     String  @db.VarChar(100)
+  entityType String  @map("entity_type") @db.VarChar(50)
+  entityId   String? @map("entity_id") @db.VarChar(100)
+  summary    String
+
+  /// Estado antes y después, cuando la operación pudo capturarlo. Base del historial (Spec 9.4).
+  before Json?
+  after  Json?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([actorType, actorId])
+  @@index([createdAt])
+  @@map("activity_logs")
 }

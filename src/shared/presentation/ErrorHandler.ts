@@ -4,6 +4,8 @@ import { NotFoundError } from '../domain/NotFoundError';
 import { BadRequestError } from '../domain/BadRequestError';
 import { PayloadTooLargeError } from '../domain/PayloadTooLargeError';
 import { UnauthorizedError } from '../domain/UnauthorizedError';
+import { ForbiddenError } from '../domain/ForbiddenError';
+import { TooManyRequestsError } from '../domain/TooManyRequestsError';
 
 export class ErrorHandler {
   public readonly handle = (
@@ -40,6 +42,21 @@ export class ErrorHandler {
 
     if (error instanceof UnauthorizedError) {
       res.status(401).json({ error: 'Unauthorized', message: error.message });
+      return;
+    }
+
+    if (error instanceof ForbiddenError) {
+      res.status(403).json({ error: 'Forbidden', message: error.message });
+      return;
+    }
+
+    if (error instanceof TooManyRequestsError) {
+      res.setHeader('Retry-After', String(error.retryAfterSeconds));
+      res.status(429).json({
+        error: 'TooManyRequests',
+        message: error.message,
+        retryAfterSeconds: error.retryAfterSeconds,
+      });
       return;
     }
 
