@@ -6,6 +6,7 @@ import {
   requireMethodPermission,
   requirePermission,
   requireRole,
+  requireStaff,
   requireTenantScope,
 } from './actorMiddleware';
 import type { VerifyTokenUseCase } from '../../Auth/application/VerifyTokenUseCase';
@@ -62,6 +63,7 @@ describe('actorMiddleware', () => {
       res.json({ ok: true }),
     );
     app.get('/owner-only', requireRole('owner'), (_req, res) => res.json({ ok: true }));
+    app.get('/staff-only', requireStaff, (_req, res) => res.json({ ok: true }));
     app.use(new ErrorHandler().handle);
     return app;
   };
@@ -330,5 +332,100 @@ describe('actorMiddleware', () => {
     const response = await request(app).get('/owner-only').set('X-Api-Key', 'wb_token');
 
     expect(response.status).toBe(403);
+  });
+
+  it('gives a client actor write permission and their own tenants as scope', async () => {
+    const verify = {
+      execute: jest
+        .fn()
+        .mockResolvedValue(
+          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+        ),
+    } as unknown as jest.Mocked<VerifyTokenUseCase>;
+    const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
+
+    const response = await request(app)
+      .get('/whoami')
+      .set('Authorization', 'Bearer jwt-de-panel');
+
+    expect(response.body).toMatchObject({
+      role: 'client',
+      permission: 'write',
+      tenantScope: [40],
+    });
+  });
+
+  it('keeps a client out of another client', async () => {
+    const verify = {
+      execute: jest
+        .fn()
+        .mockResolvedValue(
+          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+        ),
+    } as unknown as jest.Mocked<VerifyTokenUseCase>;
+    const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
+
+    const own = await request(app)
+      .get('/tenants/40/pages')
+      .set('Authorization', 'Bearer jwt-de-panel');
+    const other = await request(app)
+      .get('/tenants/9/pages')
+      .set('Authorization', 'Bearer jwt-de-panel');
+
+    expect(own.status).toBe(200);
+    expect(other.status).toBe(403);
+  });
+
+  it('answers 403 to a client on an agency-only route', async () => {
+    const verify = {
+      execute: jest
+        .fn()
+        .mockResolvedValue(
+          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+        ),
+    } as unknown as jest.Mocked<VerifyTokenUseCase>;
+    const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
+
+    const response = await request(app)
+      .get('/staff-only')
+      .set('Authorization', 'Bearer jwt-de-panel');
+
+    expect(response.status).toBe(403);
+  });
+
+  it('lets an editor through an agency-only route', async () => {
+    const verify = {
+      execute: jest
+        .fn()
+        .mockResolvedValue(new AdminUser(2, 'pau@a.com', 'Pau', 'hash', 'editor')),
+    } as unknown as jest.Mocked<VerifyTokenUseCase>;
+    const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
+
+    const response = await request(app)
+      .get('/staff-only')
+      .set('Authorization', 'Bearer jwt-de-panel');
+
+    expect(response.status).toBe(200);
+  });
+
+  it('a client cannot delete, because deleting needs full permission', async () => {
+    const verify = {
+      execute: jest
+        .fn()
+        .mockResolvedValue(
+          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+        ),
+    } as unknown as jest.Mocked<VerifyTokenUseCase>;
+    const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
+
+    const write = await request(app)
+      .post('/write')
+      .set('Authorization', 'Bearer jwt-de-panel');
+    const remove = await request(app)
+      .delete('/write')
+      .set('Authorization', 'Bearer jwt-de-panel');
+
+    expect(write.status).toBe(200);
+    expect(remove.status).toBe(403);
   });
 });

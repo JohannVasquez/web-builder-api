@@ -58,15 +58,15 @@ const toAdminActor = async (
   token: string,
 ): Promise<Actor> => {
   const user = await verifyTokenUseCase.execute(token);
-  // Ambos roles editan contenido sin trabas; lo que separa a `owner` de `editor` son las
-  // rutas de administración, protegidas aparte con `requireRole` (Spec 9.2).
+  // La agencia edita sin trabas; una persona de un cliente solo escribe, y solo dentro de
+  // sus propios sitios (Specs 9.2 y 9.2b). Borrar exige `full`, así que no borra nada.
   return {
     type: 'admin',
     id: user.id,
     name: user.name,
-    permission: 'full',
+    permission: user.isStaff() ? 'full' : 'write',
     role: user.role,
-    tenantScope: null,
+    tenantScope: user.tenantScope(),
     rateLimitPerMinute: null,
   };
 };
@@ -103,8 +103,12 @@ export const requirePermission = (required: Permission): RequestHandler => {
   return (_req: Request, res: Response, next: NextFunction): void => {
     const actor = getRequestActor(res);
     if (!permissionAllows(actor.permission, required)) {
+      // El mensaje lo lee una persona o lo procesa un agente: hablarle de "tu clave" a
+      // quien entró con su correo solo confunde.
       throw new ForbiddenError(
-        `Esta acción necesita permiso "${required}" y tu clave tiene "${actor.permission}".`,
+        actor.type === 'apiKey'
+          ? `Esta acción necesita permiso "${required}" y tu clave tiene "${actor.permission}".`
+          : 'No tienes permiso para esta acción. Pídesela a quien administra tu sitio.',
       );
     }
     next();
@@ -123,6 +127,22 @@ export const requireRole = (required: AdminRole): RequestHandler => {
     }
     next();
   };
+};
+
+// Dar de alta clientes, dominios y estados es trabajo de la agencia: una persona con rol
+// `client` entra al panel pero no puede crearse otro sitio ni tocar el dominio del suyo.
+export const requireStaff: RequestHandler = (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const actor = getRequestActor(res);
+  if (actor.role === 'client') {
+    throw new ForbiddenError(
+      'Esta acción es de la agencia. Escríbele a quien administra tu sitio.',
+    );
+  }
+  next();
 };
 
 // Una clave de alcance limitado no puede ni ver ni tocar clientes fuera de su alcance.

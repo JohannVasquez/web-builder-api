@@ -35,6 +35,7 @@ export class ManageAdminUsersUseCase {
       input.name.trim(),
       passwordHash,
       input.role,
+      input.tenantIds,
     );
 
     const token = await this.passwordReset.issue(user.id);
@@ -50,6 +51,7 @@ export class ManageAdminUsersUseCase {
     actorId: number,
     id: number,
     role: AdminRole,
+    tenantIds: readonly number[] = [],
   ): Promise<AdminUserPrimitives> {
     const user = await this.requireUser(id);
     if (user.id === actorId && role !== 'owner') {
@@ -60,7 +62,13 @@ export class ManageAdminUsersUseCase {
     await this.guardLastOwner(user.id, user.role === 'owner' && role !== 'owner');
 
     const updated = await this.adminUserRepository.setRole(id, role);
-    return (updated ?? user).toPrimitives();
+    // El alcance se reescribe con el rol: quien deja de ser cliente no puede quedarse con
+    // una lista vieja esperando a que alguien la borre.
+    const scoped = await this.adminUserRepository.setTenants(
+      id,
+      role === 'client' ? tenantIds : [],
+    );
+    return (scoped ?? updated ?? user).toPrimitives();
   }
 
   public async setDisabled(

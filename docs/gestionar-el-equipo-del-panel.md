@@ -21,6 +21,11 @@ el panel sin dueñas, y nadie puede quitarse a sí misma el rol ni desactivar su
 curl -X POST "$API/api/admin/users" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"email":"pau@ejemplo.cl","name":"Pau","role":"editor"}'
+
+# Una persona de un cliente necesita su alcance:
+curl -X POST "$API/api/admin/users" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"ana@pasteleria.cl","name":"Ana","role":"client","tenantIds":[40]}'
 ```
 
 La cuenta se crea con una contraseña aleatoria que nadie conoce y le llega un correo con un
@@ -30,8 +35,12 @@ enlace para definir la suya. El enlace dura una hora y sirve una sola vez.
 
 ```bash
 curl -X PATCH "$API/api/admin/users/2/role"   -d '{"role":"owner"}'   ...
+curl -X PATCH "$API/api/admin/users/2/role"   -d '{"role":"client","tenantIds":[40]}' ...
 curl -X PATCH "$API/api/admin/users/2/status" -d '{"disabled":true}'  ...
 ```
+
+Cambiar el rol reescribe el alcance: quien deja de ser `client` no se queda con una lista
+vieja de clientes esperando a que alguien la borre.
 
 Desactivar corta el acceso al instante: los tokens que esa persona ya tenía dejan de servir en
 la siguiente petición, no al expirar.

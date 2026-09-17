@@ -26,6 +26,7 @@ import { createApiKeyRouter } from './modules/ApiKey/presentation/apiKeyRouter';
 import {
   requireMethodPermission,
   requireRole,
+  requireStaff,
   requireTenantScope,
 } from './modules/ApiKey/presentation/actorMiddleware';
 import type { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
@@ -269,7 +270,7 @@ export const buildApp = (
   app.use(
     '/api/admin/tenants',
     ...adminGuards,
-    createAdminTenantRouter(controllers.adminTenantController),
+    createAdminTenantRouter(controllers.adminTenantController, requireStaff),
   );
   // `cacheInvalidation` aquí y no en cada caso de uso: cubre toda ruta admin futura (SPEC 0.2).
   app.use(

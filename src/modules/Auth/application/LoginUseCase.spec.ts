@@ -21,6 +21,7 @@ describe('LoginUseCase', () => {
     setRole: jest.fn(),
     setDisabled: jest.fn(),
     setPassword: jest.fn(),
+    setTenants: jest.fn().mockResolvedValue(null),
   });
 
   const buildHasher = (matches: boolean): jest.Mocked<PasswordHasher> => ({
@@ -59,6 +60,7 @@ describe('LoginUseCase', () => {
         name: 'Johann',
         role: 'owner',
         disabled: false,
+        tenantScope: null,
       },
     });
   });

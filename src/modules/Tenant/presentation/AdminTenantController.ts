@@ -7,6 +7,8 @@ import type { ManageTenantUseCase } from '../application/ManageTenantUseCase';
 import { DomainSchema } from '../domain/TenantDomain';
 import { TENANT_STATUSES } from '../domain/Tenant';
 import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
+import { actorReachesTenant } from '../../ApiKey/domain/Actor';
 import { z } from 'zod';
 
 const StatusSchema = z.strictObject({ status: z.enum(TENANT_STATUSES) });
@@ -19,9 +21,13 @@ export class AdminTenantController {
     private readonly manageTenantUseCase: ManageTenantUseCase,
   ) {}
 
+  // Cada actor ve solo los clientes que alcanza: una persona de un cliente no puede
+  // enterarse de que existen los demás, ni siquiera por el selector del panel.
   public readonly list = async (_req: Request, res: Response): Promise<void> => {
     const tenants = await this.listTenantsUseCase.execute();
-    res.status(200).json({ tenants: tenants.map((tenant) => tenant.toPrimitives()) });
+    const actor = getRequestActor(res);
+    const visible = tenants.filter((tenant) => actorReachesTenant(actor, tenant.id));
+    res.status(200).json({ tenants: visible.map((tenant) => tenant.toPrimitives()) });
   };
 
   public readonly create = async (req: Request, res: Response): Promise<void> => {

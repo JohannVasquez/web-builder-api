@@ -21,11 +21,12 @@ export class AdminUserController {
   };
 
   public readonly changeRole = async (req: Request, res: Response): Promise<void> => {
-    const { role } = ChangeRoleSchema.parse(req.body);
+    const { role, tenantIds } = ChangeRoleSchema.parse(req.body);
     const user = await this.useCase.changeRole(
       getRequestActor(res).id,
       this.idOf(req),
       role,
+      tenantIds,
     );
     res.status(200).json({ user });
   };

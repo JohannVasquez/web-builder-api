@@ -31,6 +31,7 @@ describe('ManageAdminUsersUseCase', () => {
     setRole: jest.fn().mockResolvedValue(null),
     setDisabled: jest.fn().mockResolvedValue(null),
     setPassword: jest.fn(),
+    setTenants: jest.fn().mockResolvedValue(null),
   });
 
   const buildPasswordReset = (): jest.Mocked<
@@ -82,8 +83,16 @@ describe('ManageAdminUsersUseCase', () => {
         name: 'Johann',
         role: 'owner',
         disabled: false,
+        tenantScope: null,
       },
-      { id: 2, email: 'pau@webbuilder.co', name: 'Pau', role: 'editor', disabled: false },
+      {
+        id: 2,
+        email: 'pau@webbuilder.co',
+        name: 'Pau',
+        role: 'editor',
+        disabled: false,
+        tenantScope: null,
+      },
     ]);
     expect(JSON.stringify(users)).not.toContain('hash');
   });
@@ -95,6 +104,7 @@ describe('ManageAdminUsersUseCase', () => {
       email: '  Nueva@WebBuilder.co ',
       name: '  Nueva  ',
       role: 'editor',
+      tenantIds: [],
     });
 
     expect(repository.create).toHaveBeenCalledWith(
@@ -102,6 +112,7 @@ describe('ManageAdminUsersUseCase', () => {
       'Nueva',
       'hash-aleatorio',
       'editor',
+      [],
     );
     expect(mailer.sendInvitation).toHaveBeenCalledWith(
       'nueva@webbuilder.co',
@@ -115,7 +126,12 @@ describe('ManageAdminUsersUseCase', () => {
     const { useCase } = build([owner]);
 
     await expect(
-      useCase.invite({ email: 'johann@webbuilder.co', name: 'Otro', role: 'editor' }),
+      useCase.invite({
+        email: 'johann@webbuilder.co',
+        name: 'Otro',
+        role: 'editor',
+        tenantIds: [],
+      }),
     ).rejects.toBeInstanceOf(BadRequestError);
   });
 
@@ -183,5 +199,41 @@ describe('ManageAdminUsersUseCase', () => {
     await expect(useCase.changeRole(1, 99, 'editor')).rejects.toBeInstanceOf(
       NotFoundError,
     );
+  });
+
+  it('invita a una persona de un cliente con su alcance', async () => {
+    const { useCase, repository } = build([owner]);
+
+    await useCase.invite({
+      email: 'ana@pasteleria.cl',
+      name: 'Ana',
+      role: 'client',
+      tenantIds: [40],
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      'ana@pasteleria.cl',
+      'Ana',
+      'hash-aleatorio',
+      'client',
+      [40],
+    );
+  });
+
+  it('reescribe el alcance al cambiar el rol', async () => {
+    const { useCase, repository } = build([owner, editor]);
+
+    await useCase.changeRole(1, 2, 'client', [40, 44]);
+
+    expect(repository.setTenants).toHaveBeenCalledWith(2, [40, 44]);
+  });
+
+  it('borra el alcance cuando alguien deja de ser cliente', async () => {
+    const client = new AdminUser(3, 'ana@pasteleria.cl', 'Ana', 'hash', 'client');
+    const { useCase, repository } = build([owner, client]);
+
+    await useCase.changeRole(1, 3, 'editor');
+
+    expect(repository.setTenants).toHaveBeenCalledWith(3, []);
   });
 });

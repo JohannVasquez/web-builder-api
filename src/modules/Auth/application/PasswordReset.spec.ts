@@ -25,6 +25,7 @@ describe('recuperación de contraseña', () => {
     setRole: jest.fn(),
     setDisabled: jest.fn(),
     setPassword: jest.fn(),
+    setTenants: jest.fn().mockResolvedValue(null),
   });
 
   const buildTickets = (

@@ -9,7 +9,10 @@ interface AdminUserRecord {
   readonly passwordHash: string;
   readonly role: string;
   readonly disabledAt: Date | null;
+  readonly tenants?: readonly { readonly tenantId: number }[];
 }
+
+const withTenants = { tenants: { select: { tenantId: true } } };
 
 export class PrismaAdminUserRepository implements AdminUserRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -17,17 +20,24 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
   public async findByEmail(email: string): Promise<AdminUser | null> {
     const record = await this.prisma.adminUser.findUnique({
       where: { email: email.trim().toLowerCase() },
+      include: withTenants,
     });
     return record === null ? null : this.toDomain(record);
   }
 
   public async findById(id: number): Promise<AdminUser | null> {
-    const record = await this.prisma.adminUser.findUnique({ where: { id } });
+    const record = await this.prisma.adminUser.findUnique({
+      where: { id },
+      include: withTenants,
+    });
     return record === null ? null : this.toDomain(record);
   }
 
   public async findAll(): Promise<AdminUser[]> {
-    const records = await this.prisma.adminUser.findMany({ orderBy: { name: 'asc' } });
+    const records = await this.prisma.adminUser.findMany({
+      orderBy: { name: 'asc' },
+      include: withTenants,
+    });
     return records.map((record) => this.toDomain(record));
   }
 
@@ -36,15 +46,44 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     name: string,
     passwordHash: string,
     role: AdminRole,
+    tenantIds: readonly number[] = [],
   ): Promise<AdminUser> {
     const record = await this.prisma.adminUser.create({
-      data: { email: email.trim().toLowerCase(), name, passwordHash, role },
+      data: {
+        email: email.trim().toLowerCase(),
+        name,
+        passwordHash,
+        role,
+        tenants: { create: tenantIds.map((tenantId) => ({ tenantId })) },
+      },
+      include: withTenants,
     });
     return this.toDomain(record);
   }
 
+  // Se reemplaza la lista completa: "estos son sus clientes ahora", no un parche.
+  public async setTenants(
+    id: number,
+    tenantIds: readonly number[],
+  ): Promise<AdminUser | null> {
+    const record = await this.prisma.$transaction(async (tx) => {
+      await tx.adminUserTenant.deleteMany({ where: { adminUserId: id } });
+      if (tenantIds.length > 0) {
+        await tx.adminUserTenant.createMany({
+          data: tenantIds.map((tenantId) => ({ adminUserId: id, tenantId })),
+        });
+      }
+      return tx.adminUser.findUnique({ where: { id }, include: withTenants });
+    });
+    return record === null ? null : this.toDomain(record);
+  }
+
   public async setRole(id: number, role: AdminRole): Promise<AdminUser | null> {
-    const record = await this.prisma.adminUser.update({ where: { id }, data: { role } });
+    const record = await this.prisma.adminUser.update({
+      where: { id },
+      data: { role },
+      include: withTenants,
+    });
     return this.toDomain(record);
   }
 
@@ -52,6 +91,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     const record = await this.prisma.adminUser.update({
       where: { id },
       data: { disabledAt: disabled ? new Date() : null },
+      include: withTenants,
     });
     return this.toDomain(record);
   }
@@ -75,6 +115,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
       record.passwordHash,
       this.toRole(record.role),
       record.disabledAt,
+      (record.tenants ?? []).map((link) => link.tenantId),
     );
   }
 }

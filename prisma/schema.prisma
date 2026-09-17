@@ -33,6 +33,7 @@ model Tenant {
   storeSettings     StoreSettings?
   coupons           Coupon[]
   orders            Order[]
+  adminUsers        AdminUserTenant[]
 
   @@map("tenants")
 }
@@ -171,15 +172,31 @@ model AdminUser {
   name         String    @db.VarChar(255)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-  /// `owner` gestiona usuarios y claves; `editor` solo contenido de todos los clientes.
+  /// `owner` gestiona usuarios y claves; `editor`, el contenido de todos los clientes;
+  /// `client`, solo el de los suyos (ver `tenants`).
   role         String    @default("owner") @db.VarChar(20)
   /// Un usuario desactivado no entra y sus tokens dejan de valer.
   disabledAt   DateTime? @map("disabled_at") @db.Timestamptz()
 
   apiKeys        ApiKey[]
   passwordResets PasswordReset[]
+  tenants        AdminUserTenant[]
 
   @@map("admin_users")
+}
+
+// Qué clientes alcanza una persona con rol `client`. Para `owner` y `editor` no hay filas:
+// su alcance son todos los clientes.
+model AdminUserTenant {
+  adminUserId Int       @map("admin_user_id")
+  tenantId    Int       @map("tenant_id")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([adminUserId, tenantId])
+  @@index([tenantId])
+  @@map("admin_user_tenants")
 }
 
 /// Identidad de marca y estilo visual del tenant. Todo opcional: sin fila, valores por defecto.

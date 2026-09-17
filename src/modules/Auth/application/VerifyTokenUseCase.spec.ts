@@ -25,6 +25,7 @@ describe('VerifyTokenUseCase', () => {
     setRole: jest.fn(),
     setDisabled: jest.fn(),
     setPassword: jest.fn(),
+    setTenants: jest.fn().mockResolvedValue(null),
   });
 
   it('resolves the admin user for a valid token', async () => {

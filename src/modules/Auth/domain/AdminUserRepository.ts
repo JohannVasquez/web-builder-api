@@ -10,7 +10,12 @@ export abstract class AdminUserRepository {
     name: string,
     passwordHash: string,
     role: AdminRole,
+    tenantIds: readonly number[],
   ): Promise<AdminUser>;
+  public abstract setTenants(
+    id: number,
+    tenantIds: readonly number[],
+  ): Promise<AdminUser | null>;
   public abstract setRole(id: number, role: AdminRole): Promise<AdminUser | null>;
   public abstract setDisabled(id: number, disabled: boolean): Promise<AdminUser | null>;
   public abstract setPassword(id: number, passwordHash: string): Promise<void>;
