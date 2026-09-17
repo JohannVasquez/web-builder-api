@@ -80,9 +80,10 @@ actualizar en el sitio chocaría a la mitad de cualquier reordenamiento.
 
 ## Desde el MCP
 
-`list_pages`, `create_page`, `update_page`, `delete_page`, `add_block`, `update_block`
+`get_site`, `create_page`, `update_page`, `delete_page`, `add_block`, `update_block`
 (incluye `isHidden`), `duplicate_block`, `delete_block`, `reorder_blocks`, `publish_page`,
-`list_versions`, `restore_version`, `get_navigation` y `set_navigation`.
+`unpublish_page`, `list_page_versions`, `restore_page_version`, `get_navigation` y
+`set_navigation`.
 
 Las herramientas que borran exigen `confirm: true` en la misma llamada: un agente no puede
 borrar "de pasada" creyendo que era reversible.
