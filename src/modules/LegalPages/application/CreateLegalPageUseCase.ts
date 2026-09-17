@@ -46,6 +46,7 @@ export class CreateLegalPageUseCase {
         content: fillPlaceholders(template.body, values),
         contentWidth: 'narrow',
       },
+      isHidden: false,
       anchor: null,
     });
   }

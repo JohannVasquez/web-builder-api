@@ -13,6 +13,7 @@ export const createAdminPageRouter = (controller: AdminPageController): Router =
 
   router.post('/:pageId/sections', controller.addSection);
   router.patch('/:pageId/sections/:sectionId', controller.updateSection);
+  router.post('/:pageId/sections/:sectionId/duplicate', controller.duplicateSection);
   router.delete('/:pageId/sections/:sectionId', controller.deleteSection);
   router.put('/:pageId/sections/reorder', controller.reorderSections);
 

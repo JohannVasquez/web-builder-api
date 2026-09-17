@@ -249,6 +249,10 @@ export const buildTools = (api: ApiClient): McpTool[] => {
         position: z.number().int().min(0).optional(),
         props: z.record(z.string(), z.unknown()).optional(),
         anchor: z.string().nullable().optional(),
+        isHidden: z
+          .boolean()
+          .optional()
+          .describe('Oculto: sigue en el borrador y en el panel, pero no sale al sitio'),
       },
       (args) => {
         const { tenantId: id, pageId: page, sectionId, ...body } = args;
@@ -258,6 +262,18 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           body,
         );
       },
+    ),
+
+    tool(
+      'duplicate_block',
+      'Duplicar un bloque',
+      'Copia un bloque justo debajo del original, con el mismo contenido. El ancla no se copia: dos bloques con la misma haría que un enlace del menú apuntara a cualquiera de los dos.',
+      { tenantId, pageId, sectionId: z.number().int().positive() },
+      (args) =>
+        api.request(
+          'POST',
+          `/api/admin/tenants/${String(args.tenantId)}/pages/${String(args.pageId)}/sections/${String(args.sectionId)}/duplicate`,
+        ),
     ),
 
     tool(

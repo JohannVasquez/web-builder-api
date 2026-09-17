@@ -11,6 +11,8 @@ export const PageSnapshotSchema = z.object({
       position: z.number().int(),
       props: z.record(z.string(), z.unknown()),
       anchor: z.string().nullable(),
+      // Las fotos viejas no lo traen: sin él, una sección se da por visible.
+      isHidden: z.boolean().default(false),
     }),
   ),
 });
@@ -27,6 +29,7 @@ export const snapshotOf = (page: Page): PageSnapshot => ({
       position: section.position,
       props: section.props,
       anchor: section.anchor,
+      isHidden: section.isHidden,
     })),
 });
 
@@ -42,7 +45,14 @@ export const pageFromSnapshot = (slug: string, snapshot: unknown): Page | null =
     parsed.data.description,
     parsed.data.sections.map(
       (section) =>
-        new PageSection(section.type, section.position, section.props, section.anchor),
+        new PageSection(
+          section.type,
+          section.position,
+          section.props,
+          section.anchor,
+          undefined,
+          section.isHidden,
+        ),
     ),
   );
 };

@@ -22,6 +22,7 @@ describe('GetPageBySlugUseCase', () => {
     replaceDraft: jest.fn(),
     addSection: jest.fn(),
     updateSection: jest.fn(),
+    duplicateSection: jest.fn(),
     deleteSection: jest.fn(),
     reorderSections: jest.fn(),
   });

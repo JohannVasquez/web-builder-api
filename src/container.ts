@@ -14,6 +14,7 @@ import { UpdatePageUseCase } from './modules/Page/application/UpdatePageUseCase'
 import { DeletePageUseCase } from './modules/Page/application/DeletePageUseCase';
 import { AddSectionUseCase } from './modules/Page/application/AddSectionUseCase';
 import { UpdateSectionUseCase } from './modules/Page/application/UpdateSectionUseCase';
+import { DuplicateSectionUseCase } from './modules/Page/application/DuplicateSectionUseCase';
 import { DeleteSectionUseCase } from './modules/Page/application/DeleteSectionUseCase';
 import { ReorderSectionsUseCase } from './modules/Page/application/ReorderSectionsUseCase';
 import { PageController } from './modules/Page/presentation/PageController';
@@ -370,6 +371,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(AddSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(UpdateSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(DeleteSectionUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(DuplicateSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(ReorderSectionsUseCase).withDependencies([PageRepository]);
   builder
     .register(PageVersionRepository)
@@ -397,6 +399,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       DeletePageUseCase,
       AddSectionUseCase,
       UpdateSectionUseCase,
+      DuplicateSectionUseCase,
       DeleteSectionUseCase,
       ReorderSectionsUseCase,
       PublishPageUseCase,

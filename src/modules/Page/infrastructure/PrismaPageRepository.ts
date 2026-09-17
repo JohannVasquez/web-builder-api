@@ -41,6 +41,7 @@ interface SectionRecord {
   readonly position: number;
   readonly props: unknown;
   readonly anchor: string | null;
+  readonly isHidden: boolean;
 }
 
 const SECTIONS_INCLUDE = { sections: { orderBy: { position: 'asc' as const } } };
@@ -101,6 +102,7 @@ export class PrismaPageRepository implements PageRepository {
               position: index + 1,
               props: asJsonColumn(section.props),
               anchor: section.anchor,
+              isHidden: section.isHidden,
             })),
           },
         },
@@ -191,6 +193,7 @@ export class PrismaPageRepository implements PageRepository {
           position: input.position,
           props: input.props as Prisma.InputJsonValue,
           anchor: input.anchor ?? null,
+          isHidden: input.isHidden,
         },
       });
     } catch (error) {
@@ -217,6 +220,7 @@ export class PrismaPageRepository implements PageRepository {
           position: input.position,
           props: input.props as Prisma.InputJsonValue | undefined,
           anchor: input.anchor,
+          isHidden: input.isHidden,
         },
       });
     } catch (error) {
@@ -225,6 +229,47 @@ export class PrismaPageRepository implements PageRepository {
       }
       throw error;
     }
+    return this.reload(tenantId, pageId);
+  }
+
+  public async duplicateSection(
+    tenantId: number,
+    pageId: number,
+    sectionId: number,
+  ): Promise<Page> {
+    await this.ensureSectionOwnership(tenantId, pageId, sectionId);
+
+    await this.prisma.$transaction(async (tx) => {
+      const original = await tx.pageSection.findUniqueOrThrow({
+        where: { id: sectionId },
+      });
+      // Las posiciones son únicas por página, así que hay que abrir el hueco antes de
+      // escribir la copia. De mayor a menor: al revés chocarían entre ellas.
+      const following = await tx.pageSection.findMany({
+        where: { pageId, position: { gt: original.position } },
+        orderBy: { position: 'desc' },
+      });
+      for (const section of following) {
+        await tx.pageSection.update({
+          where: { id: section.id },
+          data: { position: section.position + 1 },
+        });
+      }
+
+      await tx.pageSection.create({
+        data: {
+          pageId,
+          type: original.type,
+          position: original.position + 1,
+          props: original.props as Prisma.InputJsonValue,
+          // El ancla no se copia: dos secciones con la misma haría que un enlace del menú
+          // apuntara a cualquiera de las dos.
+          anchor: null,
+          isHidden: original.isHidden,
+        },
+      });
+    });
+
     return this.reload(tenantId, pageId);
   }
 
@@ -319,6 +364,7 @@ export class PrismaPageRepository implements PageRepository {
           propsSchema.parse(section.props),
           section.anchor,
           section.id,
+          section.isHidden,
         ),
     );
     return new Page(

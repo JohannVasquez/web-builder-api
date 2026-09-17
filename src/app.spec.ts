@@ -128,6 +128,7 @@ describe('buildApp (rutas protegidas)', () => {
         remove: ok(204),
         addSection: ok(201),
         updateSection: ok(200),
+        duplicateSection: ok(201),
         deleteSection: ok(204),
         reorderSections: ok(200),
         publish: ok(200),

@@ -16,6 +16,7 @@ export const PageSectionInputSchema = z.strictObject({
   position: positionSchema,
   props: propsSchema.default({}),
   anchor: anchorSchema,
+  isHidden: z.boolean().default(false),
 });
 
 export type PageSectionInput = z.infer<typeof PageSectionInputSchema>;
@@ -31,6 +32,7 @@ export const PageSectionUpdateSchema = z.strictObject({
   position: positionSchema.optional(),
   props: propsSchema.optional(),
   anchor: anchorSchema,
+  isHidden: z.boolean().optional(),
 });
 
 export type PageSectionUpdateInput = z.infer<typeof PageSectionUpdateSchema>;

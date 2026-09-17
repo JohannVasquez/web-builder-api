@@ -92,6 +92,8 @@ model PageSection {
   position Int
   props    Json    @default("{}")
   anchor   String? @db.VarChar(100)
+  /// Oculto: sigue en el borrador y en el panel, pero no sale al sitio publicado.
+  isHidden Boolean @default(false) @map("is_hidden")
   page     Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@unique([pageId, position])

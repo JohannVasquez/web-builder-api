@@ -19,16 +19,20 @@ export class GetPageBySlugUseCase {
     // firma recién aquí, en cada lectura, para que nunca quede una URL
     // firmada (de vida corta) guardada en la base de datos (AC del cliente:
     // "siempre" presigned, nunca una URL fija).
+    // Un bloque oculto se descarta antes de firmar: no se muestra y firmar sus imágenes
+    // solo gastaría llamadas al bucket.
     const sections = await Promise.all(
-      page.sections.map(
-        async (section) =>
-          new PageSection(
-            section.type,
-            section.position,
-            await this.resolveImageUrlsUseCase.execute(section.props),
-            section.anchor,
-          ),
-      ),
+      page.sections
+        .filter((section) => !section.isHidden)
+        .map(
+          async (section) =>
+            new PageSection(
+              section.type,
+              section.position,
+              await this.resolveImageUrlsUseCase.execute(section.props),
+              section.anchor,
+            ),
+        ),
     );
 
     return new Page(page.slug, page.title, page.description, sections);

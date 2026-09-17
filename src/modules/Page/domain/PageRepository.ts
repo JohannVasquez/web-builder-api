@@ -44,6 +44,12 @@ export abstract class PageRepository {
     sectionId: number,
     input: PageSectionUpdateInput,
   ): Promise<Page>;
+  // Copia una sección justo debajo de la original, corriendo el resto una posición.
+  public abstract duplicateSection(
+    tenantId: number,
+    pageId: number,
+    sectionId: number,
+  ): Promise<Page>;
   public abstract deleteSection(
     tenantId: number,
     pageId: number,

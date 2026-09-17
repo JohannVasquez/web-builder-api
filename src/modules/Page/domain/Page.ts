@@ -7,6 +7,7 @@ export interface PageSectionPrimitives {
 
 export interface AdminPageSectionPrimitives extends PageSectionPrimitives {
   readonly id: number;
+  readonly isHidden: boolean;
 }
 
 export interface PagePrimitives {
@@ -33,6 +34,8 @@ export class PageSection {
     public readonly anchor: string | null = null,
     /** Ausente en el camino público (AC1.3 no lo necesita); presente en admin. */
     public readonly id?: number,
+    // Oculta: el panel la sigue viendo, el sitio publicado no.
+    public readonly isHidden: boolean = false,
   ) {}
 
   public toPrimitives(): PageSectionPrimitives {
@@ -48,7 +51,7 @@ export class PageSection {
     if (this.id === undefined) {
       throw new Error('PageSection sin id: no se puede serializar para admin');
     }
-    return { id: this.id, ...this.toPrimitives() };
+    return { id: this.id, isHidden: this.isHidden, ...this.toPrimitives() };
   }
 }
 
@@ -69,12 +72,17 @@ export class Page {
     return [...this.sections].sort((a, b) => a.position - b.position);
   }
 
+  // Lo que sale al sitio: una sección oculta no se publica, pero tampoco se pierde.
+  private visibleSections(): readonly PageSection[] {
+    return this.orderedSections().filter((section) => !section.isHidden);
+  }
+
   public toPrimitives(): PagePrimitives {
     return {
       slug: this.slug,
       title: this.title,
       description: this.description,
-      sections: this.orderedSections().map((section) => section.toPrimitives()),
+      sections: this.visibleSections().map((section) => section.toPrimitives()),
     };
   }
 

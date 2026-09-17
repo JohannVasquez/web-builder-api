@@ -9,6 +9,7 @@ import { UpdatePageUseCase } from '../application/UpdatePageUseCase';
 import { DeletePageUseCase } from '../application/DeletePageUseCase';
 import { AddSectionUseCase } from '../application/AddSectionUseCase';
 import { UpdateSectionUseCase } from '../application/UpdateSectionUseCase';
+import { DuplicateSectionUseCase } from '../application/DuplicateSectionUseCase';
 import { DeleteSectionUseCase } from '../application/DeleteSectionUseCase';
 import { ReorderSectionsUseCase } from '../application/ReorderSectionsUseCase';
 import { PublishPageUseCase } from '../application/PublishPageUseCase';
@@ -47,6 +48,7 @@ describe('AdminPageController (HTTP)', () => {
     replaceDraft: jest.fn(),
     addSection: jest.fn().mockResolvedValue(buildPage()),
     updateSection: jest.fn().mockResolvedValue(buildPage()),
+    duplicateSection: jest.fn().mockResolvedValue(buildPage()),
     deleteSection: jest.fn().mockResolvedValue(buildPage()),
     reorderSections: jest.fn().mockResolvedValue(buildPage()),
   });
@@ -67,6 +69,7 @@ describe('AdminPageController (HTTP)', () => {
       new DeletePageUseCase(repository),
       new AddSectionUseCase(repository),
       new UpdateSectionUseCase(repository),
+      new DuplicateSectionUseCase(repository),
       new DeleteSectionUseCase(repository),
       new ReorderSectionsUseCase(repository),
       new PublishPageUseCase(repository, versionRepository),

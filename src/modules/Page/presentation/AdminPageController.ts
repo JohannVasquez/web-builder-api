@@ -13,6 +13,7 @@ import type { PublishPageUseCase } from '../application/PublishPageUseCase';
 import type { ListPageVersionsUseCase } from '../application/ListPageVersionsUseCase';
 import type { RestorePageVersionUseCase } from '../application/RestorePageVersionUseCase';
 import type { RecordPageVersionUseCase } from '../application/RecordPageVersionUseCase';
+import type { DuplicateSectionUseCase } from '../application/DuplicateSectionUseCase';
 import type { PageVersionActor } from '../domain/PageVersionRepository';
 import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
 import type { Page } from '../domain/Page';
@@ -51,6 +52,7 @@ export class AdminPageController {
     private readonly deletePageUseCase: DeletePageUseCase,
     private readonly addSectionUseCase: AddSectionUseCase,
     private readonly updateSectionUseCase: UpdateSectionUseCase,
+    private readonly duplicateSectionUseCase: DuplicateSectionUseCase,
     private readonly deleteSectionUseCase: DeleteSectionUseCase,
     private readonly reorderSectionsUseCase: ReorderSectionsUseCase,
     private readonly publishPageUseCase: PublishPageUseCase,
@@ -118,6 +120,16 @@ export class AdminPageController {
     );
     await this.remember(res, page, 'Editó un bloque');
     res.status(200).json({ page: page.toAdminPrimitives() });
+  };
+
+  public readonly duplicateSection = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const { tenantId, pageId, sectionId } = sectionParamsSchema.parse(req.params);
+    const page = await this.duplicateSectionUseCase.execute(tenantId, pageId, sectionId);
+    await this.remember(res, page, 'Duplicó un bloque');
+    res.status(201).json({ page: page.toAdminPrimitives() });
   };
 
   public readonly deleteSection = async (req: Request, res: Response): Promise<void> => {
