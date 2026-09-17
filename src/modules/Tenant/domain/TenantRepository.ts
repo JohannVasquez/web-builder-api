@@ -1,5 +1,6 @@
-import type { Tenant } from './Tenant';
+import type { Tenant, TenantStatus } from './Tenant';
 import type { SiteContent } from './SiteContent';
+import type { TenantDomainRecord } from './TenantDomain';
 
 /**
  * Clase abstracta usada como token de inyección de dependencias (diod).
@@ -22,4 +23,22 @@ export abstract class TenantRepository {
   ): Promise<Tenant>;
   // Lee el sitio completo de un cliente, para poder copiarlo a otro.
   public abstract readContent(tenantId: number): Promise<SiteContent | null>;
+
+  public abstract setStatus(tenantId: number, status: TenantStatus): Promise<Tenant>;
+  public abstract listDomains(tenantId: number): Promise<TenantDomainRecord[]>;
+  public abstract addDomain(
+    tenantId: number,
+    domain: string,
+    verified: boolean,
+  ): Promise<TenantDomainRecord>;
+  public abstract markDomainVerified(
+    tenantId: number,
+    domainId: number,
+  ): Promise<TenantDomainRecord>;
+  // Solo uno puede ser el canónico: marcar uno desmarca al anterior en la misma operación.
+  public abstract setPrimaryDomain(
+    tenantId: number,
+    domainId: number,
+  ): Promise<TenantDomainRecord>;
+  public abstract deleteDomain(tenantId: number, domainId: number): Promise<void>;
 }

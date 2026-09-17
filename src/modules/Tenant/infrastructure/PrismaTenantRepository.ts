@@ -1,5 +1,8 @@
 import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
-import { Tenant } from '../domain/Tenant';
+import { Tenant, TENANT_STATUSES, type TenantStatus } from '../domain/Tenant';
+import { TenantDomainRecord } from '../domain/TenantDomain';
+import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { BadRequestError } from '../../../shared/domain/BadRequestError';
 import type { SiteContent } from '../domain/SiteContent';
 import { TenantSlugConflictError } from '../domain/TenantSlugConflictError';
 
@@ -16,8 +19,22 @@ interface TenantRecord {
   readonly id: number;
   readonly slug: string;
   readonly name: string;
+  readonly status: string;
   readonly domains: readonly { readonly domain: string }[];
 }
+
+const toStatus = (value: string): TenantStatus =>
+  (TENANT_STATUSES as readonly string[]).includes(value)
+    ? (value as TenantStatus)
+    : 'active';
+
+const toDomainRecord = (record: {
+  id: number;
+  domain: string;
+  isPrimary: boolean;
+  verifiedAt: Date | null;
+}): TenantDomainRecord =>
+  new TenantDomainRecord(record.id, record.domain, record.isPrimary, record.verifiedAt);
 
 export class PrismaTenantRepository implements TenantRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -210,12 +227,124 @@ export class PrismaTenantRepository implements TenantRepository {
     };
   }
 
+  public async setStatus(tenantId: number, status: TenantStatus): Promise<Tenant> {
+    const record = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { status },
+      include: { domains: { where: { isPrimary: true }, take: 1 } },
+    });
+    return this.toDomain(record);
+  }
+
+  public async listDomains(tenantId: number): Promise<TenantDomainRecord[]> {
+    const records = await this.prisma.tenantDomain.findMany({
+      where: { tenantId },
+      orderBy: [{ isPrimary: 'desc' }, { domain: 'asc' }],
+    });
+    return records.map(toDomainRecord);
+  }
+
+  public async addDomain(
+    tenantId: number,
+    domain: string,
+    verified: boolean,
+  ): Promise<TenantDomainRecord> {
+    const taken = await this.prisma.tenantDomain.findUnique({ where: { domain } });
+    if (taken !== null) {
+      throw new BadRequestError(
+        taken.tenantId === tenantId
+          ? 'Ese dominio ya está en la lista de este cliente.'
+          : 'Ese dominio ya está tomado por otro cliente.',
+      );
+    }
+
+    // El primer dominio de un cliente es su canónico: si no, el sitio no sabría con qué
+    // dirección construir sus URLs absolutas.
+    const isFirst = (await this.prisma.tenantDomain.count({ where: { tenantId } })) === 0;
+    const record = await this.prisma.tenantDomain.create({
+      data: {
+        tenantId,
+        domain,
+        isPrimary: isFirst,
+        verifiedAt: verified ? new Date() : null,
+      },
+    });
+    return toDomainRecord(record);
+  }
+
+  public async markDomainVerified(
+    tenantId: number,
+    domainId: number,
+  ): Promise<TenantDomainRecord> {
+    await this.requireDomain(tenantId, domainId);
+    const record = await this.prisma.tenantDomain.update({
+      where: { id: domainId },
+      data: { verifiedAt: new Date() },
+    });
+    return toDomainRecord(record);
+  }
+
+  public async setPrimaryDomain(
+    tenantId: number,
+    domainId: number,
+  ): Promise<TenantDomainRecord> {
+    const current = await this.requireDomain(tenantId, domainId);
+    if (current.verifiedAt === null) {
+      throw new BadRequestError(
+        'Un dominio sin verificar no puede ser el principal: todavía no resuelve tráfico.',
+      );
+    }
+
+    const record = await this.prisma.$transaction(async (tx) => {
+      await tx.tenantDomain.updateMany({
+        where: { tenantId },
+        data: { isPrimary: false },
+      });
+      return tx.tenantDomain.update({
+        where: { id: domainId },
+        data: { isPrimary: true },
+      });
+    });
+    return toDomainRecord(record);
+  }
+
+  public async deleteDomain(tenantId: number, domainId: number): Promise<void> {
+    const current = await this.requireDomain(tenantId, domainId);
+    const total = await this.prisma.tenantDomain.count({ where: { tenantId } });
+    if (current.isPrimary && total > 1) {
+      throw new BadRequestError(
+        'Marca otro dominio como principal antes de borrar este.',
+      );
+    }
+    await this.prisma.tenantDomain.delete({ where: { id: domainId } });
+  }
+
+  // Un id adivinado no puede alcanzar el dominio de otro cliente.
+  private async requireDomain(
+    tenantId: number,
+    domainId: number,
+  ): Promise<{
+    id: number;
+    isPrimary: boolean;
+    verifiedAt: Date | null;
+    domain: string;
+  }> {
+    const record = await this.prisma.tenantDomain.findFirst({
+      where: { id: domainId, tenantId },
+    });
+    if (record === null) {
+      throw new NotFoundError('Ese dominio no existe.');
+    }
+    return record;
+  }
+
   private toDomain(record: TenantRecord): Tenant {
     return new Tenant(
       record.id,
       record.slug,
       record.name,
       record.domains[0]?.domain ?? null,
+      toStatus(record.status),
     );
   }
 }

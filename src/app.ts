@@ -11,6 +11,7 @@ import { createContactRouter } from './modules/Contact/presentation/contactRoute
 import type { FileController } from './modules/FileStorage/presentation/FileController';
 import { createFileRouter } from './modules/FileStorage/presentation/fileRouter';
 import type { TenantController } from './modules/Tenant/presentation/TenantController';
+import { siteAvailability } from './modules/Tenant/presentation/siteAvailability';
 import { createTenantInternalRouter } from './modules/Tenant/presentation/tenantRouter';
 import type { AuthController } from './modules/Auth/presentation/AuthController';
 import type { AdminUserController } from './modules/Auth/presentation/AdminUserController';
@@ -114,42 +115,59 @@ export const buildApp = (
   app.use('/internal', createTenantInternalRouter(controllers.tenantController));
 
   // Rutas scoped por tenant: el resolver deja el tenant en res.locals.
-  app.use('/api/pages', tenantResolver, createPageRouter(controllers.pageController));
+  app.use(
+    '/api/pages',
+    tenantResolver,
+    siteAvailability,
+    createPageRouter(controllers.pageController),
+  );
   app.use(
     '/api/settings',
     tenantResolver,
+    siteAvailability,
     createGlobalSettingsRouter(controllers.globalSettingsController),
   );
   app.use(
     '/api/navigation',
     tenantResolver,
+    siteAvailability,
     createNavigationRouter(controllers.navigationController),
   );
   app.use(
     '/api/contact',
     tenantResolver,
+    siteAvailability,
     createContactRouter(controllers.contactController),
   );
   // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
-  app.use('/api/blog', tenantResolver, createBlogRouter(controllers.blogController));
+  app.use(
+    '/api/blog',
+    tenantResolver,
+    siteAvailability,
+    createBlogRouter(controllers.blogController),
+  );
   app.use(
     '/api/products',
     tenantResolver,
+    siteAvailability,
     createStoreRouter(controllers.storeController),
   );
   app.use(
     '/api/store',
     tenantResolver,
+    siteAvailability,
     createCheckoutRouter(controllers.checkoutController),
   );
   app.use(
     '/api/product-categories',
     tenantResolver,
+    siteAvailability,
     createProductCategoryRouter(controllers.storeController),
   );
   app.use(
     '/api/newsletter',
     tenantResolver,
+    siteAvailability,
     createNewsletterRouter(controllers.newsletterController),
   );
   app.use(

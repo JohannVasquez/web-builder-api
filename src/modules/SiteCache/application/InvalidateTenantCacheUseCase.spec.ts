@@ -11,6 +11,12 @@ describe('InvalidateTenantCacheUseCase', () => {
     findById: jest.fn(),
     createWithContent: jest.fn(),
     readContent: jest.fn(),
+    setStatus: jest.fn(),
+    listDomains: jest.fn(),
+    addDomain: jest.fn(),
+    markDomainVerified: jest.fn(),
+    setPrimaryDomain: jest.fn(),
+    deleteDomain: jest.fn(),
   });
 
   it('invalida TODOS los dominios del tenant, no solo el principal', async () => {

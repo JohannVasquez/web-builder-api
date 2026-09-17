@@ -44,6 +44,10 @@ const envSchema = z.strictObject({
   // Revalidación de la caché del frontend (SPEC 0.2); vacía = apagada.
   WEBAPP_REVALIDATE_URL: z.string().default(''),
   REVALIDATE_SECRET: z.string().default(''),
+  // Dominio de la plataforma: sus subdominios se dan por verificados (SPEC 9.3).
+  PLATFORM_DOMAIN: z.string().min(1).default('localhost'),
+  // A dónde tiene que apuntar el DNS del dominio propio de un cliente.
+  PLATFORM_SITE_TARGET: z.string().min(1).default('sitios.webbuilder.co'),
   // Catálogo de bloques y estilos: vive en el frontend, la API solo lo reexpone (SPEC 10.5).
   WEBAPP_CATALOG_URL: z.string().default(''),
 });
@@ -79,6 +83,8 @@ export class EnvConfig {
       WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
       REVALIDATE_SECRET: source.REVALIDATE_SECRET,
       WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,
+      PLATFORM_DOMAIN: source.PLATFORM_DOMAIN,
+      PLATFORM_SITE_TARGET: source.PLATFORM_SITE_TARGET,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

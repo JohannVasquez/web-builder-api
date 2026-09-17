@@ -550,6 +550,63 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'set_site_status',
+      'Pausar o reactivar un sitio',
+      'Cambia el estado del sitio de un cliente. "active" lo sirve normal; "paused" y "building" muestran una página de mantención sin borrar nada. Reactivarlo lo devuelve tal cual estaba.',
+      { tenantId, status: z.enum(['active', 'paused', 'building']) },
+      (args) =>
+        api.request('PATCH', `/api/admin/tenants/${String(args.tenantId)}/status`, {
+          status: args.status,
+        }),
+    ),
+
+    tool(
+      'list_domains',
+      'Ver los dominios de un cliente',
+      'Lista los dominios del cliente con si están verificados, cuál es el principal y los registros DNS que hay que crear.',
+      { tenantId },
+      (args) => api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/domains`),
+    ),
+
+    tool(
+      'add_domain',
+      'Agregar un dominio',
+      'Agrega un dominio propio del cliente y devuelve los registros DNS que tiene que crear. Un subdominio de la plataforma queda verificado solo; un dominio propio nace sin verificar y no resuelve tráfico hasta que se verifica.',
+      {
+        tenantId,
+        domain: z.string().describe('Sin protocolo ni puerto, ej. mitienda.cl'),
+      },
+      (args) =>
+        api.request('POST', `/api/admin/tenants/${String(args.tenantId)}/domains`, {
+          domain: args.domain,
+        }),
+    ),
+
+    tool(
+      'verify_domain',
+      'Verificar un dominio',
+      'Consulta el DNS y, si encuentra el registro TXT que corresponde, marca el dominio como verificado. Los cambios de DNS pueden demorar horas en propagarse.',
+      { tenantId, domainId: z.number().int().positive() },
+      (args) =>
+        api.request(
+          'POST',
+          `/api/admin/tenants/${String(args.tenantId)}/domains/${String(args.domainId)}/verify`,
+        ),
+    ),
+
+    tool(
+      'set_primary_domain',
+      'Marcar el dominio principal',
+      'Define cuál de los dominios del cliente es el canónico, el que se usa para construir las URLs absolutas del sitio. Tiene que estar verificado.',
+      { tenantId, domainId: z.number().int().positive() },
+      (args) =>
+        api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(args.tenantId)}/domains/${String(args.domainId)}/primary`,
+        ),
+    ),
+
+    tool(
       'get_store_settings',
       'Ver la configuración de la tienda',
       'Muestra si el cliente tiene tienda encendida, sus formas de envío, su medio de pago y si ya cargó sus datos de cobro (nunca devuelve las credenciales).',

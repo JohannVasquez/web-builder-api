@@ -138,6 +138,12 @@ describe('CreateTenantUseCase (lo publicado)', () => {
         .fn()
         .mockResolvedValue(new Tenant(3, 'nuevo', 'Nuevo', 'nuevo.cl')),
       readContent: jest.fn(),
+      setStatus: jest.fn(),
+      listDomains: jest.fn(),
+      addDomain: jest.fn(),
+      markDomainVerified: jest.fn(),
+      setPrimaryDomain: jest.fn(),
+      deleteDomain: jest.fn(),
     } as unknown as jest.Mocked<TenantRepository>;
     const source = {
       fromTemplate: jest.fn().mockResolvedValue({

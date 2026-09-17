@@ -55,6 +55,12 @@ import { SiteContentSource } from './modules/Tenant/domain/SiteContentSource';
 import { TemplateSiteContentSource } from './modules/Tenant/infrastructure/TemplateSiteContentSource';
 import { TenantController } from './modules/Tenant/presentation/TenantController';
 import { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
+import {
+  ManageTenantUseCase,
+  PlatformDomainConfig,
+} from './modules/Tenant/application/ManageTenantUseCase';
+import { DomainVerifier } from './modules/Tenant/domain/DomainVerifier';
+import { DnsDomainVerifier } from './modules/Tenant/infrastructure/DnsDomainVerifier';
 import { createTenantResolver } from './modules/Tenant/presentation/tenantResolver';
 import { StorageProvider } from './modules/FileStorage/domain/StorageProvider';
 import { StorageAssetRepository } from './modules/FileStorage/domain/StorageAssetRepository';
@@ -243,11 +249,29 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([TenantRepository, SiteContentSource]);
   builder.registerAndUse(ListSiteTemplatesUseCase).withDependencies([SiteContentSource]);
   builder
+    .register(PlatformDomainConfig)
+    .useFactory(
+      () =>
+        new PlatformDomainConfig(
+          env.get('PLATFORM_DOMAIN'),
+          env.get('PLATFORM_SITE_TARGET'),
+        ),
+    )
+    .asSingleton();
+  builder
+    .register(DomainVerifier)
+    .useFactory(() => new DnsDomainVerifier(env.get('AUTH_JWT_SECRET')))
+    .asSingleton();
+  builder
+    .registerAndUse(ManageTenantUseCase)
+    .withDependencies([TenantRepository, DomainVerifier, PlatformDomainConfig]);
+  builder
     .registerAndUse(AdminTenantController)
     .withDependencies([
       ListTenantsUseCase,
       CreateTenantUseCase,
       ListSiteTemplatesUseCase,
+      ManageTenantUseCase,
     ]);
 
   // SiteCache: cada escritura admin avisa al frontend qué dominios invalidar (SPEC 0.2).

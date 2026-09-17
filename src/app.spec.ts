@@ -3,10 +3,17 @@ import request from 'supertest';
 import { buildApp, type AppControllers } from './app';
 import { UnauthorizedError } from './shared/domain/UnauthorizedError';
 import { setRequestActor } from './modules/ApiKey/presentation/actorMiddleware';
+import { Tenant } from './modules/Tenant/domain/Tenant';
 
 // Prueba de cableado: el bug de SPEC 0.1 estaba en el montaje, no en un controller.
 describe('buildApp (rutas protegidas)', () => {
   const noop: RequestHandler = (_req, _res, next) => next();
+
+  // Las rutas públicas pasan por `siteAvailability`, que necesita un tenant resuelto.
+  const fakeTenantResolver: RequestHandler = (_req, res, next) => {
+    (res.locals as { tenant?: Tenant }).tenant = new Tenant(1, 'demo', 'Demo', null);
+    next();
+  };
 
   const buildControllers = (): AppControllers => {
     const ok =
@@ -26,6 +33,17 @@ describe('buildApp (rutas protegidas)', () => {
         me: ok(200),
         forgotPassword: ok(200),
         resetPassword: ok(200),
+      },
+      adminTenantController: {
+        list: ok(200),
+        create: ok(201),
+        listTemplates: ok(200),
+        changeStatus: ok(200),
+        listDomains: ok(200),
+        addDomain: ok(201),
+        verifyDomain: ok(200),
+        setPrimaryDomain: ok(200),
+        removeDomain: ok(204),
       },
       checkoutController: {
         settings: ok(200),
@@ -51,7 +69,6 @@ describe('buildApp (rutas protegidas)', () => {
         changeRole: ok(200),
         setDisabled: ok(200),
       },
-      adminTenantController: { list: ok(200), create: ok(201), listTemplates: ok(200) },
       apiKeyController: {
         list: ok(200),
         create: ok(201),
@@ -139,7 +156,7 @@ describe('buildApp (rutas protegidas)', () => {
   };
 
   const app = (): Express =>
-    buildApp(buildControllers(), ['*'], noop, noop, fakeActor, noop, noop);
+    buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop);
 
   it('rechaza subir un archivo sin sesión de administración', async () => {
     const response = await request(app()).post('/api/files');
