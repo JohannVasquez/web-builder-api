@@ -17,6 +17,8 @@ export interface ProductView {
   readonly variants: readonly { name: string; options: readonly string[] }[];
   readonly categoryId: number | null;
   readonly whatsappOrderUrl: string | null;
+  readonly stock: number | null;
+  readonly isSoldOut: boolean;
 }
 
 export type SignKeys = (keys: readonly string[]) => Promise<string[]>;
@@ -52,6 +54,8 @@ export const toProductView = async (
   hasDiscount: hasDiscount(product.priceCents, product.salePriceCents),
   variants: product.variants,
   categoryId: product.categoryId,
+  stock: product.stock,
+  isSoldOut: product.isSoldOut(),
   whatsappOrderUrl: buildWhatsAppOrderUrl({
     whatsappNumber: context.whatsappNumber,
     productName: product.name,
