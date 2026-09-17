@@ -83,6 +83,7 @@ describe('herramientas del MCP', () => {
       .map((tool) => tool.name);
     expect(withConfirm.sort()).toEqual([
       'delete_block',
+      'delete_coupon',
       'delete_page',
       'delete_post',
       'delete_product',

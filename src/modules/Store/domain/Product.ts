@@ -17,6 +17,9 @@ export interface ProductPrimitives {
   readonly isActive: boolean;
   readonly featured: boolean;
   readonly position: number;
+  // `null` = la tienda no controla stock de este producto.
+  readonly stock: number | null;
+  readonly isSoldOut: boolean;
 }
 
 export class Product {
@@ -34,7 +37,20 @@ export class Product {
     public readonly isActive: boolean,
     public readonly featured: boolean,
     public readonly position: number,
+    public readonly stock: number | null = null,
   ) {}
+
+  public isSoldOut(): boolean {
+    return this.stock !== null && this.stock <= 0;
+  }
+
+  public hasStockFor(quantity: number): boolean {
+    return this.stock === null || this.stock >= quantity;
+  }
+
+  public unitPriceCents(): number {
+    return this.salePriceCents ?? this.priceCents;
+  }
 
   public toPrimitives(): ProductPrimitives {
     return {
@@ -51,6 +67,8 @@ export class Product {
       isActive: this.isActive,
       featured: this.featured,
       position: this.position,
+      stock: this.stock,
+      isSoldOut: this.isSoldOut(),
     };
   }
 }

@@ -519,6 +519,13 @@ export const buildTools = (api: ApiClient): McpTool[] => {
         imageKeys: z.array(z.string()).optional(),
         featured: z.boolean().optional(),
         isActive: z.boolean().optional(),
+        stock: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('Unidades disponibles; null = no se controla stock'),
       },
       (args) => {
         const { tenantId: id, productId, ...body } = args;
@@ -539,6 +546,197 @@ export const buildTools = (api: ApiClient): McpTool[] => {
         api.request(
           'DELETE',
           `/api/admin/tenants/${String(args.tenantId)}/products/${String(args.productId)}`,
+        ),
+    ),
+
+    tool(
+      'get_store_settings',
+      'Ver la configuración de la tienda',
+      'Muestra si el cliente tiene tienda encendida, sus formas de envío, su medio de pago y si ya cargó sus datos de cobro (nunca devuelve las credenciales).',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/store/settings`),
+    ),
+
+    tool(
+      'update_store_settings',
+      'Configurar la tienda',
+      'Enciende o apaga la tienda y define envíos, impuesto y medio de cobro. Los precios van en pesos enteros. Con paymentProvider "transfer" las credenciales son los datos bancarios que se le muestran al comprador; con "flow", apiKey y secretKey de la cuenta Flow del propio cliente.',
+      {
+        tenantId,
+        isEnabled: z
+          .boolean()
+          .optional()
+          .describe('Apagada, el sitio no muestra nada de tienda'),
+        currency: z.string().length(3).optional(),
+        taxIncluded: z
+          .boolean()
+          .optional()
+          .describe('En Chile lo normal es true: los precios ya traen IVA'),
+        taxRatePercent: z.number().int().min(0).max(100).optional(),
+        shippingOptions: z
+          .array(
+            z.object({
+              code: z.string(),
+              name: z.string(),
+              priceCents: z.number().int().min(0),
+              estimate: z.string().nullable().optional(),
+              requiresAddress: z.boolean().optional(),
+            }),
+          )
+          .optional(),
+        freeShippingThresholdCents: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('Desde cuánto el envío sale gratis'),
+        paymentProvider: z.enum(['none', 'transfer', 'flow']).optional(),
+        paymentCredentials: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe('Datos de la cuenta de cobro del cliente; no se devuelven nunca'),
+        notificationEmail: z
+          .email()
+          .nullable()
+          .optional()
+          .describe('A quién le avisamos cuando entra un pedido'),
+      },
+      (args) => {
+        const { tenantId: id, ...body } = args;
+        return api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(id)}/store/settings`,
+          body,
+        );
+      },
+    ),
+
+    tool(
+      'list_orders',
+      'Ver los pedidos',
+      'Lista los pedidos de un cliente, del más nuevo al más viejo, con su estado y sus totales.',
+      {
+        tenantId,
+        status: z
+          .enum(['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'])
+          .optional(),
+        page: z.number().int().min(1).optional(),
+        perPage: z.number().int().min(1).max(100).optional(),
+      },
+      (args) => {
+        const { tenantId: id, ...query } = args;
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(query)) {
+          if (typeof value === 'string' || typeof value === 'number') {
+            params.set(key, String(value));
+          }
+        }
+        return api.request(
+          'GET',
+          `/api/admin/tenants/${String(id)}/store/orders?${params.toString()}`,
+        );
+      },
+    ),
+
+    tool(
+      'update_order_status',
+      'Cambiar el estado de un pedido',
+      'Avanza un pedido: pending → paid → preparing → shipped → delivered, y cancelled hasta antes de entregar. Marcarlo pagado descuenta stock, gasta el cupón y manda los correos de confirmación.',
+      {
+        tenantId,
+        orderId: z.number().int().positive(),
+        status: z.enum([
+          'pending',
+          'paid',
+          'preparing',
+          'shipped',
+          'delivered',
+          'cancelled',
+        ]),
+      },
+      (args) =>
+        api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(args.tenantId)}/store/orders/${String(args.orderId)}/status`,
+          { status: args.status },
+        ),
+    ),
+
+    tool(
+      'sales_report',
+      'Ver el reporte de ventas',
+      'Ventas por día y productos más vendidos en un período. Sin fechas, toma los últimos 30 días. Solo cuenta pedidos pagados.',
+      {
+        tenantId,
+        from: z.string().optional().describe('Fecha ISO, ej. 2026-01-01'),
+        to: z.string().optional(),
+      },
+      (args) => {
+        const params = new URLSearchParams();
+        for (const key of ['from', 'to'] as const) {
+          const value = args[key];
+          if (typeof value === 'string') {
+            params.set(key, value);
+          }
+        }
+        return api.request(
+          'GET',
+          `/api/admin/tenants/${String(args.tenantId)}/store/report?${params.toString()}`,
+        );
+      },
+    ),
+
+    tool(
+      'list_coupons',
+      'Ver los cupones',
+      'Lista los cupones de descuento del cliente, con cuántas veces se usó cada uno.',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/store/coupons`),
+    ),
+
+    tool(
+      'create_coupon',
+      'Crear un cupón',
+      'Crea un cupón de descuento. "percentage" descuenta ese porcentaje del subtotal; "amount" descuenta esos pesos. El código se guarda siempre en mayúsculas.',
+      {
+        tenantId,
+        code: z.string().describe('Ej. VERANO25'),
+        discountType: z.enum(['percentage', 'amount']),
+        value: z.number().int().positive().describe('Porcentaje o pesos, según el tipo'),
+        minimumCents: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('Compra mínima para que sirva'),
+        startsAt: z.string().nullable().optional().describe('Fecha ISO'),
+        endsAt: z.string().nullable().optional().describe('Fecha ISO'),
+        maxUses: z.number().int().positive().nullable().optional(),
+        isActive: z.boolean().optional(),
+      },
+      (args) => {
+        const { tenantId: id, ...body } = args;
+        return api.request(
+          'POST',
+          `/api/admin/tenants/${String(id)}/store/coupons`,
+          body,
+        );
+      },
+    ),
+
+    tool(
+      'delete_coupon',
+      'Eliminar un cupón',
+      'Borra un cupón. Requiere permiso "full" y confirmación explícita. Si solo quieres dejar de ofrecerlo, márcalo inactivo.',
+      { tenantId, couponId: z.number().int().positive(), confirm },
+      (args) =>
+        api.request(
+          'DELETE',
+          `/api/admin/tenants/${String(args.tenantId)}/store/coupons/${String(args.couponId)}`,
         ),
     ),
 

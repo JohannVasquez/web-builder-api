@@ -122,6 +122,26 @@ import { GetCatalogUseCase } from './modules/Catalog/application/GetCatalogUseCa
 import { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import { ProductRepository } from './modules/Store/domain/ProductRepository';
 import { PrismaProductRepository } from './modules/Store/infrastructure/PrismaProductRepository';
+import { StoreSettingsRepository } from './modules/Store/domain/StoreSettingsRepository';
+import { PrismaStoreSettingsRepository } from './modules/Store/infrastructure/PrismaStoreSettingsRepository';
+import { CouponRepository } from './modules/Store/domain/CouponRepository';
+import { PrismaCouponRepository } from './modules/Store/infrastructure/PrismaCouponRepository';
+import { OrderRepository } from './modules/Store/domain/OrderRepository';
+import { PrismaOrderRepository } from './modules/Store/infrastructure/PrismaOrderRepository';
+import { OrderMailer } from './modules/Store/domain/OrderMailer';
+import { SmtpOrderMailer } from './modules/Store/infrastructure/SmtpOrderMailer';
+import { PaymentGatewayRegistry } from './modules/Store/domain/PaymentGateway';
+import { DefaultPaymentGatewayRegistry } from './modules/Store/infrastructure/DefaultPaymentGatewayRegistry';
+import { FlowPaymentGateway } from './modules/Store/infrastructure/FlowPaymentGateway';
+import { TransferPaymentGateway } from './modules/Store/infrastructure/TransferPaymentGateway';
+import { QuoteCartUseCase } from './modules/Store/application/QuoteCartUseCase';
+import { CheckoutUseCase } from './modules/Store/application/CheckoutUseCase';
+import { ConfirmPaymentUseCase } from './modules/Store/application/ConfirmPaymentUseCase';
+import { ManageOrdersUseCase } from './modules/Store/application/ManageOrdersUseCase';
+import { ManageCouponsUseCase } from './modules/Store/application/ManageCouponsUseCase';
+import { ManageStoreSettingsUseCase } from './modules/Store/application/ManageStoreSettingsUseCase';
+import { CheckoutController } from './modules/Store/presentation/CheckoutController';
+import { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
 import {
   CreateProductUseCase,
   DeleteProductUseCase,
@@ -558,6 +578,71 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       ProductRepository,
     ]);
 
+  // Store: etapas 2 a 4, carrito, pago en línea, pedidos y reportes.
+  builder
+    .register(StoreSettingsRepository)
+    .use(PrismaStoreSettingsRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(CouponRepository)
+    .use(PrismaCouponRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(OrderRepository)
+    .use(PrismaOrderRepository)
+    .withDependencies([PrismaClient]);
+  builder.register(OrderMailer).use(SmtpOrderMailer).withDependencies([SmtpConfig]);
+  // Cada cliente cobra con su propia cuenta, así que las credenciales viajan en la
+  // configuración de su tienda y no en el entorno de la API.
+  builder
+    .register(PaymentGatewayRegistry)
+    .useFactory(
+      () =>
+        new DefaultPaymentGatewayRegistry([
+          new TransferPaymentGateway(),
+          new FlowPaymentGateway(),
+        ]),
+    )
+    .asSingleton();
+  builder
+    .registerAndUse(QuoteCartUseCase)
+    .withDependencies([StoreSettingsRepository, ProductRepository, CouponRepository]);
+  builder
+    .registerAndUse(CheckoutUseCase)
+    .withDependencies([QuoteCartUseCase, OrderRepository, PaymentGatewayRegistry]);
+  builder
+    .registerAndUse(ConfirmPaymentUseCase)
+    .withDependencies([
+      StoreSettingsRepository,
+      OrderRepository,
+      CouponRepository,
+      PaymentGatewayRegistry,
+      OrderMailer,
+    ]);
+  builder
+    .registerAndUse(ManageOrdersUseCase)
+    .withDependencies([
+      OrderRepository,
+      CouponRepository,
+      StoreSettingsRepository,
+      OrderMailer,
+    ]);
+  builder.registerAndUse(ManageCouponsUseCase).withDependencies([CouponRepository]);
+  builder
+    .registerAndUse(ManageStoreSettingsUseCase)
+    .withDependencies([StoreSettingsRepository]);
+  builder
+    .registerAndUse(CheckoutController)
+    .withDependencies([QuoteCartUseCase, CheckoutUseCase, ConfirmPaymentUseCase]);
+  builder
+    .registerAndUse(AdminOrderController)
+    .withDependencies([
+      ManageOrdersUseCase,
+      ManageCouponsUseCase,
+      ManageStoreSettingsUseCase,
+      TenantRepository,
+    ]);
+
   // Blog
   builder
     .register(BlogPostRepository)
@@ -639,6 +724,8 @@ export class Container {
         adminBlogController: this.services.get(AdminBlogController),
         storeController: this.services.get(StoreController),
         adminStoreController: this.services.get(AdminStoreController),
+        checkoutController: this.services.get(CheckoutController),
+        adminOrderController: this.services.get(AdminOrderController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),

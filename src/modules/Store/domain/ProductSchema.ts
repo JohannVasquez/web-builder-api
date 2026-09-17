@@ -33,6 +33,8 @@ const base = {
   isActive: z.boolean().default(true),
   featured: z.boolean().default(false),
   position: z.number().int().min(0).default(0),
+  // `null` = sin control de stock; 0 = agotado.
+  stock: z.number().int().min(0).nullable().default(null),
 };
 
 // Una oferta que no es más barata que el precio normal no es una oferta: o es un error de
@@ -74,6 +76,7 @@ export const ProductUpdateSchema = z
     isActive: z.boolean().optional(),
     featured: z.boolean().optional(),
     position: z.number().int().min(0).optional(),
+    stock: z.number().int().min(0).nullable().optional(),
   })
   .refine(
     (value) =>

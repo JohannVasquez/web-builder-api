@@ -29,6 +29,7 @@ interface ProductRecord {
   readonly isActive: boolean;
   readonly featured: boolean;
   readonly position: number;
+  readonly stock: number | null;
 }
 
 const asJsonColumn = (value: unknown): object => value as object;
@@ -236,6 +237,7 @@ export class PrismaProductRepository implements ProductRepository {
       record.isActive,
       record.featured,
       record.position,
+      record.stock,
     );
   }
 }

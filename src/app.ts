@@ -33,6 +33,12 @@ import type { MediaController } from './modules/FileStorage/presentation/MediaCo
 import { createMediaRouter } from './modules/FileStorage/presentation/mediaRouter';
 import type { StoreController } from './modules/Store/presentation/StoreController';
 import type { AdminStoreController } from './modules/Store/presentation/AdminStoreController';
+import type { CheckoutController } from './modules/Store/presentation/CheckoutController';
+import type { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
+import {
+  createAdminOrderRouter,
+  createCheckoutRouter,
+} from './modules/Store/presentation/checkoutRouter';
 import {
   createAdminStoreRouter,
   createProductCategoryRouter,
@@ -80,6 +86,8 @@ export interface AppControllers {
   readonly adminBlogController: AdminBlogController;
   readonly storeController: StoreController;
   readonly adminStoreController: AdminStoreController;
+  readonly checkoutController: CheckoutController;
+  readonly adminOrderController: AdminOrderController;
 }
 
 export const buildApp = (
@@ -128,6 +136,11 @@ export const buildApp = (
     '/api/products',
     tenantResolver,
     createStoreRouter(controllers.storeController),
+  );
+  app.use(
+    '/api/store',
+    tenantResolver,
+    createCheckoutRouter(controllers.checkoutController),
   );
   app.use(
     '/api/product-categories',
@@ -206,6 +219,12 @@ export const buildApp = (
     ...adminGuards,
     cacheInvalidation,
     createAdminStoreRouter(controllers.adminStoreController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/store',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminOrderRouter(controllers.adminOrderController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/posts',
