@@ -5,6 +5,8 @@ import { createPageRouter } from './modules/Page/presentation/pageRouter';
 import type { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
 import { createGlobalSettingsRouter } from './modules/GlobalSettings/presentation/globalSettingsRouter';
 import type { NavigationController } from './modules/Navigation/presentation/NavigationController';
+import type { AdminNavigationController } from './modules/Navigation/presentation/AdminNavigationController';
+import { createAdminNavigationRouter } from './modules/Navigation/presentation/adminNavigationRouter';
 import { createNavigationRouter } from './modules/Navigation/presentation/navigationRouter';
 import type { ContactController } from './modules/Contact/presentation/ContactController';
 import { createContactRouter } from './modules/Contact/presentation/contactRouter';
@@ -69,6 +71,7 @@ export interface AppControllers {
   readonly pageController: PageController;
   readonly globalSettingsController: GlobalSettingsController;
   readonly navigationController: NavigationController;
+  readonly adminNavigationController: AdminNavigationController;
   readonly contactController: ContactController;
   readonly fileController: FileController;
   readonly tenantController: TenantController;
@@ -238,6 +241,12 @@ export const buildApp = (
     ...adminGuards,
     cacheInvalidation,
     createAdminStoreRouter(controllers.adminStoreController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/navigation',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminNavigationRouter(controllers.adminNavigationController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/store',

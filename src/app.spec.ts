@@ -45,6 +45,7 @@ describe('buildApp (rutas protegidas)', () => {
         setPrimaryDomain: ok(200),
         removeDomain: ok(204),
       },
+      adminNavigationController: { list: ok(200), replace: ok(200) },
       checkoutController: {
         settings: ok(200),
         quote: ok(200),

@@ -12,6 +12,7 @@ describe('GetNavigationUseCase', () => {
           new NavigationLink('Inicio', '/', 1),
           new NavigationLink('Nosotros', '/nosotros', 2),
         ]),
+      replace: jest.fn(),
     };
     const useCase = new GetNavigationUseCase(repository);
 
@@ -24,6 +25,7 @@ describe('GetNavigationUseCase', () => {
   it('returns an empty list when there are no links', async () => {
     const repository: jest.Mocked<NavigationRepository> = {
       findAll: jest.fn().mockResolvedValue([]),
+      replace: jest.fn(),
     };
     const useCase = new GetNavigationUseCase(repository);
 

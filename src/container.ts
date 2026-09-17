@@ -33,6 +33,8 @@ import { NavigationRepository } from './modules/Navigation/domain/NavigationRepo
 import { PrismaNavigationRepository } from './modules/Navigation/infrastructure/PrismaNavigationRepository';
 import { GetNavigationUseCase } from './modules/Navigation/application/GetNavigationUseCase';
 import { NavigationController } from './modules/Navigation/presentation/NavigationController';
+import { AdminNavigationController } from './modules/Navigation/presentation/AdminNavigationController';
+import { ReplaceNavigationUseCase } from './modules/Navigation/application/ReplaceNavigationUseCase';
 import { EmailService } from './modules/Contact/domain/EmailService';
 import {
   SmtpEmailService,
@@ -443,6 +445,12 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([PrismaClient]);
   builder.registerAndUse(GetNavigationUseCase).withDependencies([NavigationRepository]);
   builder.registerAndUse(NavigationController).withDependencies([GetNavigationUseCase]);
+  builder
+    .registerAndUse(ReplaceNavigationUseCase)
+    .withDependencies([NavigationRepository]);
+  builder
+    .registerAndUse(AdminNavigationController)
+    .withDependencies([GetNavigationUseCase, ReplaceNavigationUseCase]);
 
   // Contact
   builder.register(EmailService).use(SmtpEmailService).withDependencies([SmtpConfig]);
@@ -732,6 +740,7 @@ export class Container {
         pageController: this.services.get(PageController),
         globalSettingsController: this.services.get(GlobalSettingsController),
         navigationController: this.services.get(NavigationController),
+        adminNavigationController: this.services.get(AdminNavigationController),
         contactController: this.services.get(ContactController),
         fileController: this.services.get(FileController),
         tenantController: this.services.get(TenantController),

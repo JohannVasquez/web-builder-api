@@ -566,6 +566,33 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'get_navigation',
+      'Ver el menú del sitio',
+      'Devuelve los enlaces del menú de navegación de un cliente, en orden.',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/navigation`),
+    ),
+
+    tool(
+      'set_navigation',
+      'Definir el menú del sitio',
+      'Reemplaza el menú completo: el orden del arreglo es el orden del menú. Un `href` apunta a una página propia ("/nosotros"), al ancla de una sección ("/servicios#precios") o a una URL completa. Manda siempre el menú entero, no solo lo que cambia.',
+      {
+        tenantId,
+        links: z
+          .array(z.object({ label: z.string(), href: z.string() }))
+          .describe(
+            'Ej. [{ label: "Inicio", href: "/" }, { label: "Contacto", href: "/contacto" }]',
+          ),
+      },
+      (args) =>
+        api.request('PUT', `/api/admin/tenants/${String(args.tenantId)}/navigation`, {
+          links: args.links,
+        }),
+    ),
+
+    tool(
       'set_site_status',
       'Pausar o reactivar un sitio',
       'Cambia el estado del sitio de un cliente. "active" lo sirve normal; "paused" y "building" muestran una página de mantención sin borrar nada. Reactivarlo lo devuelve tal cual estaba.',
