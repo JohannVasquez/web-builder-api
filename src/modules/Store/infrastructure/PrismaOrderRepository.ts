@@ -81,6 +81,17 @@ const toStatus = (value: string): OrderStatus =>
 export class PrismaOrderRepository implements OrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  public async markConfirmationEmailed(
+    orderId: string,
+    emailedAt: Date | null,
+    error: string | null,
+  ): Promise<void> {
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { confirmationEmailedAt: emailedAt, confirmationEmailError: error },
+    });
+  }
+
   public async create(tenantId: string, order: NewOrder): Promise<Order> {
     // Todo dentro de una transacción: dos compras a la vez no pueden quedarse con el
     // mismo número de pedido.

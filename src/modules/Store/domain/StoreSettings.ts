@@ -57,6 +57,16 @@ export const EMPTY_SELLER: SellerIdentity = {
   phone: null,
 };
 
+// Solo lo que está cargado: una ficha a medias es mejor que una con huecos etiquetados.
+export const sellerLines = (seller: SellerIdentity): string[] =>
+  [
+    seller.legalName,
+    seller.taxId === null || seller.taxId === '' ? null : `RUT ${seller.taxId}`,
+    seller.address,
+    seller.email,
+    seller.phone,
+  ].filter((line): line is string => line !== null && line.trim() !== '');
+
 // Qué falta para poder encender la tienda. Se devuelve la lista completa y no el primer
 // hueco: quien llena el formulario merece saber de una vez todo lo que le queda.
 export const missingSellerFields = (seller: SellerIdentity): string[] => {

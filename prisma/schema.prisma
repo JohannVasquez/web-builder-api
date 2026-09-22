@@ -567,6 +567,11 @@ model Order {
   termsAcceptedAt DateTime? @map("terms_accepted_at") @db.Timestamptz()
   termsVersion    String?   @map("terms_version") @db.VarChar(40)
 
+  /// Constancia del correo de confirmación, que la Ley 19.496 exige mandar. Mismo criterio
+  /// que `ContactMessage`: con fecha si salió, con motivo si falló, para poder reintentar.
+  confirmationEmailedAt  DateTime? @map("confirmation_emailed_at") @db.Timestamptz()
+  confirmationEmailError String?   @map("confirmation_email_error")
+
   paymentProvider  String?   @map("payment_provider") @db.VarChar(20)
   paymentReference String?   @map("payment_reference") @db.VarChar(255)
   paidAt           DateTime? @map("paid_at") @db.Timestamptz()
