@@ -59,6 +59,7 @@ import type { NewsletterController } from './modules/Newsletter/presentation/New
 import {
   createAdminNewsletterRouter,
   createNewsletterRouter,
+  createUnsubscribeRouter,
 } from './modules/Newsletter/presentation/newsletterRouter';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
@@ -186,6 +187,11 @@ export const buildApp = (
     tenantResolver,
     siteAvailability,
     createNewsletterRouter(controllers.newsletterController),
+  );
+  // Sin `tenantResolver`: el enlace de baja llega por correo y el token vale por sí solo.
+  app.use(
+    '/api/newsletter-baja',
+    createUnsubscribeRouter(controllers.newsletterController),
   );
   app.use(
     '/api/files',

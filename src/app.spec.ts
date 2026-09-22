@@ -84,7 +84,12 @@ describe('buildApp (rutas protegidas)', () => {
       activityLogController: { list: ok(200) },
       catalogController: { get: ok(200) },
       legalPageController: { list: ok(200), create: ok(201) },
-      newsletterController: { subscribe: ok(200), list: ok(200), exportCsv: ok(200) },
+      newsletterController: {
+        subscribe: ok(200),
+        unsubscribe: ok(200),
+        list: ok(200),
+        exportCsv: ok(200),
+      },
       mediaController: {
         list: ok(200),
         upload: ok(201),

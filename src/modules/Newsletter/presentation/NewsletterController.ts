@@ -4,6 +4,7 @@ import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import type { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
 import type { SubscribeToNewsletterUseCase } from '../application/SubscribeToNewsletterUseCase';
 import type { ListSubscribersUseCase } from '../application/ListSubscribersUseCase';
+import type { UnsubscribeFromNewsletterUseCase } from '../application/UnsubscribeFromNewsletterUseCase';
 import { SubscribeSchema } from '../domain/NewsletterSchema';
 import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 import { idSchema } from '@/shared/domain/identifier';
@@ -11,6 +12,7 @@ import { idSchema } from '@/shared/domain/identifier';
 const SUBSCRIPTIONS_PER_MINUTE = 5;
 
 const TenantIdSchema = idSchema;
+const UnsubscribeParamsSchema = z.object({ token: z.string().max(64) });
 const ListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
   offset: z.coerce.number().int().min(0).default(0),
@@ -20,6 +22,7 @@ export class NewsletterController {
   constructor(
     private readonly subscribeUseCase: SubscribeToNewsletterUseCase,
     private readonly listSubscribersUseCase: ListSubscribersUseCase,
+    private readonly unsubscribeUseCase: UnsubscribeFromNewsletterUseCase,
     private readonly rateLimiter: RateLimiter,
   ) {}
 
@@ -33,6 +36,25 @@ export class NewsletterController {
     res.status(200).json({
       success: true,
       message: 'Listo, te avisaremos de nuestras novedades.',
+    });
+  };
+
+  /**
+   * Sin sesión y sin tenant a propósito: el enlace llega por correo y tiene que funcionar de
+   * un clic, que es lo que exige el art. 28 B de la Ley 19.496. El token ya es único en toda
+   * la plataforma.
+   *
+   * Responde 200 aunque el token no exista: decir "ese token no es de nadie" convertiría
+   * este endpoint en una forma de comprobar tokens ajenos, y para quien se da de baja el
+   * resultado visible es el mismo.
+   */
+  public readonly unsubscribe = async (req: Request, res: Response): Promise<void> => {
+    const { token } = UnsubscribeParamsSchema.parse(req.params);
+    await this.unsubscribeUseCase.execute(token);
+
+    res.status(200).json({
+      success: true,
+      message: 'Listo, no volverás a recibir nuestros correos.',
     });
   };
 

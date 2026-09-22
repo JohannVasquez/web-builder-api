@@ -6,6 +6,7 @@ import { createAdminNewsletterRouter, createNewsletterRouter } from './newslette
 import { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
 import { SubscribeToNewsletterUseCase } from '../application/SubscribeToNewsletterUseCase';
 import { ListSubscribersUseCase } from '../application/ListSubscribersUseCase';
+import { UnsubscribeFromNewsletterUseCase } from '../application/UnsubscribeFromNewsletterUseCase';
 import type { NewsletterRepository } from '../domain/NewsletterRepository';
 import { Tenant } from '@/modules/Tenant/domain/Tenant';
 import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
@@ -17,6 +18,7 @@ const openServer = (app: Express): Server => createServer(app).listen(0);
 describe('NewsletterController (HTTP)', () => {
   const buildRepository = (): jest.Mocked<NewsletterRepository> => ({
     subscribe: jest.fn().mockResolvedValue(undefined),
+    unsubscribe: jest.fn(),
     list: jest.fn().mockResolvedValue({
       subscribers: [
         {
@@ -38,6 +40,7 @@ describe('NewsletterController (HTTP)', () => {
     const controller = new NewsletterController(
       new SubscribeToNewsletterUseCase(repository),
       new ListSubscribersUseCase(repository),
+      new UnsubscribeFromNewsletterUseCase(repository),
       rateLimiter,
     );
     const app = express();

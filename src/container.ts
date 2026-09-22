@@ -181,6 +181,7 @@ import { NewsletterRepository } from './modules/Newsletter/domain/NewsletterRepo
 import { PrismaNewsletterRepository } from './modules/Newsletter/infrastructure/PrismaNewsletterRepository';
 import { SubscribeToNewsletterUseCase } from './modules/Newsletter/application/SubscribeToNewsletterUseCase';
 import { ListSubscribersUseCase } from './modules/Newsletter/application/ListSubscribersUseCase';
+import { UnsubscribeFromNewsletterUseCase } from './modules/Newsletter/application/UnsubscribeFromNewsletterUseCase';
 import { NewsletterController } from './modules/Newsletter/presentation/NewsletterController';
 import { CreateLegalPageUseCase } from './modules/LegalPages/application/CreateLegalPageUseCase';
 import { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
@@ -732,10 +733,14 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([NewsletterRepository]);
   builder.registerAndUse(ListSubscribersUseCase).withDependencies([NewsletterRepository]);
   builder
+    .registerAndUse(UnsubscribeFromNewsletterUseCase)
+    .withDependencies([NewsletterRepository]);
+  builder
     .registerAndUse(NewsletterController)
     .withDependencies([
       SubscribeToNewsletterUseCase,
       ListSubscribersUseCase,
+      UnsubscribeFromNewsletterUseCase,
       RateLimiter,
     ]);
 
