@@ -106,3 +106,20 @@ export const StoreSettingsUpdateSchema = z.strictObject({
 });
 
 export type StoreSettingsUpdate = z.infer<typeof StoreSettingsUpdateSchema>;
+
+// Las credenciales nunca vuelven al navegador, así que el panel no puede mandar el juego
+// completo: solo lo que la persona escribió. Reemplazar borraría en silencio el resto (cambiar
+// el RUT se llevaría el banco y la cuenta), así que se combinan. Un valor vacío es un campo
+// que no se tocó, no una orden de borrarlo.
+export const mergePaymentCredentials = (
+  current: Readonly<Record<string, string>>,
+  incoming: Readonly<Record<string, string>>,
+): Record<string, string> => {
+  const merged: Record<string, string> = { ...current };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (value.trim() !== '') {
+      merged[key] = value.trim();
+    }
+  }
+  return merged;
+};

@@ -1,5 +1,6 @@
 import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
 import {
+  mergePaymentCredentials,
   PAYMENT_PROVIDERS,
   ShippingOptionsSchema,
   StoreSettings,
@@ -58,6 +59,14 @@ export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
     tenantId: number,
     update: StoreSettingsUpdate,
   ): Promise<StoreSettings> {
+    const credentials =
+      update.paymentCredentials === undefined
+        ? undefined
+        : mergePaymentCredentials(
+            (await this.find(tenantId)).paymentCredentials,
+            update.paymentCredentials,
+          );
+
     const data = {
       ...(update.isEnabled === undefined ? {} : { isEnabled: update.isEnabled }),
       ...(update.currency === undefined ? {} : { currency: update.currency }),
@@ -74,9 +83,9 @@ export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
       ...(update.paymentProvider === undefined
         ? {}
         : { paymentProvider: update.paymentProvider }),
-      ...(update.paymentCredentials === undefined
+      ...(credentials === undefined
         ? {}
-        : { paymentCredentials: asJsonColumn(update.paymentCredentials) }),
+        : { paymentCredentials: asJsonColumn(credentials) }),
       ...(update.notificationEmail === undefined
         ? {}
         : { notificationEmail: update.notificationEmail }),
