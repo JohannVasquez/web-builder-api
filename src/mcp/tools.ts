@@ -109,6 +109,13 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           .boolean()
           .optional()
           .describe('Por defecto false: el trabajo de un agente queda en borrador'),
+        visualStyle: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Estilo visual propio de esta página (ver get_catalog para los ids, ej. "claymorphism", "liquid-glass"); null = hereda el del sitio',
+          ),
       },
       (args) => {
         const { tenantId: id, ...body } = args;
@@ -122,13 +129,20 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     tool(
       'update_page',
       'Editar una página',
-      'Cambia el título, la dirección o la descripción de una página. Para publicarla usa publish_page.',
+      'Cambia el título, la dirección, la descripción o el estilo visual de una página. Para que el cambio se vea en el sitio usa publish_page.',
       {
         tenantId,
         pageId,
         slug: z.string().optional(),
         title: z.string().optional(),
         description: z.string().nullable().optional(),
+        visualStyle: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Estilo visual propio de esta página (ver get_catalog para los ids, ej. "claymorphism", "liquid-glass"); null = hereda el del sitio',
+          ),
       },
       (args) => {
         const { tenantId: id, pageId: page, ...body } = args;

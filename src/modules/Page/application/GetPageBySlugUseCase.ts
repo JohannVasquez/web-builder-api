@@ -35,6 +35,15 @@ export class GetPageBySlugUseCase {
         ),
     );
 
-    return new Page(page.slug, page.title, page.description, sections);
+    return new Page(
+      page.slug,
+      page.title,
+      page.description,
+      sections,
+      undefined,
+      true,
+      null,
+      page.visualStyle,
+    );
   }
 }

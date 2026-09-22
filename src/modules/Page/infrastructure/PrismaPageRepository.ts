@@ -32,6 +32,7 @@ interface PageRecord {
   readonly description: string | null;
   readonly isPublished: boolean;
   readonly updatedAt?: Date | null;
+  readonly visualStyle?: string | null;
   readonly sections: readonly SectionRecord[];
 }
 
@@ -96,6 +97,7 @@ export class PrismaPageRepository implements PageRepository {
         data: {
           title: snapshot.title,
           description: snapshot.description,
+          visualStyle: snapshot.visualStyle,
           sections: {
             create: snapshot.sections.map((section, index) => ({
               type: section.type,
@@ -137,6 +139,7 @@ export class PrismaPageRepository implements PageRepository {
           title: input.title,
           description: input.description ?? null,
           isPublished: input.isPublished,
+          visualStyle: input.visualStyle ?? null,
         },
         include: SECTIONS_INCLUDE,
       });
@@ -163,6 +166,7 @@ export class PrismaPageRepository implements PageRepository {
           title: input.title,
           description: input.description,
           isPublished: input.isPublished,
+          visualStyle: input.visualStyle,
         },
       });
     } catch (error) {
@@ -375,6 +379,7 @@ export class PrismaPageRepository implements PageRepository {
       record.id,
       record.isPublished,
       record.updatedAt ?? null,
+      record.visualStyle ?? null,
     );
   }
 }

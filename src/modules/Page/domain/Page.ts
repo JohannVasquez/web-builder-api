@@ -14,6 +14,8 @@ export interface PagePrimitives {
   readonly slug: string;
   readonly title: string;
   readonly description: string | null;
+  // Nulo = la página usa el estilo visual del sitio.
+  readonly visualStyle: string | null;
   readonly sections: readonly PageSectionPrimitives[];
 }
 
@@ -23,6 +25,7 @@ export interface AdminPagePrimitives {
   readonly title: string;
   readonly description: string | null;
   readonly isPublished: boolean;
+  readonly visualStyle: string | null;
   readonly sections: readonly AdminPageSectionPrimitives[];
 }
 
@@ -66,6 +69,8 @@ export class Page {
     public readonly isPublished: boolean = true,
     // Solo lo usa el sitemap para el `lastModified`; el resto del dominio lo ignora.
     public readonly updatedAt: Date | null = null,
+    // Estilo propio de la página; nulo = hereda el del sitio.
+    public readonly visualStyle: string | null = null,
   ) {}
 
   private orderedSections(): readonly PageSection[] {
@@ -82,6 +87,7 @@ export class Page {
       slug: this.slug,
       title: this.title,
       description: this.description,
+      visualStyle: this.visualStyle,
       sections: this.visibleSections().map((section) => section.toPrimitives()),
     };
   }
@@ -96,6 +102,7 @@ export class Page {
       title: this.title,
       description: this.description,
       isPublished: this.isPublished,
+      visualStyle: this.visualStyle,
       sections: this.orderedSections().map((section) => section.toAdminPrimitives()),
     };
   }

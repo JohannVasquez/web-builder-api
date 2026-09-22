@@ -70,6 +70,8 @@ model Page {
   title            String    @db.VarChar(255)
   description      String?
   isPublished      Boolean   @default(true) @map("is_published")
+  /// Estilo visual propio de esta página; nulo = hereda el del sitio.
+  visualStyle      String?   @map("visual_style") @db.VarChar(50)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   /// Lo que ve el público. Nulo = nunca se publicó. Las filas de `sections` son el

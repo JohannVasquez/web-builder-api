@@ -5,6 +5,8 @@ import { Page, PageSection } from './Page';
 export const PageSnapshotSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
+  // Las fotos viejas no lo traen: sin él, la página hereda el estilo del sitio.
+  visualStyle: z.string().nullable().default(null),
   sections: z.array(
     z.object({
       type: z.string(),
@@ -22,6 +24,7 @@ export type PageSnapshot = z.infer<typeof PageSnapshotSchema>;
 export const snapshotOf = (page: Page): PageSnapshot => ({
   title: page.title,
   description: page.description,
+  visualStyle: page.visualStyle,
   sections: [...page.sections]
     .sort((a, b) => a.position - b.position)
     .map((section) => ({
@@ -54,5 +57,9 @@ export const pageFromSnapshot = (slug: string, snapshot: unknown): Page | null =
           section.isHidden,
         ),
     ),
+    undefined,
+    true,
+    null,
+    parsed.data.visualStyle,
   );
 };
