@@ -50,6 +50,9 @@ const envSchema = z.strictObject({
   PLATFORM_SITE_TARGET: z.string().min(1).default('sitios.webbuilder.co'),
   // Catálogo de bloques y estilos: vive en el frontend, la API solo lo reexpone (SPEC 10.5).
   WEBAPP_CATALOG_URL: z.string().default(''),
+  // Sal para la huella de IP del registro de consentimiento. Vacía = no se guarda huella
+  // alguna, que es preferible a guardar un sha256 de IP, reversible en segundos sin sal.
+  CONSENT_IP_SALT: z.string().default(''),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -85,6 +88,7 @@ export class EnvConfig {
       WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,
       PLATFORM_DOMAIN: source.PLATFORM_DOMAIN,
       PLATFORM_SITE_TARGET: source.PLATFORM_SITE_TARGET,
+      CONSENT_IP_SALT: source.CONSENT_IP_SALT,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

@@ -35,6 +35,7 @@ model Tenant {
   orders            Order[]
   adminUsers        AdminUserTenant[]
   idempotencyKeys   IdempotencyKey[]
+  consents          ConsentRecord[]
 
   @@map("tenants")
 }
@@ -608,4 +609,35 @@ model IdempotencyKey {
   @@unique([tenantId, scope, key])
   @@index([expiresAt])
   @@map("idempotency_keys")
+}
+
+/// Registro de consentimiento. Es la prueba que la Ley 21.719 le exige al responsable poder
+/// mostrar: quién aceptó, qué aceptó, cuándo y sobre qué texto. Es INMUTABLE — cambiar de
+/// opinión crea una fila nueva, nunca edita la anterior — porque un registro que se puede
+/// reescribir no prueba nada.
+model ConsentRecord {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Quién: un identificador que el navegador guarda, o el hash del correo cuando el
+  /// consentimiento llega desde un formulario.
+  subject     String   @db.VarChar(128)
+  /// De dónde vino: `cookies`, `contact` o `newsletter`.
+  source      String   @db.VarChar(20)
+  /// Qué aceptó. Vacío = rechazó todo lo que era opcional.
+  purposes    String[] @default([])
+  /// Sobre qué texto. Si el texto legal cambia, el consentimiento anterior deja de valer.
+  textVersion String   @map("text_version") @db.VarChar(40)
+
+  /// Huella de la IP, nunca la IP: acredita el origen sin guardar un dato personal que no
+  /// hace falta conservar.
+  ipHash    String? @map("ip_hash") @db.VarChar(64)
+  userAgent String? @map("user_agent") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, subject, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("consent_records")
 }

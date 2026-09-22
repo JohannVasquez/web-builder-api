@@ -60,6 +60,8 @@ import {
   createAdminNewsletterRouter,
   createNewsletterRouter,
 } from './modules/Newsletter/presentation/newsletterRouter';
+import { createConsentRouter } from './modules/Consent/presentation/consentRouter';
+import type { ConsentController } from './modules/Consent/presentation/ConsentController';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
@@ -87,6 +89,7 @@ export interface AppControllers {
   readonly adminContactMessageController: AdminContactMessageController;
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
+  readonly consentController: ConsentController;
   readonly mediaController: MediaController;
   readonly blogController: BlogController;
   readonly adminBlogController: AdminBlogController;
@@ -186,6 +189,12 @@ export const buildApp = (
     tenantResolver,
     siteAvailability,
     createNewsletterRouter(controllers.newsletterController),
+  );
+  app.use(
+    '/api/consents',
+    tenantResolver,
+    siteAvailability,
+    createConsentRouter(controllers.consentController),
   );
   app.use(
     '/api/files',
