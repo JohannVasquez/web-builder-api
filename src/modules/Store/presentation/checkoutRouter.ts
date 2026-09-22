@@ -1,13 +1,17 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import type { CheckoutController } from './CheckoutController';
 import type { AdminOrderController } from './AdminOrderController';
 
 // Público, scoped por el dominio del visitante.
-export const createCheckoutRouter = (controller: CheckoutController): Router => {
+// `idempotency` solo envuelve la compra: cotizar no crea nada, repetirlo no hace daño.
+export const createCheckoutRouter = (
+  controller: CheckoutController,
+  idempotency: RequestHandler,
+): Router => {
   const router = Router();
   router.get('/', controller.settings);
   router.post('/quote', controller.quote);
-  router.post('/checkout', controller.checkout);
+  router.post('/checkout', idempotency, controller.checkout);
   // El proveedor de pago avisa acá; no hay sesión que valga, se confirma preguntándole a él.
   router.post('/payment-callback', controller.confirm);
   router.get('/payment-callback', controller.confirm);

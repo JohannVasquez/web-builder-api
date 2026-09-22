@@ -1,5 +1,6 @@
 import express, { type Express, type RequestHandler } from 'express';
 import cors from 'cors';
+import { buildOriginMatcher } from './shared/presentation/corsOrigins';
 import type { PageController } from './modules/Page/presentation/PageController';
 import { createPageRouter } from './modules/Page/presentation/pageRouter';
 import type { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
@@ -103,11 +104,23 @@ export const buildApp = (
   actorMiddleware: RequestHandler,
   cacheInvalidation: RequestHandler,
   activityRecording: RequestHandler,
+  // Sin clave de idempotencia la compra se comporta igual; por defecto no hace nada.
+  checkoutIdempotency: RequestHandler = (_req, _res, next) => {
+    next();
+  },
 ): Express => {
   const app = express();
   const errorHandler = new ErrorHandler();
 
-  app.use(cors({ origin: corsOrigin }));
+  const isAllowedOrigin = buildOriginMatcher(corsOrigin);
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Sin `Origin` es una llamada del mismo sitio o de servidor a servidor: CORS no aplica.
+        callback(null, origin === undefined || isAllowedOrigin(origin));
+      },
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_req, res) => {
@@ -160,7 +173,7 @@ export const buildApp = (
     '/api/store',
     tenantResolver,
     siteAvailability,
-    createCheckoutRouter(controllers.checkoutController),
+    createCheckoutRouter(controllers.checkoutController, checkoutIdempotency),
   );
   app.use(
     '/api/product-categories',

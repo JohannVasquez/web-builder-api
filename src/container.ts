@@ -150,6 +150,9 @@ import { ManageOrdersUseCase } from './modules/Store/application/ManageOrdersUse
 import { ManageCouponsUseCase } from './modules/Store/application/ManageCouponsUseCase';
 import { ManageStoreSettingsUseCase } from './modules/Store/application/ManageStoreSettingsUseCase';
 import { CheckoutController } from './modules/Store/presentation/CheckoutController';
+import { IdempotencyStore } from './modules/Idempotency/domain/IdempotencyStore';
+import { PrismaIdempotencyStore } from './modules/Idempotency/infrastructure/PrismaIdempotencyStore';
+import { createIdempotency } from './modules/Idempotency/presentation/idempotency';
 import { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
 import {
   CreateProductUseCase,
@@ -613,6 +616,12 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       ProductRepository,
     ]);
 
+  // Idempotencia: una compra repetida con la misma clave no crea un segundo pedido.
+  builder
+    .register(IdempotencyStore)
+    .use(PrismaIdempotencyStore)
+    .withDependencies([PrismaClient]);
+
   // Store: etapas 2 a 4, carrito, pago en línea, pedidos y reportes.
   builder
     .register(StoreSettingsRepository)
@@ -773,6 +782,7 @@ export class Container {
       ),
       createCacheInvalidationMiddleware(this.services.get(InvalidateTenantCacheUseCase)),
       createActivityRecordingMiddleware(this.services.get(RecordActivityUseCase)),
+      createIdempotency(this.services.get(IdempotencyStore), 'store.checkout'),
     );
   }
 

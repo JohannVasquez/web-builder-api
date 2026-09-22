@@ -34,6 +34,7 @@ model Tenant {
   coupons           Coupon[]
   orders            Order[]
   adminUsers        AdminUserTenant[]
+  idempotencyKeys   IdempotencyKey[]
 
   @@map("tenants")
 }
@@ -573,4 +574,29 @@ model OrderItem {
 
   @@index([orderId])
   @@map("order_items")
+}
+
+// Una compra repetida con la misma clave (doble clic, reintento de red) devuelve el resultado
+// de la primera en vez de crear otro pedido. Por cliente: la clave de uno no choca con otro.
+model IdempotencyKey {
+  id          Int    @id @default(autoincrement())
+  tenantId    Int    @map("tenant_id")
+  key         String @db.VarChar(255)
+  // Operación a la que pertenece, para que la misma clave no se cruce entre endpoints.
+  scope       String @db.VarChar(60)
+  // sha256 del cuerpo: la misma clave con otro cuerpo es un error del cliente, no un reintento.
+  requestHash String @map("request_hash") @db.VarChar(64)
+
+  // `processing` mientras corre la primera; `completed` con la respuesta ya guardada.
+  status         String @default("processing") @db.VarChar(20)
+  responseStatus Int?   @map("response_status")
+  responseBody   Json?  @map("response_body")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
 }
