@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { BadRequestError } from '../../../shared/domain/BadRequestError';
 import { ORDER_STATUSES } from '../domain/Order';
+import { DEFAULT_TIME_ZONE, isValidTimeZone } from '../domain/localDay';
 import { CouponInputSchema, CouponUpdateSchema } from '../domain/Coupon';
 import { StoreSettingsUpdateSchema } from '../domain/StoreSettings';
 import type { ManageCouponsUseCase } from '../application/ManageCouponsUseCase';
@@ -22,6 +23,11 @@ const StatusSchema = z.strictObject({ status: z.enum(ORDER_STATUSES) });
 const ReportQuerySchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  // Zona IANA con la que se agrupan las ventas por día; el panel manda la del navegador.
+  timeZone: z
+    .string()
+    .refine(isValidTimeZone, 'Esa zona horaria no existe')
+    .default(DEFAULT_TIME_ZONE),
 });
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -70,10 +76,10 @@ export class AdminOrderController {
 
   public readonly report = async (req: Request, res: Response): Promise<void> => {
     const tenantId = this.tenantIdOf(req);
-    const { from, to } = ReportQuerySchema.parse(req.query);
+    const { from, to, timeZone } = ReportQuerySchema.parse(req.query);
     const until = to ?? new Date();
     const since = from ?? new Date(until.getTime() - THIRTY_DAYS_MS);
-    res.json({ report: await this.orders.report(tenantId, since, until) });
+    res.json({ report: await this.orders.report(tenantId, since, until, timeZone) });
   };
 
   public readonly getSettings = async (req: Request, res: Response): Promise<void> => {

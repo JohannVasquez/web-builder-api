@@ -70,8 +70,13 @@ export class ManageOrdersUseCase {
     return this.orderRepository.setStatus(tenantId, id, status);
   }
 
-  public async report(tenantId: number, from: Date, to: Date): Promise<SalesReport> {
-    return this.orderRepository.salesReport(tenantId, from, to);
+  public async report(
+    tenantId: number,
+    from: Date,
+    to: Date,
+    timeZone?: string,
+  ): Promise<SalesReport> {
+    return this.orderRepository.salesReport(tenantId, from, to, timeZone);
   }
 
   private async notifyPaid(

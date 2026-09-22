@@ -52,9 +52,11 @@ export abstract class OrderRepository {
   // Descuenta el stock de los productos del pedido. Los que no controlan stock se saltan.
   public abstract discountStock(tenantId: number, orderId: number): Promise<void>;
   public abstract restoreStock(tenantId: number, orderId: number): Promise<void>;
+  // `timeZone` decide a qué día pertenece cada venta: el de la tienda, no UTC.
   public abstract salesReport(
     tenantId: number,
     from: Date,
     to: Date,
+    timeZone?: string,
   ): Promise<SalesReport>;
 }

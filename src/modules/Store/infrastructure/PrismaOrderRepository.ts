@@ -9,6 +9,7 @@ import {
   type OrderStatus,
 } from '../domain/Order';
 import type { OrderQuery, OrderRepository, SalesReport } from '../domain/OrderRepository';
+import { DEFAULT_TIME_ZONE, localDayKey } from '../domain/localDay';
 
 interface OrderItemRecord {
   readonly productId: number | null;
@@ -64,8 +65,6 @@ const toStatus = (value: string): OrderStatus =>
   (ORDER_STATUSES as readonly string[]).includes(value)
     ? (value as OrderStatus)
     : 'pending';
-
-const dayKey = (date: Date): string => date.toISOString().slice(0, 10);
 
 export class PrismaOrderRepository implements OrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -222,7 +221,12 @@ export class PrismaOrderRepository implements OrderRepository {
     await this.moveStock(tenantId, orderId, 1);
   }
 
-  public async salesReport(tenantId: number, from: Date, to: Date): Promise<SalesReport> {
+  public async salesReport(
+    tenantId: number,
+    from: Date,
+    to: Date,
+    timeZone: string = DEFAULT_TIME_ZONE,
+  ): Promise<SalesReport> {
     // Solo los pedidos que se pagaron: un carrito abandonado no es una venta.
     const records = await this.prisma.order.findMany({
       where: {
@@ -242,7 +246,7 @@ export class PrismaOrderRepository implements OrderRepository {
 
     for (const record of records) {
       totalCents += record.totalCents;
-      const key = dayKey(record.paidAt ?? record.createdAt);
+      const key = localDayKey(record.paidAt ?? record.createdAt, timeZone);
       const day = byDay.get(key) ?? { orders: 0, totalCents: 0 };
       byDay.set(key, {
         orders: day.orders + 1,
