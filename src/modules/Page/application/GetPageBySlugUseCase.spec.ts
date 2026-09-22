@@ -12,6 +12,7 @@ describe('GetPageBySlugUseCase', () => {
     ]);
 
   const buildRepository = (page: Page | null): jest.Mocked<PageRepository> => ({
+    findPublishedAt: jest.fn().mockResolvedValue(null),
     findBySlug: jest.fn().mockResolvedValue(page),
     findAllByTenant: jest.fn(),
     findById: jest.fn(),

@@ -327,7 +327,11 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Crea la política de privacidad o los términos y condiciones a partir de una plantilla, ya rellenada con los datos del negocio. Nace despublicada: un texto legal lo revisa una persona antes de publicarlo.',
       {
         tenantId,
-        kind: z.enum(['privacidad', 'terminos']).describe('Qué documento crear'),
+        kind: z
+          .enum(['privacidad', 'terminos', 'compra'])
+          .describe(
+            'Qué documento crear: "compra" son los términos y condiciones de la tienda',
+          ),
       },
       (args) =>
         api.request('POST', `/api/admin/tenants/${String(args.tenantId)}/legal-pages`, {
@@ -716,6 +720,13 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           .nullable()
           .optional()
           .describe('A quién le avisamos cuando entra un pedido'),
+        termsPageSlug: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Dirección de la página con los términos de compra (ej. "terminos-de-compra"; créala con add_legal_page kind "compra"). Publicada, comprar exige aceptarlos. null = no se exigen.',
+          ),
       },
       (args) => {
         const { tenantId: id, ...body } = args;

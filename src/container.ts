@@ -653,7 +653,12 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([StoreSettingsRepository, ProductRepository, CouponRepository]);
   builder
     .registerAndUse(CheckoutUseCase)
-    .withDependencies([QuoteCartUseCase, OrderRepository, PaymentGatewayRegistry]);
+    .withDependencies([
+      QuoteCartUseCase,
+      OrderRepository,
+      PaymentGatewayRegistry,
+      PageRepository,
+    ]);
   builder
     .registerAndUse(ConfirmPaymentUseCase)
     .withDependencies([

@@ -20,13 +20,23 @@ export class CheckoutController {
     if (!settings.isEnabled) {
       throw new StoreDisabledError();
     }
-    res.json({ store: settings.toPrimitives() });
+    // El sitio necesita saber si mostrar la casilla de términos y a qué página enlazar; solo
+    // se informa si la página está publicada, igual que la regla del checkout.
+    const terms = await this.checkoutUseCase.activeTerms(tenant.id, settings);
+    res.json({
+      store: { ...settings.toPrimitives(), termsPageSlug: terms?.slug ?? null },
+    });
   };
 
   public readonly quote = async (req: Request, res: Response): Promise<void> => {
     const tenant = getRequestTenant(res);
     const input = CartSchema.parse(req.body);
-    res.json(await this.quoteCartUseCase.execute(tenant.id, input));
+    const quote = await this.quoteCartUseCase.execute(tenant.id, input);
+    // Va con la cotización porque es parte de lo que hace falta para comprar: así el sitio
+    // sabe si mostrar la casilla de términos sin otra llamada.
+    const settings = await this.quoteCartUseCase.settingsFor(tenant.id);
+    const terms = await this.checkoutUseCase.activeTerms(tenant.id, settings);
+    res.json({ ...quote, termsPageSlug: terms?.slug ?? null });
   };
 
   public readonly checkout = async (req: Request, res: Response): Promise<void> => {

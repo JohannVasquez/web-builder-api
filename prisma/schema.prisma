@@ -480,6 +480,8 @@ model StoreSettings {
   /// Credenciales de la cuenta de cobro del propio cliente. Nunca sale de la API.
   paymentCredentials Json    @default("{}") @map("payment_credentials")
   notificationEmail  String? @map("notification_email") @db.VarChar(255)
+  /// Página con los términos de compra. Si existe y está publicada, comprar exige aceptarlos.
+  termsPageSlug      String? @map("terms_page_slug") @db.VarChar(255)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
@@ -542,6 +544,11 @@ model Order {
   taxCents      Int     @default(0) @map("tax_cents")
   currency      String  @default("CLP") @db.VarChar(3)
   couponCode    String? @map("coupon_code") @db.VarChar(40)
+
+  /// Constancia de que el comprador aceptó los términos de compra: cuándo y qué versión
+  /// (la fecha de publicación de la página de términos vigente en ese momento).
+  termsAcceptedAt DateTime? @map("terms_accepted_at") @db.Timestamptz()
+  termsVersion    String?   @map("terms_version") @db.VarChar(40)
 
   paymentProvider  String?   @map("payment_provider") @db.VarChar(20)
   paymentReference String?   @map("payment_reference") @db.VarChar(255)

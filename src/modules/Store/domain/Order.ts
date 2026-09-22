@@ -74,6 +74,9 @@ export interface OrderPrimitives {
   readonly paymentProvider: string | null;
   readonly paidAt: string | null;
   readonly createdAt: string;
+  // Constancia de los términos de compra aceptados; nula si la tienda no los exigía.
+  readonly termsAcceptedAt: string | null;
+  readonly termsVersion: string | null;
 }
 
 export interface OrderCustomer {
@@ -111,6 +114,8 @@ export class Order {
     public readonly paymentReference: string | null,
     public readonly paidAt: Date | null,
     public readonly createdAt: Date,
+    public readonly termsAcceptedAt: Date | null = null,
+    public readonly termsVersion: string | null = null,
   ) {}
 
   public toPrimitives(): OrderPrimitives {
@@ -139,6 +144,8 @@ export class Order {
       paymentProvider: this.paymentProvider,
       paidAt: this.paidAt?.toISOString() ?? null,
       createdAt: this.createdAt.toISOString(),
+      termsAcceptedAt: this.termsAcceptedAt?.toISOString() ?? null,
+      termsVersion: this.termsVersion,
     };
   }
 }
@@ -155,6 +162,8 @@ export interface NewOrder {
   readonly currency: string;
   readonly couponCode: string | null;
   readonly paymentProvider: string | null;
+  readonly termsAcceptedAt: Date | null;
+  readonly termsVersion: string | null;
 }
 
 // Correlativo por cliente y de largo fijo: "0001". Lo ve el comprador, así que no
@@ -191,6 +200,8 @@ export const CheckoutSchema = CartSchema.extend({
     addressNotes: z.string().trim().max(500).nullable().default(null),
   }),
   returnUrl: z.url().optional(),
+  // Solo cuenta si la tienda exige términos; ahí es obligatorio que venga en `true`.
+  acceptedTerms: z.boolean().default(false),
 });
 
 export type CartInput = z.infer<typeof CartSchema>;

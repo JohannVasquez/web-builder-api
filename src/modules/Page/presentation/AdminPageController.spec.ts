@@ -38,6 +38,7 @@ describe('AdminPageController (HTTP)', () => {
     );
 
   const buildRepository = (): jest.Mocked<PageRepository> => ({
+    findPublishedAt: jest.fn().mockResolvedValue(null),
     findBySlug: jest.fn(),
     findAllByTenant: jest.fn().mockResolvedValue([buildPage()]),
     findById: jest.fn().mockResolvedValue(buildPage()),

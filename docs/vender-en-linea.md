@@ -82,6 +82,35 @@ curl -X POST "$SITE/api/store/checkout" -H 'Content-Type: application/json' \
 Un cupón que no sirve **no rompe la cotización**: se informa el motivo en `couponRejection` y
 se cobra sin descuento, para que quien compra pueda seguir.
 
+## Términos y condiciones de compra
+
+Genera la página desde la plantilla (`POST .../legal-pages` con `{"kind":"compra"}`, o
+`add_legal_page` en el MCP). Trae precios con IVA, despacho, derecho a retracto, garantía
+legal y devoluciones según la Ley 19.496, y **nace despublicada**: revísala antes de
+publicarla, porque plazos y excepciones dependen de lo que vende cada tienda.
+
+Después apunta la tienda a esa página:
+
+```bash
+curl -X PATCH "$API/api/admin/tenants/$TENANT/store/settings" -d '{"termsPageSlug":"terminos-de-compra"}' ...
+```
+
+Mientras la página esté **publicada**, comprar exige `"acceptedTerms": true` (la API lo
+valida, no solo el sitio) y el pedido guarda `termsAcceptedAt` y `termsVersion`, que es la
+fecha de publicación de la versión aceptada: con el historial de la página se puede ver el
+texto exacto. Si la página no está publicada no se exige, porque no se puede pedir aceptar
+algo que el comprador no puede leer.
+
+## Compras repetidas (idempotencia)
+
+`POST /api/store/checkout` acepta el header `Idempotency-Key`. La misma clave con la misma
+compra devuelve el mismo pedido sin crear otro (`Idempotent-Replayed: true`); con otra
+compra responde 422; dos peticiones simultáneas con la misma clave crean un solo pedido y
+la segunda recibe 409 con `Retry-After`. Una compra que falla suelta la clave para poder
+corregir y reintentar. Las claves son por cliente y vencen a las 24 horas.
+
+El sitio genera una clave por compra y la reutiliza en dobles clics y reintentos.
+
 ## Stock
 
 `stock: null` en un producto significa "no se controla". `0` significa agotado: el producto

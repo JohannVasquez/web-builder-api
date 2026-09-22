@@ -57,6 +57,17 @@ export class PrismaPageRepository implements PageRepository {
 
   // Sirve la foto publicada, nunca las filas de `sections`: esas son el borrador que
   // alguien puede estar editando ahora mismo.
+  public async findPublishedAt(tenantId: number, slug: string): Promise<Date | null> {
+    const record = await this.prisma.page.findUnique({
+      where: { tenantId_slug: { tenantId, slug }, isPublished: true },
+      select: { publishedAt: true, publishedContent: true },
+    });
+    if (record === null || record.publishedContent === null) {
+      return null;
+    }
+    return record.publishedAt;
+  }
+
   public async findBySlug(tenantId: number, slug: string): Promise<Page | null> {
     const record = await this.prisma.page.findUnique({
       where: { tenantId_slug: { tenantId, slug }, isPublished: true },

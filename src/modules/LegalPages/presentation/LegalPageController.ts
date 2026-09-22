@@ -4,7 +4,7 @@ import type { CreateLegalPageUseCase } from '../application/CreateLegalPageUseCa
 import { LEGAL_PAGE_TEMPLATES } from '../domain/legalTemplates';
 
 const TenantIdSchema = z.coerce.number().int().positive();
-const BodySchema = z.strictObject({ kind: z.enum(['privacidad', 'terminos']) });
+const BodySchema = z.strictObject({ kind: z.enum(['privacidad', 'terminos', 'compra']) });
 
 export class LegalPageController {
   constructor(private readonly createLegalPageUseCase: CreateLegalPageUseCase) {}

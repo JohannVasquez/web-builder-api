@@ -14,7 +14,7 @@ export class CreateLegalPageUseCase {
     const template = findLegalTemplate(kind);
     if (template === undefined) {
       throw new NotFoundError(
-        `No existe una plantilla legal "${kind}". Las disponibles son "privacidad" y "terminos".`,
+        `No existe una plantilla legal "${kind}". Las disponibles son "privacidad", "terminos" y "compra".`,
       );
     }
 

@@ -45,6 +45,8 @@ interface OrderRecord {
   readonly paymentReference: string | null;
   readonly paidAt: Date | null;
   readonly createdAt: Date;
+  readonly termsAcceptedAt: Date | null;
+  readonly termsVersion: string | null;
   readonly items: readonly OrderItemRecord[];
 }
 
@@ -102,6 +104,8 @@ export class PrismaOrderRepository implements OrderRepository {
           currency: order.currency,
           couponCode: order.couponCode,
           paymentProvider: order.paymentProvider,
+          termsAcceptedAt: order.termsAcceptedAt,
+          termsVersion: order.termsVersion,
           items: {
             create: order.lines.map((line) => ({
               productId: line.productId,
@@ -364,6 +368,8 @@ export class PrismaOrderRepository implements OrderRepository {
       record.paymentReference,
       record.paidAt,
       record.createdAt,
+      record.termsAcceptedAt,
+      record.termsVersion,
     );
   }
 }

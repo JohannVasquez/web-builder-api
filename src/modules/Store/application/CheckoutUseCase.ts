@@ -4,6 +4,8 @@ import type { CheckoutInput, Order } from '../domain/Order';
 import type { OrderRepository } from '../domain/OrderRepository';
 import type { PaymentContext, PaymentGatewayRegistry } from '../domain/PaymentGateway';
 import type { QuoteCartUseCase } from './QuoteCartUseCase';
+import type { PageRepository } from '../../Page/domain/PageRepository';
+import type { StoreSettings } from '../domain/StoreSettings';
 
 export interface CheckoutResult {
   readonly order: Order;
@@ -16,7 +18,26 @@ export class CheckoutUseCase {
     private readonly quoteCartUseCase: QuoteCartUseCase,
     private readonly orderRepository: OrderRepository,
     private readonly gateways: PaymentGatewayRegistry,
+    private readonly pageRepository: PageRepository,
   ) {}
+
+  // Los términos que rigen hoy, o nulo si la tienda no los exige. Solo cuentan si la página
+  // está publicada: no se puede pedir aceptar algo que el comprador no puede leer.
+  public async activeTerms(
+    tenantId: number,
+    settings: StoreSettings,
+  ): Promise<{ slug: string; version: string } | null> {
+    if (settings.termsPageSlug === null) {
+      return null;
+    }
+    const publishedAt = await this.pageRepository.findPublishedAt(
+      tenantId,
+      settings.termsPageSlug,
+    );
+    return publishedAt === null
+      ? null
+      : { slug: settings.termsPageSlug, version: publishedAt.toISOString() };
+  }
 
   public async execute(
     tenantId: number,
@@ -31,6 +52,15 @@ export class CheckoutUseCase {
 
     const quote = await this.quoteCartUseCase.execute(tenantId, input, now);
     const shipping = this.resolveShipping(input, quote.shipping);
+
+    // Se valida en la API, no solo en el sitio: una compra por la API directa tampoco puede
+    // saltarse los términos.
+    const terms = await this.activeTerms(tenantId, settings);
+    if (terms !== null && !input.acceptedTerms) {
+      throw new CheckoutRejectedError(
+        'Para comprar tienes que aceptar los términos y condiciones de compra.',
+      );
+    }
 
     const order = await this.orderRepository.create(tenantId, {
       customer: input.customer,
@@ -52,6 +82,8 @@ export class CheckoutUseCase {
       currency: quote.currency,
       couponCode: quote.coupon?.code ?? null,
       paymentProvider: settings.paymentProvider,
+      termsAcceptedAt: terms === null ? null : now,
+      termsVersion: terms?.version ?? null,
     });
 
     if (!settings.acceptsOnlinePayment()) {

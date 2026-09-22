@@ -19,6 +19,7 @@ import type {
 } from '../domain/PaymentGateway';
 import { CheckoutUseCase } from './CheckoutUseCase';
 import { QuoteCartUseCase } from './QuoteCartUseCase';
+import type { PageRepository } from '../../Page/domain/PageRepository';
 
 const despacho: ShippingOption = {
   code: 'despacho',
@@ -40,6 +41,7 @@ const settingsFor = (overrides: Partial<StoreSettings> = {}): StoreSettings =>
     overrides.paymentProvider ?? 'none',
     {},
     null,
+    overrides.termsPageSlug ?? null,
   );
 
 const productFor = (overrides: Partial<Product> = {}): Product =>
@@ -257,13 +259,20 @@ describe('CheckoutUseCase', () => {
     settings: StoreSettings,
     repository = orderRepository(),
     gateways: PaymentGatewayRegistry = { for: jest.fn() },
+    termsPublishedAt: Date | null = null,
   ): { useCase: CheckoutUseCase; repository: jest.Mocked<OrderRepository> } => {
     const quote = new QuoteCartUseCase(
       settingsRepositoryFor(settings),
       productRepositoryFor(productFor()),
       couponRepositoryFor(null),
     );
-    return { useCase: new CheckoutUseCase(quote, repository, gateways), repository };
+    const pages = {
+      findPublishedAt: jest.fn().mockResolvedValue(termsPublishedAt),
+    } as unknown as PageRepository;
+    return {
+      useCase: new CheckoutUseCase(quote, repository, gateways, pages),
+      repository,
+    };
   };
 
   it('guarda el pedido con los totales calculados en el servidor', async () => {
@@ -333,5 +342,68 @@ describe('CheckoutUseCase', () => {
     expect(start.mock.calls[0][2]).toEqual(context);
     expect(repository.setPaymentReference).toHaveBeenCalledWith(1, 1, 'tk-1');
     expect(result.redirectUrl).toBe('https://pago.cl?token=tk-1');
+  });
+
+  describe('términos y condiciones de compra', () => {
+    const publishedAt = new Date('2026-09-01T12:00:00.000Z');
+    const withTerms = settingsFor({ termsPageSlug: 'terminos-de-compra' });
+
+    it('una tienda sin términos vende sin pedir aceptarlos', async () => {
+      const { useCase, repository } = build(settingsFor());
+
+      await useCase.execute(1, checkoutInput(), context);
+
+      expect(repository.create).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ termsAcceptedAt: null, termsVersion: null }),
+      );
+    });
+
+    it('rechaza la compra si no se aceptaron los términos publicados', async () => {
+      const { useCase, repository } = build(
+        withTerms,
+        orderRepository(),
+        undefined,
+        publishedAt,
+      );
+
+      await expect(useCase.execute(1, checkoutInput(), context)).rejects.toThrow(
+        'aceptar los términos',
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('guarda cuándo se aceptaron y qué versión', async () => {
+      const now = new Date('2026-09-22T15:00:00.000Z');
+      const { useCase, repository } = build(
+        withTerms,
+        orderRepository(),
+        undefined,
+        publishedAt,
+      );
+
+      await useCase.execute(1, checkoutInput({ acceptedTerms: true }), context, now);
+
+      expect(repository.create).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          termsAcceptedAt: now,
+          termsVersion: '2026-09-01T12:00:00.000Z',
+        }),
+      );
+    });
+
+    it('no exige aceptar una página de términos que todavía no se publica', async () => {
+      const { useCase, repository } = build(
+        withTerms,
+        orderRepository(),
+        undefined,
+        null,
+      );
+
+      await useCase.execute(1, checkoutInput(), context);
+
+      expect(repository.create).toHaveBeenCalled();
+    });
   });
 });

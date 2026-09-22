@@ -36,6 +36,8 @@ export interface StoreSettingsPrimitives {
   readonly freeShippingThresholdCents: number | null;
   readonly paymentProvider: PaymentProvider;
   readonly notificationEmail: string | null;
+  // Página con los términos de compra; nula = la tienda no exige aceptarlos.
+  readonly termsPageSlug: string | null;
   // Las credenciales de cobro del cliente nunca viajan hacia afuera; solo se dice si están.
   readonly hasPaymentCredentials: boolean;
 }
@@ -52,6 +54,7 @@ export class StoreSettings {
     public readonly paymentProvider: PaymentProvider,
     public readonly paymentCredentials: Readonly<Record<string, string>>,
     public readonly notificationEmail: string | null,
+    public readonly termsPageSlug: string | null = null,
   ) {}
 
   // Un cliente sin fila de configuración tiene tienda apagada, no una tienda a medias.
@@ -88,6 +91,7 @@ export class StoreSettings {
       freeShippingThresholdCents: this.freeShippingThresholdCents,
       paymentProvider: this.paymentProvider,
       notificationEmail: this.notificationEmail,
+      termsPageSlug: this.termsPageSlug,
       hasPaymentCredentials: Object.keys(this.paymentCredentials).length > 0,
     };
   }
@@ -103,6 +107,15 @@ export const StoreSettingsUpdateSchema = z.strictObject({
   paymentProvider: z.enum(PAYMENT_PROVIDERS).optional(),
   paymentCredentials: z.record(z.string(), z.string()).optional(),
   notificationEmail: z.email().nullable().optional(),
+  termsPageSlug: z
+    .string()
+    .max(255)
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      'Usa la dirección de una página, ej. terminos-de-compra',
+    )
+    .nullable()
+    .optional(),
 });
 
 export type StoreSettingsUpdate = z.infer<typeof StoreSettingsUpdateSchema>;
