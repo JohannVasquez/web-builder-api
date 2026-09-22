@@ -1,4 +1,8 @@
 import { ProductRepository, type CatalogQuery } from '../domain/ProductRepository';
+import {
+  PRODUCT_PREFIX,
+  RecordSlugChangeUseCase,
+} from '@/modules/Redirect/application/RecordSlugChangeUseCase';
 import { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
 import { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { ProductNotFoundError } from '../domain/ProductNotFoundError';
@@ -104,14 +108,24 @@ export class CreateProductUseCase {
 }
 
 export class UpdateProductUseCase {
-  constructor(private readonly repository: ProductRepository) {}
+  constructor(
+    private readonly repository: ProductRepository,
+    private readonly slugChanges: RecordSlugChangeUseCase,
+  ) {}
 
   public async execute(
     tenantId: string,
     id: string,
     input: ProductUpdateInput,
   ): Promise<Product> {
-    return this.repository.update(tenantId, id, input);
+    // Se lee antes de actualizar: después ya no se sabe cuál era el slug viejo.
+    const previous = await this.repository.findById(tenantId, id);
+    const updated = await this.repository.update(tenantId, id, input);
+
+    if (previous !== null) {
+      await this.slugChanges.execute(tenantId, PRODUCT_PREFIX, previous.slug, input.slug);
+    }
+    return updated;
   }
 }
 

@@ -60,6 +60,11 @@ import {
   createAdminNewsletterRouter,
   createNewsletterRouter,
 } from './modules/Newsletter/presentation/newsletterRouter';
+import {
+  createAdminRedirectRouter,
+  createRedirectRouter,
+} from './modules/Redirect/presentation/redirectRouter';
+import type { RedirectController } from './modules/Redirect/presentation/RedirectController';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
@@ -87,6 +92,7 @@ export interface AppControllers {
   readonly adminContactMessageController: AdminContactMessageController;
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
+  readonly redirectController: RedirectController;
   readonly mediaController: MediaController;
   readonly blogController: BlogController;
   readonly adminBlogController: AdminBlogController;
@@ -188,6 +194,12 @@ export const buildApp = (
     createNewsletterRouter(controllers.newsletterController),
   );
   app.use(
+    '/api/redirecciones',
+    tenantResolver,
+    siteAvailability,
+    createRedirectRouter(controllers.redirectController),
+  );
+  app.use(
     '/api/files',
     actorMiddleware,
     requireMethodPermission,
@@ -277,6 +289,11 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/media',
     ...adminGuards,
     createMediaRouter(controllers.mediaController, fileUploadMiddleware),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/redirecciones',
+    ...adminGuards,
+    createAdminRedirectRouter(controllers.redirectController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/subscribers',

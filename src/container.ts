@@ -4,6 +4,11 @@ import type { EnvConfig } from './shared/config/EnvConfig';
 import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
 import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
+import { RedirectRepository } from './modules/Redirect/domain/RedirectRepository';
+import { PrismaRedirectRepository } from './modules/Redirect/infrastructure/PrismaRedirectRepository';
+import { ManageRedirectsUseCase } from './modules/Redirect/application/ManageRedirectsUseCase';
+import { RecordSlugChangeUseCase } from './modules/Redirect/application/RecordSlugChangeUseCase';
+import { RedirectController } from './modules/Redirect/presentation/RedirectController';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
@@ -368,10 +373,23 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(PageController)
     .withDependencies([GetPageBySlugUseCase, ListPublishedPagesUseCase]);
+  // Redirecciones: las registran los casos de uso que renombran contenido, así que van antes.
+  builder
+    .register(RedirectRepository)
+    .use(PrismaRedirectRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(ManageRedirectsUseCase).withDependencies([RedirectRepository]);
+  builder
+    .registerAndUse(RecordSlugChangeUseCase)
+    .withDependencies([ManageRedirectsUseCase]);
+  builder.registerAndUse(RedirectController).withDependencies([ManageRedirectsUseCase]);
+
   builder.registerAndUse(ListPagesUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(GetPageByIdUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(CreatePageUseCase).withDependencies([PageRepository]);
-  builder.registerAndUse(UpdatePageUseCase).withDependencies([PageRepository]);
+  builder
+    .registerAndUse(UpdatePageUseCase)
+    .withDependencies([PageRepository, RecordSlugChangeUseCase]);
   builder.registerAndUse(DeletePageUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(AddSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(UpdateSectionUseCase).withDependencies([PageRepository]);
@@ -603,7 +621,9 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([ProductRepository, GlobalSettingsRepository, StorageProvider]);
   builder.registerAndUse(ListAllProductsUseCase).withDependencies([ProductRepository]);
   builder.registerAndUse(CreateProductUseCase).withDependencies([ProductRepository]);
-  builder.registerAndUse(UpdateProductUseCase).withDependencies([ProductRepository]);
+  builder
+    .registerAndUse(UpdateProductUseCase)
+    .withDependencies([ProductRepository, RecordSlugChangeUseCase]);
   builder.registerAndUse(DeleteProductUseCase).withDependencies([ProductRepository]);
   builder.registerAndUse(StoreController).withDependencies([PublicCatalogUseCase]);
   builder
@@ -707,7 +727,9 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(ListAllBlogPostsUseCase).withDependencies([BlogPostRepository]);
   builder.registerAndUse(GetBlogPostByIdUseCase).withDependencies([BlogPostRepository]);
   builder.registerAndUse(CreateBlogPostUseCase).withDependencies([BlogPostRepository]);
-  builder.registerAndUse(UpdateBlogPostUseCase).withDependencies([BlogPostRepository]);
+  builder
+    .registerAndUse(UpdateBlogPostUseCase)
+    .withDependencies([BlogPostRepository, RecordSlugChangeUseCase]);
   builder.registerAndUse(DeleteBlogPostUseCase).withDependencies([BlogPostRepository]);
   builder
     .registerAndUse(BlogController)
@@ -769,6 +791,7 @@ export class Container {
         catalogController: this.services.get(CatalogController),
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
+        redirectController: this.services.get(RedirectController),
         mediaController: this.services.get(MediaController),
         blogController: this.services.get(BlogController),
         adminBlogController: this.services.get(AdminBlogController),

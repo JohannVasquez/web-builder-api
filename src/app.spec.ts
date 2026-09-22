@@ -85,6 +85,12 @@ describe('buildApp (rutas protegidas)', () => {
       catalogController: { get: ok(200) },
       legalPageController: { list: ok(200), create: ok(201) },
       newsletterController: { subscribe: ok(200), list: ok(200), exportCsv: ok(200) },
+      redirectController: {
+        resolve: ok(200),
+        list: ok(200),
+        create: ok(201),
+        remove: ok(204),
+      },
       mediaController: {
         list: ok(200),
         upload: ok(201),

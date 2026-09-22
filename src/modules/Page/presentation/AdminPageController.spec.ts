@@ -6,6 +6,7 @@ import { ListPagesUseCase } from '../application/ListPagesUseCase';
 import { GetPageByIdUseCase } from '../application/GetPageByIdUseCase';
 import { CreatePageUseCase } from '../application/CreatePageUseCase';
 import { UpdatePageUseCase } from '../application/UpdatePageUseCase';
+import type { RecordSlugChangeUseCase } from '@/modules/Redirect/application/RecordSlugChangeUseCase';
 import { DeletePageUseCase } from '../application/DeletePageUseCase';
 import { AddSectionUseCase } from '../application/AddSectionUseCase';
 import { UpdateSectionUseCase } from '../application/UpdateSectionUseCase';
@@ -69,12 +70,17 @@ describe('AdminPageController (HTTP)', () => {
     markPublished: jest.fn().mockResolvedValue(undefined),
   };
 
+  // Las redirecciones por cambio de slug tienen su propio spec; aquí solo estorbarían.
+  const noSlugChanges = {
+    execute: (): Promise<void> => Promise.resolve(),
+  } as unknown as RecordSlugChangeUseCase;
+
   const buildApp = (repository: PageRepository): Express => {
     const controller = new AdminPageController(
       new ListPagesUseCase(repository),
       new GetPageByIdUseCase(repository),
       new CreatePageUseCase(repository),
-      new UpdatePageUseCase(repository),
+      new UpdatePageUseCase(repository, noSlugChanges),
       new DeletePageUseCase(repository),
       new AddSectionUseCase(repository),
       new UpdateSectionUseCase(repository),

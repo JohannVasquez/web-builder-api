@@ -1,4 +1,5 @@
 import express, { type Express } from 'express';
+import type { RecordSlugChangeUseCase } from '@/modules/Redirect/application/RecordSlugChangeUseCase';
 import request from 'supertest';
 import { StoreController } from './StoreController';
 import { AdminStoreController } from './AdminStoreController';
@@ -17,6 +18,11 @@ import type { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/G
 import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { Tenant } from '@/modules/Tenant/domain/Tenant';
 import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
+
+// Las redirecciones por cambio de slug tienen su propio spec; aquí solo estorbarían.
+const noSlugChanges = {
+  execute: (): Promise<void> => Promise.resolve(),
+} as unknown as RecordSlugChangeUseCase;
 
 describe('Tienda (HTTP)', () => {
   const torta = new Product(
@@ -70,7 +76,7 @@ describe('Tienda (HTTP)', () => {
     const adminController = new AdminStoreController(
       new ListAllProductsUseCase(repository),
       new CreateProductUseCase(repository),
-      new UpdateProductUseCase(repository),
+      new UpdateProductUseCase(repository, noSlugChanges),
       new DeleteProductUseCase(repository),
       repository,
     );

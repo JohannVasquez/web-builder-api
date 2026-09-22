@@ -35,6 +35,7 @@ model Tenant {
   orders            Order[]
   adminUsers        AdminUserTenant[]
   idempotencyKeys   IdempotencyKey[]
+  redirects         Redirect[]
 
   @@map("tenants")
 }
@@ -608,4 +609,26 @@ model IdempotencyKey {
   @@unique([tenantId, scope, key])
   @@index([expiresAt])
   @@map("idempotency_keys")
+}
+
+/// Redirección de una ruta vieja a una nueva. Se crea sola al cambiar el slug de una página,
+/// una publicación o un producto: sin ella, la URL que Google indexó y la que alguien
+/// compartió pasan a 404 y se pierde el posicionamiento acumulado.
+model Redirect {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Ruta de origen, siempre con barra inicial y sin barra final: `/servicios-antiguos`.
+  fromPath String @map("from_path") @db.VarChar(512)
+  toPath   String @map("to_path") @db.VarChar(512)
+
+  /// 301 (permanente) o 302 (temporal). Un cambio de slug es siempre permanente.
+  statusCode Int @default(301) @map("status_code")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, fromPath])
+  @@index([tenantId])
+  @@map("redirects")
 }
