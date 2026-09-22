@@ -81,6 +81,7 @@ describe('ListPublishedPagesUseCase', () => {
       slug: 'home',
       title: 'Inicio',
       description: 'Desc',
+      noindex: false,
       updatedAt: null,
     });
   });

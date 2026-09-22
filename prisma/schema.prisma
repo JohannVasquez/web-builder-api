@@ -70,6 +70,13 @@ model Page {
   title            String    @db.VarChar(255)
   description      String?
   isPublished      Boolean   @default(true) @map("is_published")
+  /// Título y descripción para buscadores; nulos = se usan `title` y `description`.
+  seoTitle         String?   @map("seo_title") @db.VarChar(255)
+  seoDescription   String?   @map("seo_description")
+  /// `key` del bucket privado para compartir en redes; misma regla que el blog.
+  ogImageKey       String?   @map("og_image_key") @db.VarChar(500)
+  /// Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  noindex          Boolean   @default(false)
   /// Estilo visual propio de esta página; nulo = hereda el del sitio.
   visualStyle      String?   @map("visual_style") @db.VarChar(50)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
@@ -362,6 +369,8 @@ model BlogPost {
   seoDescription String? @map("seo_description")
   /// `key` del bucket privado para compartir en redes; misma regla que `coverImageKey`.
   ogImageKey     String? @map("og_image_key") @db.VarChar(500)
+  /// Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  noindex        Boolean @default(false)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
@@ -432,6 +441,12 @@ model Product {
 
   /// `null` = no se controla stock. 0 = agotado.
   stock Int? @map("stock")
+
+  /// Título y descripción para buscadores; nulos = se usan `name` y `description`.
+  seoTitle       String? @map("seo_title") @db.VarChar(255)
+  seoDescription String? @map("seo_description")
+  /// Activo pero fuera del índice: se puede comprar por el enlace, el buscador no lo lista.
+  noindex        Boolean @default(false)
 
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
