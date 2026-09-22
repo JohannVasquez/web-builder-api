@@ -50,6 +50,13 @@ const envSchema = z.strictObject({
   PLATFORM_SITE_TARGET: z.string().min(1).default('sitios.webbuilder.co'),
   // Catálogo de bloques y estilos: vive en el frontend, la API solo lo reexpone (SPEC 10.5).
   WEBAPP_CATALOG_URL: z.string().default(''),
+  // Clave de 32 bytes en base64 con la que se cifran las credenciales de cobro de cada
+  // tienda. Sin default: una clave "de fábrica" que alguien olvide cambiar deja las
+  // credenciales tan expuestas como si no hubiera cifrado (mismo criterio que AUTH_JWT_SECRET).
+  CREDENTIALS_ENCRYPTION_KEY: z.string().min(1),
+  // Claves retiradas, separadas por coma: solo descifran. Permiten rotar sin reescribir la
+  // tabla entera de una vez.
+  CREDENTIALS_ENCRYPTION_RETIRED_KEYS: z.string().default(''),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -83,6 +90,8 @@ export class EnvConfig {
       WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
       REVALIDATE_SECRET: source.REVALIDATE_SECRET,
       WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,
+      CREDENTIALS_ENCRYPTION_KEY: source.CREDENTIALS_ENCRYPTION_KEY,
+      CREDENTIALS_ENCRYPTION_RETIRED_KEYS: source.CREDENTIALS_ENCRYPTION_RETIRED_KEYS,
       PLATFORM_DOMAIN: source.PLATFORM_DOMAIN,
       PLATFORM_SITE_TARGET: source.PLATFORM_SITE_TARGET,
     };

@@ -4,6 +4,7 @@ import type { EnvConfig } from './shared/config/EnvConfig';
 import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
 import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
+import { SecretBox } from './shared/infrastructure/crypto/SecretBox';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
@@ -216,6 +217,14 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   const builder = new ContainerBuilder();
 
   // Valores construidos manualmente a partir de variables de entorno.
+  builder
+    .register(SecretBox)
+    .useFactory(() =>
+      SecretBox.fromEnv(
+        env.get('CREDENTIALS_ENCRYPTION_KEY'),
+        env.get('CREDENTIALS_ENCRYPTION_RETIRED_KEYS'),
+      ),
+    );
   builder
     .register(PrismaConnection)
     .useFactory(() => new PrismaConnection(env.get('DATABASE_URL')))
@@ -626,7 +635,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .register(StoreSettingsRepository)
     .use(PrismaStoreSettingsRepository)
-    .withDependencies([PrismaClient]);
+    .withDependencies([PrismaClient, SecretBox]);
   builder
     .register(CouponRepository)
     .use(PrismaCouponRepository)

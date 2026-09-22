@@ -19,7 +19,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['prisma/seed.ts', 'prisma/seeders/*.ts'],
+          allowDefaultProject: ['prisma/seed.ts', 'prisma/seeders/*.ts', 'scripts/*.ts'],
           // El default (8) ya no alcanza: prisma/seeders/ creció con cada
           // módulo nuevo (AdminUserSeeder sumó el noveno). Sigue siendo un
           // puñado de archivos de seed, no un problema de performance real.
