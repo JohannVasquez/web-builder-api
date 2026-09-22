@@ -2,10 +2,14 @@ import { RestorePageVersionUseCase } from './RestorePageVersionUseCase';
 import { Page, PageSection } from '../domain/Page';
 import type { PageRepository } from '../domain/PageRepository';
 import type { PageVersionRepository } from '../domain/PageVersionRepository';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 describe('RestorePageVersionUseCase', () => {
-  const actor = { type: 'admin' as const, id: 1, name: 'Admin' };
+  const actor = {
+    type: 'admin' as const,
+    id: '018f6f1a-0000-7000-8000-000000000001',
+    name: 'Admin',
+  };
   const snapshot = {
     title: 'Inicio',
     description: null,
@@ -15,8 +19,16 @@ describe('RestorePageVersionUseCase', () => {
     'home',
     'Inicio',
     null,
-    [new PageSection('Hero', 1, { title: 'Antes' }, null, 30)],
-    5,
+    [
+      new PageSection(
+        'Hero',
+        1,
+        { title: 'Antes' },
+        null,
+        '018f6f1a-0000-7000-8000-000000000030',
+      ),
+    ],
+    '018f6f1a-0000-7000-8000-000000000005',
     true,
   );
 
@@ -34,18 +46,32 @@ describe('RestorePageVersionUseCase', () => {
   it('reemplaza el borrador con la foto pedida', async () => {
     const pages = buildPages();
 
-    await new RestorePageVersionUseCase(pages, buildVersions()).execute(9, 5, 3, actor);
+    await new RestorePageVersionUseCase(pages, buildVersions()).execute(
+      '018f6f1a-0000-7000-8000-000000000009',
+      '018f6f1a-0000-7000-8000-000000000005',
+      '018f6f1a-0000-7000-8000-000000000003',
+      actor,
+    );
 
-    expect(pages.replaceDraft).toHaveBeenCalledWith(9, 5, snapshot);
+    expect(pages.replaceDraft).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000009',
+      '018f6f1a-0000-7000-8000-000000000005',
+      snapshot,
+    );
   });
 
   it('restaurar crea una versión nueva: deshacer un deshacer tiene que ser posible', async () => {
     const versions = buildVersions();
 
-    await new RestorePageVersionUseCase(buildPages(), versions).execute(9, 5, 3, actor);
+    await new RestorePageVersionUseCase(buildPages(), versions).execute(
+      '018f6f1a-0000-7000-8000-000000000009',
+      '018f6f1a-0000-7000-8000-000000000005',
+      '018f6f1a-0000-7000-8000-000000000003',
+      actor,
+    );
 
     expect(versions.record).toHaveBeenCalledWith(
-      5,
+      '018f6f1a-0000-7000-8000-000000000005',
       expect.objectContaining({ title: 'Inicio' }),
       expect.stringContaining('Restauró'),
       actor,
@@ -55,7 +81,12 @@ describe('RestorePageVersionUseCase', () => {
   it('no publica: restaurar toca el borrador y publicar sigue siendo aparte', async () => {
     const versions = buildVersions();
 
-    await new RestorePageVersionUseCase(buildPages(), versions).execute(9, 5, 3, actor);
+    await new RestorePageVersionUseCase(buildPages(), versions).execute(
+      '018f6f1a-0000-7000-8000-000000000009',
+      '018f6f1a-0000-7000-8000-000000000005',
+      '018f6f1a-0000-7000-8000-000000000003',
+      actor,
+    );
 
     expect(versions.markPublished).toBeUndefined();
   });
@@ -65,7 +96,12 @@ describe('RestorePageVersionUseCase', () => {
     versions.findSnapshot.mockResolvedValue(null);
 
     await expect(
-      new RestorePageVersionUseCase(buildPages(), versions).execute(9, 5, 999, actor),
+      new RestorePageVersionUseCase(buildPages(), versions).execute(
+        '018f6f1a-0000-7000-8000-000000000009',
+        '018f6f1a-0000-7000-8000-000000000005',
+        '018f6f1a-0000-7000-8000-000000000003',
+        actor,
+      ),
     ).rejects.toThrow(NotFoundError);
   });
 });

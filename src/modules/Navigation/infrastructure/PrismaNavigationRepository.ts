@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { NavigationLink } from '../domain/NavigationLink';
 import type { NavigationRepository } from '../domain/NavigationRepository';
 import type { NavigationInput } from '../domain/NavigationSchema';
@@ -6,7 +6,7 @@ import type { NavigationInput } from '../domain/NavigationSchema';
 export class PrismaNavigationRepository implements NavigationRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  public async findAll(tenantId: number): Promise<NavigationLink[]> {
+  public async findAll(tenantId: string): Promise<NavigationLink[]> {
     const rows = await this.prisma.navigationLink.findMany({
       where: { tenantId },
       orderBy: { position: 'asc' },
@@ -15,7 +15,7 @@ export class PrismaNavigationRepository implements NavigationRepository {
   }
 
   public async replace(
-    tenantId: number,
+    tenantId: string,
     input: NavigationInput,
   ): Promise<NavigationLink[]> {
     // Borrar y volver a crear dentro de una transacción: `(tenantId, position)` es único,

@@ -1,4 +1,4 @@
-import type { ResolveImageUrlsUseCase } from '../../FileStorage/application/ResolveImageUrlsUseCase';
+import type { ResolveImageUrlsUseCase } from '@/modules/FileStorage/application/ResolveImageUrlsUseCase';
 import { Page, PageSection } from '../domain/Page';
 import type { PageRepository } from '../domain/PageRepository';
 import { PageNotFoundError } from '../domain/PageNotFoundError';
@@ -9,7 +9,7 @@ export class GetPageBySlugUseCase {
     private readonly resolveImageUrlsUseCase: ResolveImageUrlsUseCase,
   ) {}
 
-  public async execute(tenantId: number, slug: string): Promise<Page> {
+  public async execute(tenantId: string, slug: string): Promise<Page> {
     const page = await this.pageRepository.findBySlug(tenantId, slug);
     if (page === null) {
       throw new PageNotFoundError(slug);

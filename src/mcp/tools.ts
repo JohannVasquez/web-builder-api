@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ApiClient } from './ApiClient';
+import { idSchema } from '../shared/domain/identifier';
 
 export interface McpTool {
   readonly name: string;
@@ -9,8 +10,8 @@ export interface McpTool {
   readonly handler: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
-const tenantId = z.number().int().positive().describe('Id del cliente (tenant)');
-const pageId = z.number().int().positive().describe('Id de la página');
+const tenantId = idSchema.describe('Id del cliente (tenant)');
+const pageId = idSchema.describe('Id de la página');
 
 // Las acciones destructivas exigen esta confirmación en la MISMA solicitud (Spec 10.4):
 // un agente no puede borrar "de pasada" creyendo que era reversible.
@@ -42,7 +43,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Devuelve todo el sitio de un cliente: páginas con sus bloques, menú de navegación, identidad de marca y datos del negocio. Es lo primero que conviene pedir antes de editar nada.',
       { tenantId },
       async (args) => {
-        const id = args.tenantId as number;
+        const id = args.tenantId as string;
         const [pages, brand] = await Promise.all([
           api.request(`GET`, `/api/admin/tenants/${id}/pages`),
           api.request(`GET`, `/api/admin/tenants/${id}/brand`),
@@ -197,7 +198,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'restore_page_version',
       'Restaurar una versión anterior',
       'Devuelve el borrador de la página a una versión anterior. No publica: publicar sigue siendo una acción aparte. Restaurar crea una versión nueva, así que también se puede deshacer.',
-      { tenantId, pageId, versionId: z.number().int().positive() },
+      { tenantId, pageId, versionId: idSchema },
       (args) =>
         api.request(
           'POST',
@@ -258,7 +259,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       {
         tenantId,
         pageId,
-        sectionId: z.number().int().positive(),
+        sectionId: idSchema,
         type: z.string().optional(),
         position: z.number().int().min(0).optional(),
         props: z.record(z.string(), z.unknown()).optional(),
@@ -282,7 +283,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'duplicate_block',
       'Duplicar un bloque',
       'Copia un bloque justo debajo del original, con el mismo contenido. El ancla no se copia: dos bloques con la misma haría que un enlace del menú apuntara a cualquiera de los dos.',
-      { tenantId, pageId, sectionId: z.number().int().positive() },
+      { tenantId, pageId, sectionId: idSchema },
       (args) =>
         api.request(
           'POST',
@@ -294,7 +295,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'delete_block',
       'Eliminar un bloque',
       'Borra un bloque de una página. Requiere permiso "full" y confirmación explícita.',
-      { tenantId, pageId, sectionId: z.number().int().positive(), confirm },
+      { tenantId, pageId, sectionId: idSchema, confirm },
       (args) =>
         api.request(
           'DELETE',
@@ -309,9 +310,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       {
         tenantId,
         pageId,
-        sectionIds: z
-          .array(z.number().int().positive())
-          .describe('Ids en el orden final'),
+        sectionIds: z.array(idSchema).describe('Ids en el orden final'),
       },
       (args) =>
         api.request(
@@ -459,7 +458,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Cambia una publicación existente. Lo que no envíes no se toca.',
       {
         tenantId,
-        postId: z.number().int().positive(),
+        postId: idSchema,
         slug: z.string().optional(),
         title: z.string().optional(),
         excerpt: z.string().optional(),
@@ -484,7 +483,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'delete_post',
       'Eliminar una publicación',
       'Borra una publicación del blog. Requiere permiso "full" y confirmación explícita.',
-      { tenantId, postId: z.number().int().positive(), confirm },
+      { tenantId, postId: idSchema, confirm },
       (args) =>
         api.request(
           'DELETE',
@@ -526,7 +525,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           .array(z.object({ name: z.string(), options: z.array(z.string()) }))
           .optional()
           .describe('Ej. [{ name: "Talla", options: ["S","M","L"] }]'),
-        categoryId: z.number().int().positive().nullable().optional(),
+        categoryId: idSchema.nullable().optional(),
         featured: z.boolean().optional().describe('Aparece en "productos destacados"'),
         isActive: z
           .boolean()
@@ -545,7 +544,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Cambia un producto existente. Lo que no envíes no se toca.',
       {
         tenantId,
-        productId: z.number().int().positive(),
+        productId: idSchema,
         name: z.string().optional(),
         description: z.string().optional(),
         priceCents: z.number().int().min(0).optional(),
@@ -575,7 +574,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'delete_product',
       'Eliminar un producto',
       'Borra un producto del catálogo. Requiere permiso "full" y confirmación explícita. Si solo quieres dejar de venderlo, usa update_product con isActive: false.',
-      { tenantId, productId: z.number().int().positive(), confirm },
+      { tenantId, productId: idSchema, confirm },
       (args) =>
         api.request(
           'DELETE',
@@ -647,7 +646,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'verify_domain',
       'Verificar un dominio',
       'Consulta el DNS y, si encuentra el registro TXT que corresponde, marca el dominio como verificado. Los cambios de DNS pueden demorar horas en propagarse.',
-      { tenantId, domainId: z.number().int().positive() },
+      { tenantId, domainId: idSchema },
       (args) =>
         api.request(
           'POST',
@@ -659,7 +658,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'set_primary_domain',
       'Marcar el dominio principal',
       'Define cuál de los dominios del cliente es el canónico, el que se usa para construir las URLs absolutas del sitio. Tiene que estar verificado.',
-      { tenantId, domainId: z.number().int().positive() },
+      { tenantId, domainId: idSchema },
       (args) =>
         api.request(
           'PATCH',
@@ -771,7 +770,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Avanza un pedido: pending → paid → preparing → shipped → delivered, y cancelled hasta antes de entregar. Marcarlo pagado descuenta stock, gasta el cupón y manda los correos de confirmación.',
       {
         tenantId,
-        orderId: z.number().int().positive(),
+        orderId: idSchema,
         status: z.enum([
           'pending',
           'paid',
@@ -857,7 +856,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'delete_coupon',
       'Eliminar un cupón',
       'Borra un cupón. Requiere permiso "full" y confirmación explícita. Si solo quieres dejar de ofrecerlo, márcalo inactivo.',
-      { tenantId, couponId: z.number().int().positive(), confirm },
+      { tenantId, couponId: idSchema, confirm },
       (args) =>
         api.request(
           'DELETE',
@@ -871,9 +870,9 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Devuelve el enlace para que una persona revise el sitio antes de publicarlo.',
       { tenantId },
       async (args) => {
-        const id = args.tenantId as number;
+        const id = args.tenantId as string;
         const { tenants } = await api.request<{
-          tenants: { id: number; slug: string; primaryDomain: string | null }[];
+          tenants: { id: string; slug: string; primaryDomain: string | null }[];
         }>('GET', '/api/admin/tenants');
         const tenant = tenants.find((candidate) => candidate.id === id);
         if (tenant === undefined) {
@@ -893,12 +892,12 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Ver el registro de actividad',
       'Quién cambió qué y cuándo, filtrable por cliente y por actor. Útil para revisar lo que dejaste hecho.',
       {
-        tenantId: z.number().int().positive().optional(),
+        tenantId: idSchema.optional(),
         limit: z.number().int().min(1).max(200).optional(),
       },
       (args) => {
         const params = new URLSearchParams();
-        const tenant = args.tenantId as number | undefined;
+        const tenant = args.tenantId as string | undefined;
         const limit = (args.limit as number | undefined) ?? 50;
         if (tenant !== undefined) {
           params.set('tenantId', String(tenant));

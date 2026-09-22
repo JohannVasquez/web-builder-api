@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PricedLine } from './cartPricing';
+import { idSchema } from '@/shared/domain/identifier';
 
 export const ORDER_STATUSES = [
   'pending',
@@ -37,7 +38,7 @@ export const canTransition = (from: OrderStatus, to: OrderStatus): boolean =>
 export type DeliveryMethod = 'shipping' | 'pickup';
 
 export interface OrderItemPrimitives {
-  readonly productId: number | null;
+  readonly productId: string | null;
   readonly name: string;
   readonly variant: Readonly<Record<string, string>>;
   readonly unitPriceCents: number;
@@ -46,7 +47,7 @@ export interface OrderItemPrimitives {
 }
 
 export interface OrderPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly number: string;
   readonly status: OrderStatus;
   readonly statusLabel: string;
@@ -97,7 +98,7 @@ export interface OrderDelivery {
 
 export class Order {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly number: string,
     public readonly status: OrderStatus,
     public readonly customer: OrderCustomer,
@@ -175,7 +176,7 @@ export const nextOrderNumber = (lastNumber: string | null): string => {
 };
 
 export const CartItemSchema = z.strictObject({
-  productId: z.number().int().positive(),
+  productId: idSchema,
   quantity: z.number().int().min(1).max(99),
   variant: z.record(z.string(), z.string()).default({}),
 });

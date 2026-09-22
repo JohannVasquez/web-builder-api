@@ -4,7 +4,7 @@ export const DISCOUNT_TYPES = ['percentage', 'amount'] as const;
 export type DiscountType = (typeof DISCOUNT_TYPES)[number];
 
 export interface CouponPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly code: string;
   readonly discountType: DiscountType;
   readonly value: number;
@@ -18,7 +18,7 @@ export interface CouponPrimitives {
 
 export class Coupon {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly code: string,
     public readonly discountType: DiscountType,
     public readonly value: number,

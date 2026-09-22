@@ -16,7 +16,7 @@ export class QuoteCartUseCase {
   ) {}
 
   public async execute(
-    tenantId: number,
+    tenantId: string,
     input: CartInput,
     now = new Date(),
   ): Promise<CartQuote> {
@@ -62,13 +62,13 @@ export class QuoteCartUseCase {
     };
   }
 
-  public async settingsFor(tenantId: number): Promise<StoreSettings> {
+  public async settingsFor(tenantId: string): Promise<StoreSettings> {
     return this.storeSettingsRepository.find(tenantId);
   }
 
   // Los precios salen SIEMPRE de la base, nunca del carrito que manda el navegador:
   // si no, cualquiera compraría a un peso cambiando el cuerpo de la petición.
-  private async priceLines(tenantId: number, input: CartInput): Promise<PricedLine[]> {
+  private async priceLines(tenantId: string, input: CartInput): Promise<PricedLine[]> {
     const lines: PricedLine[] = [];
 
     for (const item of input.items) {
@@ -103,7 +103,7 @@ export class QuoteCartUseCase {
   // Un cupón que no sirve no rompe la cotización: se informa el motivo y se cobra sin él,
   // porque quien compra tiene que poder seguir aunque se haya equivocado de código.
   private async resolveCoupon(
-    tenantId: number,
+    tenantId: string,
     code: string | null,
     subtotalCents: number,
     now: Date,

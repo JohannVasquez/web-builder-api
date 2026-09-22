@@ -1,11 +1,11 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type { NewsletterRepository } from '../domain/NewsletterRepository';
 import type { NewsletterSubscriber } from '../domain/NewsletterSchema';
 
 export class PrismaNewsletterRepository implements NewsletterRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  public async subscribe(tenantId: number, email: string): Promise<void> {
+  public async subscribe(tenantId: string, email: string): Promise<void> {
     const normalized = email.trim().toLowerCase();
     // Volver a suscribirse reactiva una baja previa; por eso `unsubscribedAt: null`.
     await this.prisma.newsletterSubscriber.upsert({
@@ -16,7 +16,7 @@ export class PrismaNewsletterRepository implements NewsletterRepository {
   }
 
   public async list(
-    tenantId: number,
+    tenantId: string,
     limit: number,
     offset: number,
   ): Promise<{ subscribers: NewsletterSubscriber[]; total: number }> {

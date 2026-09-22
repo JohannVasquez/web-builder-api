@@ -1,15 +1,16 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
-import type { RateLimiter } from '../../ApiKey/application/RateLimiter';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
+import type { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
 import type { SubscribeToNewsletterUseCase } from '../application/SubscribeToNewsletterUseCase';
 import type { ListSubscribersUseCase } from '../application/ListSubscribersUseCase';
 import { SubscribeSchema } from '../domain/NewsletterSchema';
-import { TooManyRequestsError } from '../../../shared/domain/TooManyRequestsError';
+import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
+import { idSchema } from '@/shared/domain/identifier';
 
 const SUBSCRIPTIONS_PER_MINUTE = 5;
 
-const TenantIdSchema = z.coerce.number().int().positive();
+const TenantIdSchema = idSchema;
 const ListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
   offset: z.coerce.number().int().min(0).default(0),
@@ -59,7 +60,7 @@ export class NewsletterController {
     res.send(rows.map((row) => row.map(escapeCsv).join(',')).join('\n'));
   };
 
-  private enforceRateLimit(req: Request, tenantId: number): void {
+  private enforceRateLimit(req: Request, tenantId: string): void {
     const key = `newsletter:${tenantId}:${req.ip ?? 'desconocida'}`;
     const decision = this.rateLimiter.check(key, SUBSCRIPTIONS_PER_MINUTE);
     if (!decision.allowed) {

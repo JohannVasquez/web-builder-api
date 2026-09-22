@@ -32,7 +32,7 @@ describe('mergePaymentCredentials', () => {
 describe('StoreSettings.toPrimitives', () => {
   it('nunca expone las credenciales, solo dice si están', () => {
     const settings = new StoreSettings(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       true,
       'CLP',
       true,

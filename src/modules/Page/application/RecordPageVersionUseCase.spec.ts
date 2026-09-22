@@ -3,8 +3,19 @@ import { Page } from '../domain/Page';
 import type { PageVersionRepository } from '../domain/PageVersionRepository';
 
 describe('RecordPageVersionUseCase', () => {
-  const actor = { type: 'admin' as const, id: 1, name: 'Admin' };
-  const page = new Page('home', 'Inicio', null, [], 5, true);
+  const actor = {
+    type: 'admin' as const,
+    id: '018f6f1a-0000-7000-8000-000000000001',
+    name: 'Admin',
+  };
+  const page = new Page(
+    'home',
+    'Inicio',
+    null,
+    [],
+    '018f6f1a-0000-7000-8000-000000000005',
+    true,
+  );
 
   it('guarda la foto con el resumen y el actor', async () => {
     const repository = {
@@ -18,7 +29,7 @@ describe('RecordPageVersionUseCase', () => {
     );
 
     expect(repository.record).toHaveBeenCalledWith(
-      5,
+      '018f6f1a-0000-7000-8000-000000000005',
       expect.objectContaining({ title: 'Inicio' }),
       'Editó un bloque',
       actor,

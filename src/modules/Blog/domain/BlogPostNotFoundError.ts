@@ -1,4 +1,4 @@
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 // Público: cubre tanto el slug inexistente como el de un borrador (AC2 de la épica).
 export class BlogPostNotFoundError extends NotFoundError {

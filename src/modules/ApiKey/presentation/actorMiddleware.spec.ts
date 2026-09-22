@@ -9,23 +9,32 @@ import {
   requireStaff,
   requireTenantScope,
 } from './actorMiddleware';
-import type { VerifyTokenUseCase } from '../../Auth/application/VerifyTokenUseCase';
-import { AdminUser } from '../../Auth/domain/AdminUser';
+import type { VerifyTokenUseCase } from '@/modules/Auth/application/VerifyTokenUseCase';
+import { AdminUser } from '@/modules/Auth/domain/AdminUser';
 import type { AuthenticateApiKeyUseCase } from '../application/AuthenticateApiKeyUseCase';
 import { RateLimiter } from '../application/RateLimiter';
 import type { Actor } from '../domain/Actor';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('actorMiddleware', () => {
   const buildVerifyTokenUseCase = (): jest.Mocked<VerifyTokenUseCase> =>
     ({
-      execute: jest.fn().mockResolvedValue(new AdminUser(1, 'a@a.com', 'Admin', 'hash')),
+      execute: jest
+        .fn()
+        .mockResolvedValue(
+          new AdminUser(
+            '018f6f1a-0000-7000-8000-000000000001',
+            'a@a.com',
+            'Admin',
+            'hash',
+          ),
+        ),
     }) as unknown as jest.Mocked<VerifyTokenUseCase>;
 
   const buildAuthenticateApiKeyUseCase = (
     actor: Actor = {
       type: 'apiKey',
-      id: 7,
+      id: '018f6f1a-0000-7000-8000-000000000007',
       name: 'Agente MCP',
       role: null,
       permission: 'write',
@@ -123,7 +132,7 @@ describe('actorMiddleware', () => {
       buildVerifyTokenUseCase(),
       buildAuthenticateApiKeyUseCase({
         type: 'apiKey',
-        id: 7,
+        id: '018f6f1a-0000-7000-8000-000000000007',
         name: 'Agente MCP',
         role: null,
         permission: 'write',
@@ -141,7 +150,7 @@ describe('actorMiddleware', () => {
   describe('requireMethodPermission', () => {
     const readActor: Actor = {
       type: 'apiKey',
-      id: 7,
+      id: '018f6f1a-0000-7000-8000-000000000007',
       name: 'Agente MCP',
       role: null,
       permission: 'read',
@@ -214,11 +223,11 @@ describe('actorMiddleware', () => {
   describe('requireTenantScope', () => {
     const scopedActor: Actor = {
       type: 'apiKey',
-      id: 7,
+      id: '018f6f1a-0000-7000-8000-000000000007',
       name: 'Agente MCP',
       role: null,
       permission: 'full',
-      tenantScope: [2],
+      tenantScope: ['018f6f1a-0000-7000-8000-000000000002'],
       rateLimitPerMinute: 120,
     };
 
@@ -229,7 +238,7 @@ describe('actorMiddleware', () => {
       );
 
       const response = await request(app)
-        .get('/tenants/9/pages')
+        .get('/tenants/018f6f1a-0000-7000-8000-000000000009/pages')
         .set('X-Api-Key', 'wb_x_y');
 
       expect(response.status).toBe(403);
@@ -242,7 +251,7 @@ describe('actorMiddleware', () => {
       );
 
       const response = await request(app)
-        .get('/tenants/2/pages')
+        .get('/tenants/018f6f1a-0000-7000-8000-000000000002/pages')
         .set('X-Api-Key', 'wb_x_y');
 
       expect(response.status).toBe(200);
@@ -274,7 +283,7 @@ describe('actorMiddleware', () => {
       buildVerifyTokenUseCase(),
       buildAuthenticateApiKeyUseCase({
         type: 'apiKey',
-        id: 7,
+        id: '018f6f1a-0000-7000-8000-000000000007',
         name: 'Agente MCP',
         role: null,
         permission: 'read',
@@ -304,7 +313,15 @@ describe('actorMiddleware', () => {
     const verify = {
       execute: jest
         .fn()
-        .mockResolvedValue(new AdminUser(2, 'pau@a.com', 'Pau', 'hash', 'editor')),
+        .mockResolvedValue(
+          new AdminUser(
+            '018f6f1a-0000-7000-8000-000000000002',
+            'pau@a.com',
+            'Pau',
+            'hash',
+            'editor',
+          ),
+        ),
     } as unknown as jest.Mocked<VerifyTokenUseCase>;
     const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
 
@@ -320,7 +337,7 @@ describe('actorMiddleware', () => {
       buildVerifyTokenUseCase(),
       buildAuthenticateApiKeyUseCase({
         type: 'apiKey',
-        id: 7,
+        id: '018f6f1a-0000-7000-8000-000000000007',
         name: 'Agente MCP',
         role: null,
         permission: 'full',
@@ -339,7 +356,15 @@ describe('actorMiddleware', () => {
       execute: jest
         .fn()
         .mockResolvedValue(
-          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+          new AdminUser(
+            '018f6f1a-0000-7000-8000-000000000005',
+            'ana@cliente.cl',
+            'Ana',
+            'hash',
+            'client',
+            null,
+            ['018f6f1a-0000-7000-8000-000000000040'],
+          ),
         ),
     } as unknown as jest.Mocked<VerifyTokenUseCase>;
     const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
@@ -351,7 +376,7 @@ describe('actorMiddleware', () => {
     expect(response.body).toMatchObject({
       role: 'client',
       permission: 'write',
-      tenantScope: [40],
+      tenantScope: ['018f6f1a-0000-7000-8000-000000000040'],
     });
   });
 
@@ -360,16 +385,24 @@ describe('actorMiddleware', () => {
       execute: jest
         .fn()
         .mockResolvedValue(
-          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+          new AdminUser(
+            '018f6f1a-0000-7000-8000-000000000005',
+            'ana@cliente.cl',
+            'Ana',
+            'hash',
+            'client',
+            null,
+            ['018f6f1a-0000-7000-8000-000000000040'],
+          ),
         ),
     } as unknown as jest.Mocked<VerifyTokenUseCase>;
     const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
 
     const own = await request(app)
-      .get('/tenants/40/pages')
+      .get('/tenants/018f6f1a-0000-7000-8000-000000000040/pages')
       .set('Authorization', 'Bearer jwt-de-panel');
     const other = await request(app)
-      .get('/tenants/9/pages')
+      .get('/tenants/018f6f1a-0000-7000-8000-000000000009/pages')
       .set('Authorization', 'Bearer jwt-de-panel');
 
     expect(own.status).toBe(200);
@@ -381,7 +414,15 @@ describe('actorMiddleware', () => {
       execute: jest
         .fn()
         .mockResolvedValue(
-          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+          new AdminUser(
+            '018f6f1a-0000-7000-8000-000000000005',
+            'ana@cliente.cl',
+            'Ana',
+            'hash',
+            'client',
+            null,
+            ['018f6f1a-0000-7000-8000-000000000040'],
+          ),
         ),
     } as unknown as jest.Mocked<VerifyTokenUseCase>;
     const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
@@ -397,7 +438,15 @@ describe('actorMiddleware', () => {
     const verify = {
       execute: jest
         .fn()
-        .mockResolvedValue(new AdminUser(2, 'pau@a.com', 'Pau', 'hash', 'editor')),
+        .mockResolvedValue(
+          new AdminUser(
+            '018f6f1a-0000-7000-8000-000000000002',
+            'pau@a.com',
+            'Pau',
+            'hash',
+            'editor',
+          ),
+        ),
     } as unknown as jest.Mocked<VerifyTokenUseCase>;
     const app = buildApp(verify, buildAuthenticateApiKeyUseCase());
 
@@ -413,7 +462,15 @@ describe('actorMiddleware', () => {
       execute: jest
         .fn()
         .mockResolvedValue(
-          new AdminUser(5, 'ana@cliente.cl', 'Ana', 'hash', 'client', null, [40]),
+          new AdminUser(
+            '018f6f1a-0000-7000-8000-000000000005',
+            'ana@cliente.cl',
+            'Ana',
+            'hash',
+            'client',
+            null,
+            ['018f6f1a-0000-7000-8000-000000000040'],
+          ),
         ),
     } as unknown as jest.Mocked<VerifyTokenUseCase>;
     const app = buildApp(verify, buildAuthenticateApiKeyUseCase());

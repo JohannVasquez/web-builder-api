@@ -1,5 +1,5 @@
 import { PrismaNewsletterRepository } from './PrismaNewsletterRepository';
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 
 describe('PrismaNewsletterRepository', () => {
   const buildPrisma = (): {
@@ -16,11 +16,19 @@ describe('PrismaNewsletterRepository', () => {
   it('normaliza el correo, para que dos mayúsculas no creen dos suscriptores', async () => {
     const { prisma, upsert } = buildPrisma();
 
-    await new PrismaNewsletterRepository(prisma).subscribe(1, '  Ana@Ejemplo.CL ');
+    await new PrismaNewsletterRepository(prisma).subscribe(
+      '018f6f1a-0000-7000-8000-000000000001',
+      '  Ana@Ejemplo.CL ',
+    );
 
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { tenantId_email: { tenantId: 1, email: 'ana@ejemplo.cl' } },
+        where: {
+          tenantId_email: {
+            tenantId: '018f6f1a-0000-7000-8000-000000000001',
+            email: 'ana@ejemplo.cl',
+          },
+        },
       }),
     );
   });
@@ -28,7 +36,10 @@ describe('PrismaNewsletterRepository', () => {
   it('volver a suscribirse reactiva una baja previa', async () => {
     const { prisma, upsert } = buildPrisma();
 
-    await new PrismaNewsletterRepository(prisma).subscribe(1, 'ana@ejemplo.cl');
+    await new PrismaNewsletterRepository(prisma).subscribe(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'ana@ejemplo.cl',
+    );
 
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({ update: { unsubscribedAt: null } }),

@@ -1,21 +1,21 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { ApiKey } from '../domain/ApiKey';
 import type { ApiKeyRepository, CreateApiKeyData } from '../domain/ApiKeyRepository';
 import { PERMISSIONS, type Permission } from '../domain/Actor';
 
 interface ApiKeyRecord {
-  readonly id: number;
+  readonly id: string;
   readonly name: string;
   readonly prefix: string;
   readonly permission: string;
   readonly scopeAllTenants: boolean;
   readonly rateLimitPerMinute: number;
-  readonly createdById: number;
+  readonly createdById: string;
   readonly expiresAt: Date | null;
   readonly lastUsedAt: Date | null;
   readonly revokedAt: Date | null;
   readonly createdAt: Date;
-  readonly tenants: readonly { readonly tenantId: number }[];
+  readonly tenants: readonly { readonly tenantId: string }[];
 }
 
 export class PrismaApiKeyRepository implements ApiKeyRepository {
@@ -49,7 +49,7 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
     return record === null ? null : this.toDomain(record);
   }
 
-  public async findById(id: number): Promise<ApiKey | null> {
+  public async findById(id: string): Promise<ApiKey | null> {
     const record = await this.prisma.apiKey.findUnique({
       where: { id },
       include: { tenants: { select: { tenantId: true } } },
@@ -65,7 +65,7 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async revoke(id: number): Promise<ApiKey | null> {
+  public async revoke(id: string): Promise<ApiKey | null> {
     const existing = await this.findById(id);
     if (existing === null) {
       return null;
@@ -79,7 +79,7 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
   }
 
   // No espera a que termine quien la llama: es telemetría, no parte de la autorización.
-  public async touchLastUsed(id: number): Promise<void> {
+  public async touchLastUsed(id: string): Promise<void> {
     await this.prisma.apiKey.update({ where: { id }, data: { lastUsedAt: new Date() } });
   }
 

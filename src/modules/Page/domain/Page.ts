@@ -6,7 +6,7 @@ export interface PageSectionPrimitives {
 }
 
 export interface AdminPageSectionPrimitives extends PageSectionPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly isHidden: boolean;
 }
 
@@ -20,7 +20,7 @@ export interface PagePrimitives {
 }
 
 export interface AdminPagePrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly title: string;
   readonly description: string | null;
@@ -36,7 +36,7 @@ export class PageSection {
     public readonly props: Readonly<Record<string, unknown>>,
     public readonly anchor: string | null = null,
     /** Ausente en el camino público (AC1.3 no lo necesita); presente en admin. */
-    public readonly id?: number,
+    public readonly id?: string,
     // Oculta: el panel la sigue viendo, el sitio publicado no.
     public readonly isHidden: boolean = false,
   ) {}
@@ -65,7 +65,7 @@ export class Page {
     public readonly description: string | null,
     public readonly sections: readonly PageSection[],
     /** Ausente en el camino público; presente (junto a `isPublished`) en admin. */
-    public readonly id?: number,
+    public readonly id?: string,
     public readonly isPublished: boolean = true,
     // Solo lo usa el sitemap para el `lastModified`; el resto del dominio lo ignora.
     public readonly updatedAt: Date | null = null,

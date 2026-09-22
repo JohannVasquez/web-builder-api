@@ -1,8 +1,8 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { ConflictError } from '../../../shared/domain/ConflictError';
-import { UnprocessableEntityError } from '../../../shared/domain/UnprocessableEntityError';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
+import { ConflictError } from '@/shared/domain/ConflictError';
+import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityError';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import type { IdempotencyStore } from '../domain/IdempotencyStore';
 import { isValidIdempotencyKey, requestHash } from '../domain/requestHash';
 

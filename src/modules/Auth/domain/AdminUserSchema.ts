@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { ADMIN_ROLES } from './AdminUser';
+import { idSchema } from '@/shared/domain/identifier';
 
-const tenantIds = z.array(z.number().int().positive()).max(100).default([]);
+const tenantIds = z.array(idSchema).max(100).default([]);
 
 export const InviteAdminUserSchema = z
   .strictObject({

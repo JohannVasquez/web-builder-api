@@ -1,5 +1,8 @@
-import type { PrismaClient } from '../../src/shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type { Seeder } from './Seeder';
+
+// Prisma tipa las columnas JSON con su propio `InputJsonValue`; este es el punto de cruce.
+const asJsonColumn = (value: unknown): object => value as object;
 
 export interface SectionSeed {
   readonly type: string;
@@ -17,7 +20,7 @@ export interface PageSeed {
 }
 
 export interface PageSeedParams {
-  readonly tenantId: number;
+  readonly tenantId: string;
   readonly pages: readonly PageSeed[];
 }
 
@@ -35,6 +38,11 @@ export class PageSeeder implements Seeder<PageSeedParams> {
 
       // El público lee `publishedContent`, no las filas de `sections`, así que sembrar solo
       // el borrador dejaría los sitios de demostración en blanco.
+      // Las filas del borrador llevan `props` como columna JSON; la foto publicada, tal cual.
+      const sectionRows = sections.map((section) => ({
+        ...section,
+        props: asJsonColumn(section.props),
+      }));
       const publishedContent = {
         title: page.title,
         description: page.description ?? null,
@@ -51,18 +59,18 @@ export class PageSeeder implements Seeder<PageSeedParams> {
         update: {
           title: page.title,
           description: page.description,
-          publishedContent,
+          publishedContent: asJsonColumn(publishedContent),
           publishedAt: new Date(),
-          sections: { deleteMany: {}, create: sections },
+          sections: { deleteMany: {}, create: sectionRows },
         },
         create: {
           tenantId: params.tenantId,
           slug: page.slug,
           title: page.title,
           description: page.description,
-          publishedContent,
+          publishedContent: asJsonColumn(publishedContent),
           publishedAt: new Date(),
-          sections: { create: sections },
+          sections: { create: sectionRows },
         },
       });
     }

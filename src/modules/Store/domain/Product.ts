@@ -4,7 +4,7 @@ export interface ProductVariant {
 }
 
 export interface ProductPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly name: string;
   readonly description: string;
@@ -12,7 +12,7 @@ export interface ProductPrimitives {
   readonly priceCents: number;
   readonly salePriceCents: number | null;
   readonly currency: string;
-  readonly categoryId: number | null;
+  readonly categoryId: string | null;
   readonly variants: readonly ProductVariant[];
   readonly isActive: boolean;
   readonly featured: boolean;
@@ -24,7 +24,7 @@ export interface ProductPrimitives {
 
 export class Product {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly slug: string,
     public readonly name: string,
     public readonly description: string,
@@ -32,7 +32,7 @@ export class Product {
     public readonly priceCents: number,
     public readonly salePriceCents: number | null,
     public readonly currency: string,
-    public readonly categoryId: number | null,
+    public readonly categoryId: string | null,
     public readonly variants: readonly ProductVariant[],
     public readonly isActive: boolean,
     public readonly featured: boolean,
@@ -74,7 +74,7 @@ export class Product {
 }
 
 export interface ProductCategoryPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly name: string;
   readonly position: number;

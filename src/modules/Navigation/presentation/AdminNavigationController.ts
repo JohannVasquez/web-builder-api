@@ -1,5 +1,5 @@
+import { parseId } from '@/shared/domain/identifier';
 import type { Request, Response } from 'express';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
 import type { GetNavigationUseCase } from '../application/GetNavigationUseCase';
 import type { ReplaceNavigationUseCase } from '../application/ReplaceNavigationUseCase';
 import { NavigationSchema } from '../domain/NavigationSchema';
@@ -24,11 +24,7 @@ export class AdminNavigationController {
     res.json({ links: links.map((link) => link.toPrimitives()) });
   };
 
-  private tenantIdOf(req: Request): number {
-    const value = Number(req.params.tenantId);
-    if (!Number.isInteger(value) || value <= 0) {
-      throw new BadRequestError('El identificador del cliente no es válido.');
-    }
-    return value;
+  private tenantIdOf(req: Request): string {
+    return parseId(req.params.tenantId, 'tenantId');
   }
 }

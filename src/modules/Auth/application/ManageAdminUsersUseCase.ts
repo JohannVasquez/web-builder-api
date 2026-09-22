@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 import type { AdminRole, AdminUser, AdminUserPrimitives } from '../domain/AdminUser';
 import type { AdminUserRepository } from '../domain/AdminUserRepository';
 import type { PasswordHasher } from '../domain/PasswordHasher';
@@ -48,10 +48,10 @@ export class ManageAdminUsersUseCase {
   }
 
   public async changeRole(
-    actorId: number,
-    id: number,
+    actorId: string,
+    id: string,
     role: AdminRole,
-    tenantIds: readonly number[] = [],
+    tenantIds: readonly string[] = [],
   ): Promise<AdminUserPrimitives> {
     const user = await this.requireUser(id);
     if (user.id === actorId && role !== 'owner') {
@@ -72,8 +72,8 @@ export class ManageAdminUsersUseCase {
   }
 
   public async setDisabled(
-    actorId: number,
-    id: number,
+    actorId: string,
+    id: string,
     disabled: boolean,
   ): Promise<AdminUserPrimitives> {
     const user = await this.requireUser(id);
@@ -86,7 +86,7 @@ export class ManageAdminUsersUseCase {
     return (updated ?? user).toPrimitives();
   }
 
-  private async requireUser(id: number): Promise<AdminUser> {
+  private async requireUser(id: string): Promise<AdminUser> {
     const user = await this.adminUserRepository.findById(id);
     if (user === null) {
       throw new NotFoundError('Esa persona no existe en el panel.');
@@ -96,7 +96,7 @@ export class ManageAdminUsersUseCase {
 
   // Sin dueños activos nadie puede volver a invitar ni a reactivar a nadie: la cuenta
   // quedaría cerrada por dentro.
-  private async guardLastOwner(id: number, wouldRemoveOwner: boolean): Promise<void> {
+  private async guardLastOwner(id: string, wouldRemoveOwner: boolean): Promise<void> {
     if (!wouldRemoveOwner) {
       return;
     }

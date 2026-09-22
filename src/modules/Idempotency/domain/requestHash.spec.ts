@@ -8,8 +8,14 @@ describe('requestHash', () => {
   });
 
   it('cambia si cambia el contenido', () => {
-    expect(requestHash({ items: [{ productId: 1, quantity: 1 }] })).not.toBe(
-      requestHash({ items: [{ productId: 1, quantity: 2 }] }),
+    expect(
+      requestHash({
+        items: [{ productId: '018f6f1a-0000-7000-8000-000000000001', quantity: 1 }],
+      }),
+    ).not.toBe(
+      requestHash({
+        items: [{ productId: '018f6f1a-0000-7000-8000-000000000001', quantity: 2 }],
+      }),
     );
   });
 

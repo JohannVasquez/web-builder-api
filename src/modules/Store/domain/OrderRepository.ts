@@ -14,7 +14,7 @@ export interface SalesReport {
   readonly averageCents: number;
   readonly byDay: readonly { date: string; orders: number; totalCents: number }[];
   readonly topProducts: readonly {
-    productId: number | null;
+    productId: string | null;
     name: string;
     units: number;
     totalCents: number;
@@ -23,38 +23,38 @@ export interface SalesReport {
 
 // Clase abstracta usada como token de inyección de dependencias (diod).
 export abstract class OrderRepository {
-  public abstract create(tenantId: number, order: NewOrder): Promise<Order>;
-  public abstract findById(tenantId: number, id: number): Promise<Order | null>;
-  public abstract findByNumber(tenantId: number, number: string): Promise<Order | null>;
+  public abstract create(tenantId: string, order: NewOrder): Promise<Order>;
+  public abstract findById(tenantId: string, id: string): Promise<Order | null>;
+  public abstract findByNumber(tenantId: string, number: string): Promise<Order | null>;
   public abstract findByPaymentReference(
-    tenantId: number,
+    tenantId: string,
     reference: string,
   ): Promise<Order | null>;
   public abstract list(
-    tenantId: number,
+    tenantId: string,
     query: OrderQuery,
   ): Promise<{ orders: Order[]; total: number }>;
   public abstract setStatus(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     status: OrderStatus,
   ): Promise<Order>;
   public abstract markPaid(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     reference: string,
   ): Promise<Order>;
   public abstract setPaymentReference(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     reference: string,
   ): Promise<void>;
   // Descuenta el stock de los productos del pedido. Los que no controlan stock se saltan.
-  public abstract discountStock(tenantId: number, orderId: number): Promise<void>;
-  public abstract restoreStock(tenantId: number, orderId: number): Promise<void>;
+  public abstract discountStock(tenantId: string, orderId: string): Promise<void>;
+  public abstract restoreStock(tenantId: string, orderId: string): Promise<void>;
   // `timeZone` decide a qué día pertenece cada venta: el de la tienda, no UTC.
   public abstract salesReport(
-    tenantId: number,
+    tenantId: string,
     from: Date,
     to: Date,
     timeZone?: string,

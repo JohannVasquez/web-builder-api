@@ -1,3 +1,4 @@
+import { parseId } from '@/shared/domain/identifier';
 import type { Request, Response } from 'express';
 import type { ManageAdminUsersUseCase } from '../application/ManageAdminUsersUseCase';
 import {
@@ -5,8 +6,7 @@ import {
   InviteAdminUserSchema,
   SetDisabledSchema,
 } from '../domain/AdminUserSchema';
-import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { getRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
 
 export class AdminUserController {
   constructor(private readonly useCase: ManageAdminUsersUseCase) {}
@@ -41,11 +41,7 @@ export class AdminUserController {
     res.status(200).json({ user });
   };
 
-  private idOf(req: Request): number {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      throw new BadRequestError('El identificador de la persona no es válido.');
-    }
-    return id;
+  private idOf(req: Request): string {
+    return parseId(req.params.id, 'id');
   }
 }

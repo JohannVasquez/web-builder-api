@@ -15,7 +15,12 @@ import {
 import { ResetPasswordUseCase } from './ResetPasswordUseCase';
 
 describe('recuperación de contraseña', () => {
-  const user = new AdminUser(7, 'johann@webbuilder.co', 'Johann', 'hash-viejo');
+  const user = new AdminUser(
+    '018f6f1a-0000-7000-8000-000000000007',
+    'johann@webbuilder.co',
+    'Johann',
+    'hash-viejo',
+  );
 
   const buildUsers = (found: AdminUser | null): jest.Mocked<AdminUserRepository> => ({
     findByEmail: jest.fn().mockResolvedValue(found),
@@ -69,11 +74,13 @@ describe('recuperación de contraseña', () => {
         `https://admin.webbuilder.co/admin/reset-password?token=${token}`,
       );
       expect(tickets.create).toHaveBeenCalledWith(
-        7,
+        '018f6f1a-0000-7000-8000-000000000007',
         hashResetToken(token),
         expect.any(Date),
       );
-      expect(tickets.invalidateAllFor).toHaveBeenCalledWith(7);
+      expect(tickets.invalidateAllFor).toHaveBeenCalledWith(
+        '018f6f1a-0000-7000-8000-000000000007',
+      );
     });
 
     it('no manda nada ni falla cuando el correo no tiene cuenta', async () => {
@@ -91,7 +98,7 @@ describe('recuperación de contraseña', () => {
 
     it('ignora a una persona desactivada', async () => {
       const disabled = new AdminUser(
-        8,
+        '018f6f1a-0000-7000-8000-000000000008',
         'ex@webbuilder.co',
         'Ex',
         'hash',
@@ -116,8 +123,8 @@ describe('recuperación de contraseña', () => {
     const ticketFor = (
       overrides: Partial<PasswordResetTicket> = {},
     ): PasswordResetTicket => ({
-      id: 3,
-      adminUserId: 7,
+      id: '018f6f1a-0000-7000-8000-000000000003',
+      adminUserId: '018f6f1a-0000-7000-8000-000000000007',
       expiresAt: new Date('2026-09-16T12:00:00.000Z'),
       usedAt: null,
       ...overrides,
@@ -138,8 +145,13 @@ describe('recuperación de contraseña', () => {
       expect(tickets.findByTokenHash).toHaveBeenCalledWith(
         hashResetToken('token-en-claro'),
       );
-      expect(users.setPassword).toHaveBeenCalledWith(7, 'hash-nuevo');
-      expect(tickets.markUsed).toHaveBeenCalledWith(3);
+      expect(users.setPassword).toHaveBeenCalledWith(
+        '018f6f1a-0000-7000-8000-000000000007',
+        'hash-nuevo',
+      );
+      expect(tickets.markUsed).toHaveBeenCalledWith(
+        '018f6f1a-0000-7000-8000-000000000003',
+      );
     });
 
     it('rechaza un enlace ya usado', async () => {

@@ -8,12 +8,12 @@ import type { ListApiKeysUseCase } from '../application/ListApiKeysUseCase';
 import type { RevokeApiKeyUseCase } from '../application/RevokeApiKeyUseCase';
 import type { RegenerateApiKeyUseCase } from '../application/RegenerateApiKeyUseCase';
 import type { Actor } from '../domain/Actor';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('ApiKeyController (HTTP)', () => {
   const adminActor: Actor = {
     type: 'admin',
-    id: 5,
+    id: '018f6f1a-0000-7000-8000-000000000005',
     name: 'Admin',
     role: 'owner',
     permission: 'full',
@@ -23,7 +23,7 @@ describe('ApiKeyController (HTTP)', () => {
 
   const apiKeyActor: Actor = {
     type: 'apiKey',
-    id: 7,
+    id: '018f6f1a-0000-7000-8000-000000000007',
     name: 'Agente MCP',
     role: null,
     permission: 'full',
@@ -39,21 +39,27 @@ describe('ApiKeyController (HTTP)', () => {
   } => ({
     createApiKeyUseCase: {
       execute: jest.fn().mockResolvedValue({
-        apiKey: { id: 1, name: 'Agente MCP' },
+        apiKey: { id: '018f6f1a-0000-7000-8000-000000000001', name: 'Agente MCP' },
         token: 'wb_new_token',
       }),
     } as unknown as jest.Mocked<CreateApiKeyUseCase>,
     listApiKeysUseCase: {
-      execute: jest.fn().mockResolvedValue([{ id: 1, name: 'Agente MCP' }]),
-    } as unknown as jest.Mocked<ListApiKeysUseCase>,
-    revokeApiKeyUseCase: {
       execute: jest
         .fn()
-        .mockResolvedValue({ id: 1, name: 'Agente MCP', status: 'revoked' }),
+        .mockResolvedValue([
+          { id: '018f6f1a-0000-7000-8000-000000000001', name: 'Agente MCP' },
+        ]),
+    } as unknown as jest.Mocked<ListApiKeysUseCase>,
+    revokeApiKeyUseCase: {
+      execute: jest.fn().mockResolvedValue({
+        id: '018f6f1a-0000-7000-8000-000000000001',
+        name: 'Agente MCP',
+        status: 'revoked',
+      }),
     } as unknown as jest.Mocked<RevokeApiKeyUseCase>,
     regenerateApiKeyUseCase: {
       execute: jest.fn().mockResolvedValue({
-        apiKey: { id: 2, name: 'Agente MCP' },
+        apiKey: { id: '018f6f1a-0000-7000-8000-000000000002', name: 'Agente MCP' },
         token: 'wb_regenerated_token',
       }),
     } as unknown as jest.Mocked<RegenerateApiKeyUseCase>,
@@ -94,7 +100,7 @@ describe('ApiKeyController (HTTP)', () => {
     expect(body.warning).toEqual(expect.any(String));
     expect(useCases.createApiKeyUseCase.execute).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Agente MCP' }),
-      5,
+      '018f6f1a-0000-7000-8000-000000000005',
     );
   });
 
@@ -106,28 +112,38 @@ describe('ApiKeyController (HTTP)', () => {
 
     expect(response.status).toBe(200);
     expect(useCases.listApiKeysUseCase.execute).toHaveBeenCalled();
-    expect(response.body).toMatchObject({ apiKeys: [{ id: 1, name: 'Agente MCP' }] });
+    expect(response.body).toMatchObject({
+      apiKeys: [{ id: '018f6f1a-0000-7000-8000-000000000001', name: 'Agente MCP' }],
+    });
   });
 
   it('revokes an api key', async () => {
     const useCases = buildUseCases();
     const app = buildApp(useCases, adminActor);
 
-    const response = await request(app).delete('/api/admin/api-keys/1');
+    const response = await request(app).delete(
+      '/api/admin/api-keys/018f6f1a-0000-7000-8000-000000000001',
+    );
 
     expect(response.status).toBe(200);
-    expect(useCases.revokeApiKeyUseCase.execute).toHaveBeenCalledWith(1);
+    expect(useCases.revokeApiKeyUseCase.execute).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000001',
+    );
   });
 
   it('regenerates an api key and returns 201 with a new token', async () => {
     const useCases = buildUseCases();
     const app = buildApp(useCases, adminActor);
 
-    const response = await request(app).post('/api/admin/api-keys/1/regenerate');
+    const response = await request(app).post(
+      '/api/admin/api-keys/018f6f1a-0000-7000-8000-000000000001/regenerate',
+    );
 
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({ token: 'wb_regenerated_token' });
-    expect(useCases.regenerateApiKeyUseCase.execute).toHaveBeenCalledWith(1);
+    expect(useCases.regenerateApiKeyUseCase.execute).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000001',
+    );
   });
 
   describe('a key managing keys', () => {
@@ -147,7 +163,9 @@ describe('ApiKeyController (HTTP)', () => {
       const useCases = buildUseCases();
       const app = buildApp(useCases, apiKeyActor);
 
-      const response = await request(app).delete('/api/admin/api-keys/1');
+      const response = await request(app).delete(
+        '/api/admin/api-keys/018f6f1a-0000-7000-8000-000000000001',
+      );
 
       expect(response.status).toBe(403);
       expect(useCases.revokeApiKeyUseCase.execute).not.toHaveBeenCalled();
@@ -157,7 +175,9 @@ describe('ApiKeyController (HTTP)', () => {
       const useCases = buildUseCases();
       const app = buildApp(useCases, apiKeyActor);
 
-      const response = await request(app).post('/api/admin/api-keys/1/regenerate');
+      const response = await request(app).post(
+        '/api/admin/api-keys/018f6f1a-0000-7000-8000-000000000001/regenerate',
+      );
 
       expect(response.status).toBe(403);
       expect(useCases.regenerateApiKeyUseCase.execute).not.toHaveBeenCalled();

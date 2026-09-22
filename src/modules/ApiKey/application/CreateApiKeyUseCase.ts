@@ -14,7 +14,7 @@ export class CreateApiKeyUseCase {
 
   public async execute(
     input: CreateApiKeyInput,
-    createdById: number,
+    createdById: string,
   ): Promise<CreatedApiKey> {
     const generated = generateApiKeyToken();
     const apiKey = await this.apiKeyRepository.create({

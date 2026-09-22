@@ -1,14 +1,14 @@
 import type { Permission } from './Actor';
 
 export interface ApiKeyPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly name: string;
   readonly prefix: string;
   readonly permission: Permission;
   readonly scopeAllTenants: boolean;
-  readonly tenantIds: readonly number[];
+  readonly tenantIds: readonly string[];
   readonly rateLimitPerMinute: number;
-  readonly createdById: number;
+  readonly createdById: string;
   readonly expiresAt: string | null;
   readonly lastUsedAt: string | null;
   readonly revokedAt: string | null;
@@ -20,14 +20,14 @@ export type ApiKeyStatus = 'active' | 'revoked' | 'expired';
 
 export class ApiKey {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly name: string,
     public readonly prefix: string,
     public readonly permission: Permission,
     public readonly scopeAllTenants: boolean,
-    public readonly tenantIds: readonly number[],
+    public readonly tenantIds: readonly string[],
     public readonly rateLimitPerMinute: number,
-    public readonly createdById: number,
+    public readonly createdById: string,
     public readonly expiresAt: Date | null,
     public readonly lastUsedAt: Date | null,
     public readonly revokedAt: Date | null,
@@ -49,7 +49,7 @@ export class ApiKey {
   }
 
   // `null` = alcanza todos los clientes; es lo que consume `Actor.tenantScope`.
-  public scope(): readonly number[] | null {
+  public scope(): readonly string[] | null {
     return this.scopeAllTenants ? null : this.tenantIds;
   }
 

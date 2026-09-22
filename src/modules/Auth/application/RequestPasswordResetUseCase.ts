@@ -29,7 +29,7 @@ export class RequestPasswordResetUseCase {
     await this.mailer.sendResetLink(user.email, user.name, this.buildUrl(token));
   }
 
-  public async issue(adminUserId: number): Promise<string> {
+  public async issue(adminUserId: string): Promise<string> {
     await this.passwordResetRepository.invalidateAllFor(adminUserId);
     const token = generateResetToken();
     await this.passwordResetRepository.create(

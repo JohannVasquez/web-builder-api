@@ -2,9 +2,10 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import type { ListContactMessagesUseCase } from '../application/ListContactMessagesUseCase';
 import type { MarkContactMessageReadUseCase } from '../application/MarkContactMessageReadUseCase';
+import { idSchema } from '@/shared/domain/identifier';
 
-const TenantIdSchema = z.coerce.number().int().positive();
-const MessageIdSchema = z.coerce.number().int().positive();
+const TenantIdSchema = idSchema;
+const MessageIdSchema = idSchema;
 
 const ListQuerySchema = z.object({
   unreadOnly: z

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   Prisma,
   type PrismaClient,
-} from '../../../shared/infrastructure/prisma/generated/client';
+} from '@/shared/infrastructure/prisma/generated/client';
 import { Page, PageSection } from '../domain/Page';
 import type { PageRepository } from '../domain/PageRepository';
 import type { PageInput, PageUpdateInput } from '../domain/PageSchema';
@@ -26,7 +26,7 @@ const isUniqueConstraintError = (error: unknown): boolean =>
   error.code === UNIQUE_CONSTRAINT_VIOLATION;
 
 interface PageRecord {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly title: string;
   readonly description: string | null;
@@ -37,7 +37,7 @@ interface PageRecord {
 }
 
 interface SectionRecord {
-  readonly id: number;
+  readonly id: string;
   readonly type: string;
   readonly position: number;
   readonly props: unknown;
@@ -57,7 +57,7 @@ export class PrismaPageRepository implements PageRepository {
 
   // Sirve la foto publicada, nunca las filas de `sections`: esas son el borrador que
   // alguien puede estar editando ahora mismo.
-  public async findPublishedAt(tenantId: number, slug: string): Promise<Date | null> {
+  public async findPublishedAt(tenantId: string, slug: string): Promise<Date | null> {
     const record = await this.prisma.page.findUnique({
       where: { tenantId_slug: { tenantId, slug }, isPublished: true },
       select: { publishedAt: true, publishedContent: true },
@@ -68,7 +68,7 @@ export class PrismaPageRepository implements PageRepository {
     return record.publishedAt;
   }
 
-  public async findBySlug(tenantId: number, slug: string): Promise<Page | null> {
+  public async findBySlug(tenantId: string, slug: string): Promise<Page | null> {
     const record = await this.prisma.page.findUnique({
       where: { tenantId_slug: { tenantId, slug }, isPublished: true },
       select: { publishedContent: true },
@@ -79,7 +79,7 @@ export class PrismaPageRepository implements PageRepository {
     return pageFromSnapshot(slug, record.publishedContent);
   }
 
-  public async publish(tenantId: number, id: number): Promise<Page> {
+  public async publish(tenantId: string, id: string): Promise<Page> {
     const draft = await this.findById(tenantId, id);
     if (draft === null) {
       throw new PageIdNotFoundError(id);
@@ -96,8 +96,8 @@ export class PrismaPageRepository implements PageRepository {
   }
 
   public async replaceDraft(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     snapshot: PageSnapshot,
   ): Promise<Page> {
     await this.ensurePageOwnership(tenantId, id);
@@ -124,7 +124,7 @@ export class PrismaPageRepository implements PageRepository {
     return this.reload(tenantId, id);
   }
 
-  public async findAllByTenant(tenantId: number): Promise<Page[]> {
+  public async findAllByTenant(tenantId: string): Promise<Page[]> {
     const records = await this.prisma.page.findMany({
       where: { tenantId },
       include: SECTIONS_INCLUDE,
@@ -133,7 +133,7 @@ export class PrismaPageRepository implements PageRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async findById(tenantId: number, id: number): Promise<Page | null> {
+  public async findById(tenantId: string, id: string): Promise<Page | null> {
     const record = await this.prisma.page.findFirst({
       where: { id, tenantId },
       include: SECTIONS_INCLUDE,
@@ -141,7 +141,7 @@ export class PrismaPageRepository implements PageRepository {
     return record === null ? null : this.toDomain(record);
   }
 
-  public async create(tenantId: number, input: PageInput): Promise<Page> {
+  public async create(tenantId: string, input: PageInput): Promise<Page> {
     try {
       const record = await this.prisma.page.create({
         data: {
@@ -164,8 +164,8 @@ export class PrismaPageRepository implements PageRepository {
   }
 
   public async update(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: PageUpdateInput,
   ): Promise<Page> {
     await this.ensurePageOwnership(tenantId, id);
@@ -189,14 +189,14 @@ export class PrismaPageRepository implements PageRepository {
     return this.reload(tenantId, id);
   }
 
-  public async delete(tenantId: number, id: number): Promise<void> {
+  public async delete(tenantId: string, id: string): Promise<void> {
     await this.ensurePageOwnership(tenantId, id);
     await this.prisma.page.delete({ where: { id } });
   }
 
   public async addSection(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
     input: PageSectionInput,
   ): Promise<Page> {
     await this.ensurePageOwnership(tenantId, pageId);
@@ -221,9 +221,9 @@ export class PrismaPageRepository implements PageRepository {
   }
 
   public async updateSection(
-    tenantId: number,
-    pageId: number,
-    sectionId: number,
+    tenantId: string,
+    pageId: string,
+    sectionId: string,
     input: PageSectionUpdateInput,
   ): Promise<Page> {
     await this.ensureSectionOwnership(tenantId, pageId, sectionId);
@@ -248,9 +248,9 @@ export class PrismaPageRepository implements PageRepository {
   }
 
   public async duplicateSection(
-    tenantId: number,
-    pageId: number,
-    sectionId: number,
+    tenantId: string,
+    pageId: string,
+    sectionId: string,
   ): Promise<Page> {
     await this.ensureSectionOwnership(tenantId, pageId, sectionId);
 
@@ -289,9 +289,9 @@ export class PrismaPageRepository implements PageRepository {
   }
 
   public async deleteSection(
-    tenantId: number,
-    pageId: number,
-    sectionId: number,
+    tenantId: string,
+    pageId: string,
+    sectionId: string,
   ): Promise<Page> {
     await this.ensureSectionOwnership(tenantId, pageId, sectionId);
     await this.prisma.pageSection.delete({ where: { id: sectionId } });
@@ -299,9 +299,9 @@ export class PrismaPageRepository implements PageRepository {
   }
 
   public async reorderSections(
-    tenantId: number,
-    pageId: number,
-    orderedSectionIds: readonly number[],
+    tenantId: string,
+    pageId: string,
+    orderedSectionIds: readonly string[],
   ): Promise<Page> {
     const page = await this.ensurePageOwnership(tenantId, pageId);
     const currentIds = new Set(page.sections.map((section) => section.id));
@@ -337,8 +337,8 @@ export class PrismaPageRepository implements PageRepository {
 
   /** Confirma que la página existe y pertenece al tenant; retorna el registro para reutilizar sus datos (ej. `reorderSections`). */
   private async ensurePageOwnership(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
   ): Promise<PageRecord> {
     const record = await this.prisma.page.findFirst({
       where: { id: pageId, tenantId },
@@ -351,9 +351,9 @@ export class PrismaPageRepository implements PageRepository {
   }
 
   private async ensureSectionOwnership(
-    tenantId: number,
-    pageId: number,
-    sectionId: number,
+    tenantId: string,
+    pageId: string,
+    sectionId: string,
   ): Promise<void> {
     const page = await this.ensurePageOwnership(tenantId, pageId);
     const belongsToPage = page.sections.some((section) => section.id === sectionId);
@@ -362,7 +362,7 @@ export class PrismaPageRepository implements PageRepository {
     }
   }
 
-  private async reload(tenantId: number, pageId: number): Promise<Page> {
+  private async reload(tenantId: string, pageId: string): Promise<Page> {
     const page = await this.findById(tenantId, pageId);
     if (page === null) {
       throw new PageIdNotFoundError(pageId);

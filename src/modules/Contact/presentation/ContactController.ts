@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
-import type { RateLimiter } from '../../ApiKey/application/RateLimiter';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
+import type { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
 import type { SendContactEmailUseCase } from '../application/SendContactEmailUseCase';
 import { ContactSchema } from '../domain/ContactSchema';
-import { TooManyRequestsError } from '../../../shared/domain/TooManyRequestsError';
+import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 
 const SUBMISSIONS_PER_MINUTE = 5;
 
@@ -28,7 +28,7 @@ export class ContactController {
     });
   };
 
-  private enforceRateLimit(req: Request, tenantId: number): void {
+  private enforceRateLimit(req: Request, tenantId: string): void {
     const key = `contact:${tenantId}:${req.ip ?? 'desconocida'}`;
     const decision = this.rateLimiter.check(key, SUBMISSIONS_PER_MINUTE);
     if (!decision.allowed) {

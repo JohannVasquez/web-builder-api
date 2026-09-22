@@ -1,8 +1,8 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { Tenant, TENANT_STATUSES, type TenantStatus } from '../domain/Tenant';
 import { TenantDomainRecord } from '../domain/TenantDomain';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 import type { SiteContent } from '../domain/SiteContent';
 import { TenantSlugConflictError } from '../domain/TenantSlugConflictError';
 
@@ -16,7 +16,7 @@ import type { TenantRepository } from '../domain/TenantRepository';
 
 /** Forma mínima que necesita el mapeo, común a ambas consultas. */
 interface TenantRecord {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly name: string;
   readonly status: string;
@@ -29,7 +29,7 @@ const toStatus = (value: string): TenantStatus =>
     : 'active';
 
 const toDomainRecord = (record: {
-  id: number;
+  id: string;
   domain: string;
   isPrimary: boolean;
   verifiedAt: Date | null;
@@ -72,7 +72,7 @@ export class PrismaTenantRepository implements TenantRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async findDomainsByTenantId(tenantId: number): Promise<string[]> {
+  public async findDomainsByTenantId(tenantId: string): Promise<string[]> {
     const records = await this.prisma.tenantDomain.findMany({
       where: { tenantId },
       select: { domain: true },
@@ -80,7 +80,7 @@ export class PrismaTenantRepository implements TenantRepository {
     return records.map((record) => record.domain);
   }
 
-  public async findById(id: number): Promise<Tenant | null> {
+  public async findById(id: string): Promise<Tenant | null> {
     const record = await this.prisma.tenant.findUnique({
       where: { id },
       include: { domains: { where: { isPrimary: true }, take: 1 } },
@@ -180,7 +180,7 @@ export class PrismaTenantRepository implements TenantRepository {
     return created;
   }
 
-  public async readContent(tenantId: number): Promise<SiteContent | null> {
+  public async readContent(tenantId: string): Promise<SiteContent | null> {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (tenant === null) {
       return null;
@@ -227,7 +227,7 @@ export class PrismaTenantRepository implements TenantRepository {
     };
   }
 
-  public async setStatus(tenantId: number, status: TenantStatus): Promise<Tenant> {
+  public async setStatus(tenantId: string, status: TenantStatus): Promise<Tenant> {
     const record = await this.prisma.tenant.update({
       where: { id: tenantId },
       data: { status },
@@ -236,7 +236,7 @@ export class PrismaTenantRepository implements TenantRepository {
     return this.toDomain(record);
   }
 
-  public async listDomains(tenantId: number): Promise<TenantDomainRecord[]> {
+  public async listDomains(tenantId: string): Promise<TenantDomainRecord[]> {
     const records = await this.prisma.tenantDomain.findMany({
       where: { tenantId },
       orderBy: [{ isPrimary: 'desc' }, { domain: 'asc' }],
@@ -245,7 +245,7 @@ export class PrismaTenantRepository implements TenantRepository {
   }
 
   public async addDomain(
-    tenantId: number,
+    tenantId: string,
     domain: string,
     verified: boolean,
   ): Promise<TenantDomainRecord> {
@@ -273,8 +273,8 @@ export class PrismaTenantRepository implements TenantRepository {
   }
 
   public async markDomainVerified(
-    tenantId: number,
-    domainId: number,
+    tenantId: string,
+    domainId: string,
   ): Promise<TenantDomainRecord> {
     await this.requireDomain(tenantId, domainId);
     const record = await this.prisma.tenantDomain.update({
@@ -285,8 +285,8 @@ export class PrismaTenantRepository implements TenantRepository {
   }
 
   public async setPrimaryDomain(
-    tenantId: number,
-    domainId: number,
+    tenantId: string,
+    domainId: string,
   ): Promise<TenantDomainRecord> {
     const current = await this.requireDomain(tenantId, domainId);
     if (current.verifiedAt === null) {
@@ -308,7 +308,7 @@ export class PrismaTenantRepository implements TenantRepository {
     return toDomainRecord(record);
   }
 
-  public async deleteDomain(tenantId: number, domainId: number): Promise<void> {
+  public async deleteDomain(tenantId: string, domainId: string): Promise<void> {
     const current = await this.requireDomain(tenantId, domainId);
     const total = await this.prisma.tenantDomain.count({ where: { tenantId } });
     if (current.isPrimary && total > 1) {
@@ -321,10 +321,10 @@ export class PrismaTenantRepository implements TenantRepository {
 
   // Un id adivinado no puede alcanzar el dominio de otro cliente.
   private async requireDomain(
-    tenantId: number,
-    domainId: number,
+    tenantId: string,
+    domainId: string,
   ): Promise<{
-    id: number;
+    id: string;
     isPrimary: boolean;
     verifiedAt: Date | null;
     domain: string;

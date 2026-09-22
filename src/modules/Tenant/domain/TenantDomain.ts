@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export interface TenantDomainPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly domain: string;
   readonly isPrimary: boolean;
   readonly isVerified: boolean;
@@ -10,7 +10,7 @@ export interface TenantDomainPrimitives {
 
 export class TenantDomainRecord {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly domain: string,
     public readonly isPrimary: boolean,
     public readonly verifiedAt: Date | null,

@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import {
   Product,
   type ProductCategoryPrimitives,
@@ -16,7 +16,7 @@ import { ProductSlugConflictError } from '../domain/ProductSlugConflictError';
 import { InvalidSalePriceError } from '../domain/InvalidSalePriceError';
 
 interface ProductRecord {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly name: string;
   readonly description: string;
@@ -24,7 +24,7 @@ interface ProductRecord {
   readonly priceCents: number;
   readonly salePriceCents: number | null;
   readonly currency: string;
-  readonly categoryId: number | null;
+  readonly categoryId: string | null;
   readonly variants: unknown;
   readonly isActive: boolean;
   readonly featured: boolean;
@@ -52,7 +52,7 @@ export class PrismaProductRepository implements ProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   public async listActive(
-    tenantId: number,
+    tenantId: string,
     query: CatalogQuery,
   ): Promise<{ products: Product[]; total: number }> {
     const where = {
@@ -78,14 +78,14 @@ export class PrismaProductRepository implements ProductRepository {
     return { products: records.map((record) => this.toDomain(record)), total };
   }
 
-  public async findActiveBySlug(tenantId: number, slug: string): Promise<Product | null> {
+  public async findActiveBySlug(tenantId: string, slug: string): Promise<Product | null> {
     const record = await this.prisma.product.findFirst({
       where: { tenantId, slug, isActive: true },
     });
     return record === null ? null : this.toDomain(record);
   }
 
-  public async listFeatured(tenantId: number, limit: number): Promise<Product[]> {
+  public async listFeatured(tenantId: string, limit: number): Promise<Product[]> {
     const records = await this.prisma.product.findMany({
       where: { tenantId, isActive: true, featured: true },
       orderBy: [{ position: 'asc' }, { name: 'asc' }],
@@ -94,7 +94,7 @@ export class PrismaProductRepository implements ProductRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async listCategories(tenantId: number): Promise<ProductCategoryPrimitives[]> {
+  public async listCategories(tenantId: string): Promise<ProductCategoryPrimitives[]> {
     const records = await this.prisma.productCategory.findMany({
       where: { tenantId },
       orderBy: [{ position: 'asc' }, { name: 'asc' }],
@@ -107,7 +107,7 @@ export class PrismaProductRepository implements ProductRepository {
     }));
   }
 
-  public async findAllByTenant(tenantId: number): Promise<Product[]> {
+  public async findAllByTenant(tenantId: string): Promise<Product[]> {
     const records = await this.prisma.product.findMany({
       where: { tenantId },
       orderBy: [{ position: 'asc' }, { name: 'asc' }],
@@ -115,12 +115,12 @@ export class PrismaProductRepository implements ProductRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async findById(tenantId: number, id: number): Promise<Product | null> {
+  public async findById(tenantId: string, id: string): Promise<Product | null> {
     const record = await this.prisma.product.findFirst({ where: { tenantId, id } });
     return record === null ? null : this.toDomain(record);
   }
 
-  public async create(tenantId: number, input: ProductInput): Promise<Product> {
+  public async create(tenantId: string, input: ProductInput): Promise<Product> {
     await this.ensureSlugIsFree(tenantId, input.slug, null);
     const record = await this.prisma.product.create({
       data: { tenantId, ...input, variants: asJsonColumn(input.variants) },
@@ -129,8 +129,8 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   public async update(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: ProductUpdateInput,
   ): Promise<Product> {
     const existing = await this.findById(tenantId, id);
@@ -161,12 +161,12 @@ export class PrismaProductRepository implements ProductRepository {
     return this.toDomain(record);
   }
 
-  public async delete(tenantId: number, id: number): Promise<void> {
+  public async delete(tenantId: string, id: string): Promise<void> {
     await this.prisma.product.deleteMany({ where: { tenantId, id } });
   }
 
   public async createCategory(
-    tenantId: number,
+    tenantId: string,
     input: CategoryInput,
   ): Promise<ProductCategoryPrimitives> {
     const record = await this.prisma.productCategory.create({
@@ -181,8 +181,8 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   public async updateCategory(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: CategoryUpdateInput,
   ): Promise<ProductCategoryPrimitives> {
     const existing = await this.prisma.productCategory.findFirst({
@@ -203,15 +203,15 @@ export class PrismaProductRepository implements ProductRepository {
     };
   }
 
-  public async deleteCategory(tenantId: number, id: number): Promise<void> {
+  public async deleteCategory(tenantId: string, id: string): Promise<void> {
     await this.prisma.productCategory.deleteMany({ where: { tenantId, id } });
   }
 
   // El mismo slug en otro cliente es válido: los catálogos son independientes.
   private async ensureSlugIsFree(
-    tenantId: number,
+    tenantId: string,
     slug: string,
-    exceptId: number | null,
+    exceptId: string | null,
   ): Promise<void> {
     const clash = await this.prisma.product.findFirst({
       where: { tenantId, slug, ...(exceptId === null ? {} : { id: { not: exceptId } }) },

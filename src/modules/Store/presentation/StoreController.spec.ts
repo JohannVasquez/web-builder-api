@@ -12,15 +12,15 @@ import {
 } from '../application/StoreUseCases';
 import { Product } from '../domain/Product';
 import type { ProductRepository } from '../domain/ProductRepository';
-import { GlobalSettings } from '../../GlobalSettings/domain/GlobalSettings';
-import type { GlobalSettingsRepository } from '../../GlobalSettings/domain/GlobalSettingsRepository';
-import type { StorageProvider } from '../../FileStorage/domain/StorageProvider';
-import { Tenant } from '../../Tenant/domain/Tenant';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { GlobalSettings } from '@/modules/GlobalSettings/domain/GlobalSettings';
+import type { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
+import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
+import { Tenant } from '@/modules/Tenant/domain/Tenant';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('Tienda (HTTP)', () => {
   const torta = new Product(
-    1,
+    '018f6f1a-0000-7000-8000-000000000001',
     'torta-de-chocolate',
     'Torta de chocolate',
     'Bizcocho con manjar.',
@@ -79,7 +79,7 @@ describe('Tienda (HTTP)', () => {
     app.use(express.json());
     app.use((_req, res, next) => {
       (res.locals as { tenant?: Tenant }).tenant = new Tenant(
-        9,
+        '018f6f1a-0000-7000-8000-000000000009',
         'demo',
         'Demo',
         'demo.cl',
@@ -102,7 +102,7 @@ describe('Tienda (HTTP)', () => {
 
     expect(response.status).toBe(200);
     expect(repository.listActive).toHaveBeenCalledWith(
-      9,
+      '018f6f1a-0000-7000-8000-000000000009',
       expect.objectContaining({ page: 1, perPage: 12 }),
     );
   });
@@ -148,7 +148,7 @@ describe('Tienda (HTTP)', () => {
     await request(buildApp(repository)).get('/api/products?search=torta&category=tortas');
 
     expect(repository.listActive).toHaveBeenCalledWith(
-      9,
+      '018f6f1a-0000-7000-8000-000000000009',
       expect.objectContaining({ search: 'torta', categorySlug: 'tortas' }),
     );
   });
@@ -157,16 +157,18 @@ describe('Tienda (HTTP)', () => {
     const repository = buildRepository();
 
     const response = await request(buildApp(repository)).get(
-      '/api/admin/tenants/9/products',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000009/products',
     );
 
     expect(response.status).toBe(200);
-    expect(repository.findAllByTenant).toHaveBeenCalledWith(9);
+    expect(repository.findAllByTenant).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000009',
+    );
   });
 
   it('crear un producto con una oferta más cara que el precio normal es error de petición', async () => {
     const response = await request(buildApp(buildRepository()))
-      .post('/api/admin/tenants/9/products')
+      .post('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000009/products')
       .send({
         slug: 'torta',
         name: 'Torta',
@@ -179,7 +181,7 @@ describe('Tienda (HTTP)', () => {
 
   it('crear un producto con precio negativo es error de petición', async () => {
     const response = await request(buildApp(buildRepository()))
-      .post('/api/admin/tenants/9/products')
+      .post('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000009/products')
       .send({ slug: 'torta', name: 'Torta', priceCents: -5 });
 
     expect(response.status).toBe(400);

@@ -1,7 +1,7 @@
 import type { AdminUser } from '../domain/AdminUser';
 import { AdminUserRepository } from '../domain/AdminUserRepository';
 import { TokenService } from '../domain/TokenService';
-import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
+import { UnauthorizedError } from '@/shared/domain/UnauthorizedError';
 import { AccountDisabledError } from '../domain/AccountDisabledError';
 
 // Resuelve el `AdminUser` vigente, no solo la firma: un usuario borrado invalida su token.

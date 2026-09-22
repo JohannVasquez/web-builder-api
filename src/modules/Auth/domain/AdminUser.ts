@@ -6,29 +6,29 @@ export type AdminRole = (typeof ADMIN_ROLES)[number];
 export const isStaffRole = (role: AdminRole): boolean => role !== 'client';
 
 export interface AdminUserPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly email: string;
   readonly name: string;
   readonly role: AdminRole;
   readonly disabled: boolean;
   // `null` = todos los clientes. Una lista vacía sería "ninguno", que es distinto.
-  readonly tenantScope: readonly number[] | null;
+  readonly tenantScope: readonly string[] | null;
 }
 
 export class AdminUser {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly email: string,
     public readonly name: string,
     // Nunca sale de este objeto hacia una respuesta HTTP; ver `toPrimitives`.
     public readonly passwordHash: string,
     public readonly role: AdminRole = 'owner',
     public readonly disabledAt: Date | null = null,
-    private readonly tenantIds: readonly number[] = [],
+    private readonly tenantIds: readonly string[] = [],
   ) {}
 
   // Una persona de la agencia alcanza todo; una de un cliente, solo lo suyo.
-  public tenantScope(): readonly number[] | null {
+  public tenantScope(): readonly string[] | null {
     return isStaffRole(this.role) ? null : this.tenantIds;
   }
 

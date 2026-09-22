@@ -5,11 +5,11 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "start": "node dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.seed.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -24,7 +24,7 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "mcp": "tsx src/mcp/bin.ts",
-    "mcp:build": "tsc -p tsconfig.build.json"
+    "mcp:build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json"
   },
   "lint-staged": {
     "*.ts": [
@@ -71,6 +71,7 @@
     "@types/supertest": "^7.2.1",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.2.0",
     "husky": "^9.1.7",
     "jest": "^30.4.2",
@@ -79,6 +80,7 @@
     "prisma": "^7.9.1",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
+    "tsc-alias": "^1.9.5",
     "tsx": "^4.23.12",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.67.0"

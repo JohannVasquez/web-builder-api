@@ -21,9 +21,9 @@ describe('permissionAllows', () => {
 });
 
 describe('actorReachesTenant', () => {
-  const buildActor = (tenantScope: readonly number[] | null): Actor => ({
+  const buildActor = (tenantScope: readonly string[] | null): Actor => ({
     type: 'apiKey',
-    id: 1,
+    id: '018f6f1a-0000-7000-8000-000000000001',
     name: 'Agente MCP',
     role: null,
     permission: 'read',
@@ -34,21 +34,24 @@ describe('actorReachesTenant', () => {
   it('reaches any tenant when the scope is null', () => {
     const actor = buildActor(null);
 
-    expect(actorReachesTenant(actor, 2)).toBe(true);
-    expect(actorReachesTenant(actor, 9)).toBe(true);
+    expect(actorReachesTenant(actor, '018f6f1a-0000-7000-8000-000000000002')).toBe(true);
+    expect(actorReachesTenant(actor, '018f6f1a-0000-7000-8000-000000000009')).toBe(true);
   });
 
   it('reaches only the tenants listed in the scope', () => {
-    const actor = buildActor([2, 5]);
+    const actor = buildActor([
+      '018f6f1a-0000-7000-8000-000000000002',
+      '018f6f1a-0000-7000-8000-000000000005',
+    ]);
 
-    expect(actorReachesTenant(actor, 2)).toBe(true);
-    expect(actorReachesTenant(actor, 5)).toBe(true);
-    expect(actorReachesTenant(actor, 9)).toBe(false);
+    expect(actorReachesTenant(actor, '018f6f1a-0000-7000-8000-000000000002')).toBe(true);
+    expect(actorReachesTenant(actor, '018f6f1a-0000-7000-8000-000000000005')).toBe(true);
+    expect(actorReachesTenant(actor, '018f6f1a-0000-7000-8000-000000000009')).toBe(false);
   });
 
   it('reaches nobody with an empty scope', () => {
     const actor = buildActor([]);
 
-    expect(actorReachesTenant(actor, 1)).toBe(false);
+    expect(actorReachesTenant(actor, '018f6f1a-0000-7000-8000-000000000001')).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import type { BlogContent } from './BlogPostContentSchema';
 export type BlogPostStatus = 'draft' | 'published' | 'scheduled';
 
 export interface BlogPostPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly title: string;
   readonly excerpt: string;
@@ -24,7 +24,7 @@ export interface BlogPostPrimitives {
 // readingMinutes, related) se calcula en la capa application, no en toPrimitives.
 export class BlogPost {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly slug: string,
     public readonly title: string,
     public readonly excerpt: string,

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../src/shared/infrastructure/prisma/generated/client';
+import { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { StorageAssetsSeeder } from './seeders/StorageAssetsSeeder';
 import { TenantSeeder } from './seeders/TenantSeeder';
 import { GlobalSettingsSeeder } from './seeders/GlobalSettingsSeeder';

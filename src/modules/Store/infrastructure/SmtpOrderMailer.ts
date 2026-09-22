@@ -1,7 +1,7 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import type { Order } from '../domain/Order';
 import type { OrderMailer } from '../domain/OrderMailer';
-import { SmtpConfig } from '../../Contact/infrastructure/SmtpEmailService';
+import { SmtpConfig } from '@/modules/Contact/infrastructure/SmtpEmailService';
 import { formatMoney } from '../domain/money';
 
 export class SmtpOrderMailer implements OrderMailer {

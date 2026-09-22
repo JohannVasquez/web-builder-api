@@ -1,4 +1,4 @@
-import { TooManyRequestsError } from '../../../shared/domain/TooManyRequestsError';
+import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 
 export class AccountLockedError extends TooManyRequestsError {
   constructor(retryAfterSeconds: number) {

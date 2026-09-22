@@ -11,56 +11,56 @@ import type { PageSnapshot } from './PageSnapshot';
  */
 export abstract class PageRepository {
   // Público: lee el contenido PUBLICADO, no el borrador que se está editando.
-  public abstract findBySlug(tenantId: number, slug: string): Promise<Page | null>;
+  public abstract findBySlug(tenantId: string, slug: string): Promise<Page | null>;
   // Cuándo se publicó la versión vigente de una página; nulo si no existe o no está publicada.
-  public abstract findPublishedAt(tenantId: number, slug: string): Promise<Date | null>;
+  public abstract findPublishedAt(tenantId: string, slug: string): Promise<Date | null>;
 
   // Admin: todo scoped por `tenantId`, para que un id adivinado nunca cruce
   // hacia el sitio de otro cliente.
-  public abstract findAllByTenant(tenantId: number): Promise<Page[]>;
-  public abstract findById(tenantId: number, id: number): Promise<Page | null>;
-  public abstract create(tenantId: number, input: PageInput): Promise<Page>;
+  public abstract findAllByTenant(tenantId: string): Promise<Page[]>;
+  public abstract findById(tenantId: string, id: string): Promise<Page | null>;
+  public abstract create(tenantId: string, input: PageInput): Promise<Page>;
   public abstract update(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: PageUpdateInput,
   ): Promise<Page>;
-  public abstract delete(tenantId: number, id: number): Promise<void>;
+  public abstract delete(tenantId: string, id: string): Promise<void>;
   // Copia el borrador actual a lo publicado. Devuelve la página ya publicada.
-  public abstract publish(tenantId: number, id: number): Promise<Page>;
+  public abstract publish(tenantId: string, id: string): Promise<Page>;
   // Reemplaza el borrador por una foto anterior, sin tocar lo publicado.
   public abstract replaceDraft(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     snapshot: PageSnapshot,
   ): Promise<Page>;
 
   public abstract addSection(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
     input: PageSectionInput,
   ): Promise<Page>;
   public abstract updateSection(
-    tenantId: number,
-    pageId: number,
-    sectionId: number,
+    tenantId: string,
+    pageId: string,
+    sectionId: string,
     input: PageSectionUpdateInput,
   ): Promise<Page>;
   // Copia una sección justo debajo de la original, corriendo el resto una posición.
   public abstract duplicateSection(
-    tenantId: number,
-    pageId: number,
-    sectionId: number,
+    tenantId: string,
+    pageId: string,
+    sectionId: string,
   ): Promise<Page>;
   public abstract deleteSection(
-    tenantId: number,
-    pageId: number,
-    sectionId: number,
+    tenantId: string,
+    pageId: string,
+    sectionId: string,
   ): Promise<Page>;
   /** Reescribe las posiciones 1..N según el orden dado — así se reordena sin colisionar con el `@@unique([pageId, position])`. */
   public abstract reorderSections(
-    tenantId: number,
-    pageId: number,
-    orderedSectionIds: readonly number[],
+    tenantId: string,
+    pageId: string,
+    orderedSectionIds: readonly string[],
   ): Promise<Page>;
 }

@@ -1,6 +1,6 @@
 export interface PasswordResetTicket {
-  readonly id: number;
-  readonly adminUserId: number;
+  readonly id: string;
+  readonly adminUserId: string;
   readonly expiresAt: Date;
   readonly usedAt: Date | null;
 }
@@ -8,13 +8,13 @@ export interface PasswordResetTicket {
 // Clase abstracta usada como token de inyección de dependencias (diod).
 export abstract class PasswordResetRepository {
   public abstract create(
-    adminUserId: number,
+    adminUserId: string,
     tokenHash: string,
     expiresAt: Date,
   ): Promise<void>;
   public abstract findByTokenHash(tokenHash: string): Promise<PasswordResetTicket | null>;
-  public abstract markUsed(id: number): Promise<void>;
+  public abstract markUsed(id: string): Promise<void>;
   // Al pedir uno nuevo se invalidan los anteriores: dos enlaces vivos a la vez
   // multiplican la ventana en que un correo filtrado sigue sirviendo.
-  public abstract invalidateAllFor(adminUserId: number): Promise<void>;
+  public abstract invalidateAllFor(adminUserId: string): Promise<void>;
 }

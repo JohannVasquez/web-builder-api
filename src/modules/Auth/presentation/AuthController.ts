@@ -4,7 +4,7 @@ import type { LoginUseCase } from '../application/LoginUseCase';
 import type { RequestPasswordResetUseCase } from '../application/RequestPasswordResetUseCase';
 import type { ResetPasswordUseCase } from '../application/ResetPasswordUseCase';
 import { ForgotPasswordSchema, ResetPasswordSchema } from '../domain/PasswordSchema';
-import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
+import { getRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
 
 export class AuthController {
   constructor(

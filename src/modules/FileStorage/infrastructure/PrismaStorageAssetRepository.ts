@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type {
   AssetUsage,
   MediaAsset,
@@ -43,7 +43,7 @@ export class PrismaStorageAssetRepository implements StorageAssetRepository {
     await this.prisma.storageAsset.deleteMany({ where: { key } });
   }
 
-  public async findByTenant(tenantId: number, search: string): Promise<MediaAsset[]> {
+  public async findByTenant(tenantId: string, search: string): Promise<MediaAsset[]> {
     const term = search.trim();
     const records = await this.prisma.storageAsset.findMany({
       where: {
@@ -63,13 +63,13 @@ export class PrismaStorageAssetRepository implements StorageAssetRepository {
   }
 
   // Siempre con `tenantId`: una key adivinada no puede alcanzar la biblioteca de otro.
-  public async findKey(tenantId: number, key: string): Promise<MediaAsset | null> {
+  public async findKey(tenantId: string, key: string): Promise<MediaAsset | null> {
     const record = await this.prisma.storageAsset.findFirst({ where: { tenantId, key } });
     return record === null ? null : this.toMediaAsset(record);
   }
 
   public async updateAlt(
-    tenantId: number,
+    tenantId: string,
     key: string,
     alt: string,
   ): Promise<MediaAsset | null> {
@@ -87,7 +87,7 @@ export class PrismaStorageAssetRepository implements StorageAssetRepository {
   // Busca la `key` en el JSON de los bloques, en la marca y en los ajustes del cliente.
   // Es una búsqueda textual a propósito: la key es un UUID, así que un falso positivo es
   // prácticamente imposible, y recorrer cada schema de bloque sería frágil y más lento.
-  public async findUsage(tenantId: number, key: string): Promise<AssetUsage[]> {
+  public async findUsage(tenantId: string, key: string): Promise<AssetUsage[]> {
     const [pages, brand, settings] = await Promise.all([
       this.prisma.page.findMany({
         where: { tenantId, sections: { some: { props: { string_contains: key } } } },

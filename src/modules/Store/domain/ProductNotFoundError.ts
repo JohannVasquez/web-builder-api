@@ -1,4 +1,4 @@
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 export class ProductNotFoundError extends NotFoundError {
   constructor(reference: string | number) {

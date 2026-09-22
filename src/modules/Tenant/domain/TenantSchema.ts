@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '@/shared/domain/identifier';
 
 const slug = z
   .string()
@@ -23,7 +24,7 @@ export const CreateTenantSchema = z.strictObject({
   // Id de un kit por rubro; sin él, el cliente nace vacío.
   templateId: z.string().max(100).optional(),
   // Id de otro cliente a copiar. Excluyente con `templateId`.
-  duplicateFromTenantId: z.number().int().positive().optional(),
+  duplicateFromTenantId: idSchema.optional(),
 });
 
 export type CreateTenantInput = z.infer<typeof CreateTenantSchema>;

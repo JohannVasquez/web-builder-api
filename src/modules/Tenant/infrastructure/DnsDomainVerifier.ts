@@ -12,7 +12,7 @@ export class DnsDomainVerifier implements DomainVerifier {
       new Resolver().resolveTxt(hostname),
   ) {}
 
-  public tokenFor(tenantId: number): string {
+  public tokenFor(tenantId: string): string {
     return createHmac('sha256', this.secret)
       .update(`domain-verification:${String(tenantId)}`)
       .digest('hex')

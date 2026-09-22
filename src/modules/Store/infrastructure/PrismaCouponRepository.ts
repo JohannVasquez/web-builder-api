@@ -1,5 +1,5 @@
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import {
   Coupon,
   DISCOUNT_TYPES,
@@ -10,7 +10,7 @@ import {
 import type { CouponRepository } from '../domain/CouponRepository';
 
 interface CouponRecord {
-  readonly id: number;
+  readonly id: string;
   readonly code: string;
   readonly discountType: string;
   readonly value: number;
@@ -28,14 +28,14 @@ const toDate = (value: string | null | undefined): Date | null | undefined =>
 export class PrismaCouponRepository implements CouponRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  public async findByCode(tenantId: number, code: string): Promise<Coupon | null> {
+  public async findByCode(tenantId: string, code: string): Promise<Coupon | null> {
     const record = await this.prisma.coupon.findUnique({
       where: { tenantId_code: { tenantId, code: code.toUpperCase() } },
     });
     return record === null ? null : this.toDomain(record);
   }
 
-  public async findAllByTenant(tenantId: number): Promise<Coupon[]> {
+  public async findAllByTenant(tenantId: string): Promise<Coupon[]> {
     const records = await this.prisma.coupon.findMany({
       where: { tenantId },
       orderBy: { code: 'asc' },
@@ -43,7 +43,7 @@ export class PrismaCouponRepository implements CouponRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async create(tenantId: number, input: CouponInput): Promise<Coupon> {
+  public async create(tenantId: string, input: CouponInput): Promise<Coupon> {
     const record = await this.prisma.coupon.create({
       data: {
         tenantId,
@@ -61,8 +61,8 @@ export class PrismaCouponRepository implements CouponRepository {
   }
 
   public async update(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: CouponUpdate,
   ): Promise<Coupon> {
     await this.requireOwnership(tenantId, id);
@@ -82,12 +82,12 @@ export class PrismaCouponRepository implements CouponRepository {
     return this.toDomain(record);
   }
 
-  public async delete(tenantId: number, id: number): Promise<void> {
+  public async delete(tenantId: string, id: string): Promise<void> {
     await this.requireOwnership(tenantId, id);
     await this.prisma.coupon.delete({ where: { id } });
   }
 
-  public async registerUse(tenantId: number, code: string): Promise<void> {
+  public async registerUse(tenantId: string, code: string): Promise<void> {
     await this.prisma.coupon.updateMany({
       where: { tenantId, code: code.toUpperCase() },
       data: { usedCount: { increment: 1 } },
@@ -95,7 +95,7 @@ export class PrismaCouponRepository implements CouponRepository {
   }
 
   // Un id adivinado no puede alcanzar el cupón de otro cliente.
-  private async requireOwnership(tenantId: number, id: number): Promise<void> {
+  private async requireOwnership(tenantId: string, id: string): Promise<void> {
     const found = await this.prisma.coupon.findFirst({
       where: { id, tenantId },
       select: { id: true },

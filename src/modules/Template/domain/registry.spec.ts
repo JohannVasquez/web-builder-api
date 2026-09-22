@@ -1,5 +1,5 @@
 import { SITE_TEMPLATES, findSiteTemplate } from './registry';
-import { BrandUpdateSchema } from '../../Brand/domain/BrandSchema';
+import { BrandUpdateSchema } from '@/modules/Brand/domain/BrandSchema';
 import type { TemplatePage, TemplateSection } from './SiteTemplate';
 
 const VALID_SECTION_TYPES = [

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '@/shared/domain/identifier';
 
 const slug = z
   .string()
@@ -28,7 +29,7 @@ const base = {
   priceCents,
   salePriceCents: priceCents.nullable().default(null),
   currency: z.string().length(3).default('CLP'),
-  categoryId: z.number().int().positive().nullable().default(null),
+  categoryId: idSchema.nullable().default(null),
   variants,
   isActive: z.boolean().default(true),
   featured: z.boolean().default(false),
@@ -64,7 +65,7 @@ export const ProductUpdateSchema = z
     priceCents: priceCents.optional(),
     salePriceCents: priceCents.nullable().optional(),
     currency: z.string().length(3).optional(),
-    categoryId: z.number().int().positive().nullable().optional(),
+    categoryId: idSchema.nullable().optional(),
     variants: z
       .array(
         z.strictObject({

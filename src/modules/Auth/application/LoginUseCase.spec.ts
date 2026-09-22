@@ -9,7 +9,12 @@ import { AccountLockedError } from '../domain/AccountLockedError';
 import { LoginAttempts } from './LoginAttempts';
 
 describe('LoginUseCase', () => {
-  const user = new AdminUser(1, 'johann@webbuilder.co', 'Johann', 'hashed-password');
+  const user = new AdminUser(
+    '018f6f1a-0000-7000-8000-000000000001',
+    'johann@webbuilder.co',
+    'Johann',
+    'hashed-password',
+  );
 
   const buildRepository = (
     found: AdminUser | null,
@@ -51,11 +56,13 @@ describe('LoginUseCase', () => {
     });
 
     expect(hasher.verify).toHaveBeenCalledWith('correct-password', 'hashed-password');
-    expect(tokenService.sign).toHaveBeenCalledWith({ adminUserId: 1 });
+    expect(tokenService.sign).toHaveBeenCalledWith({
+      adminUserId: '018f6f1a-0000-7000-8000-000000000001',
+    });
     expect(result).toEqual({
       token: 'signed-token',
       user: {
-        id: 1,
+        id: '018f6f1a-0000-7000-8000-000000000001',
         email: 'johann@webbuilder.co',
         name: 'Johann',
         role: 'owner',
@@ -95,7 +102,7 @@ describe('LoginUseCase', () => {
 
   it('rejects a disabled user even with the right password', async () => {
     const disabled = new AdminUser(
-      2,
+      '018f6f1a-0000-7000-8000-000000000002',
       'fuera@webbuilder.co',
       'Ex empleada',
       'hashed-password',

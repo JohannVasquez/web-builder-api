@@ -15,7 +15,7 @@ import type { RestorePageVersionUseCase } from '../application/RestorePageVersio
 import type { RecordPageVersionUseCase } from '../application/RecordPageVersionUseCase';
 import type { DuplicateSectionUseCase } from '../application/DuplicateSectionUseCase';
 import type { PageVersionActor } from '../domain/PageVersionRepository';
-import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
+import { getRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
 import type { Page } from '../domain/Page';
 import { PageInputSchema, PageUpdateSchema } from '../domain/PageSchema';
 import {
@@ -23,21 +23,22 @@ import {
   PageSectionUpdateSchema,
   ReorderSectionsSchema,
 } from '../domain/PageSectionSchema';
+import { idSchema } from '@/shared/domain/identifier';
 
 const actorOf = (res: Response): PageVersionActor => {
   const actor = getRequestActor(res);
   return { type: actor.type, id: actor.id, name: actor.name };
 };
 
-const tenantParamsSchema = z.object({ tenantId: z.coerce.number().int().positive() });
+const tenantParamsSchema = z.object({ tenantId: idSchema });
 const pageParamsSchema = tenantParamsSchema.extend({
-  pageId: z.coerce.number().int().positive(),
+  pageId: idSchema,
 });
 const sectionParamsSchema = pageParamsSchema.extend({
-  sectionId: z.coerce.number().int().positive(),
+  sectionId: idSchema,
 });
 const versionParamsSchema = pageParamsSchema.extend({
-  versionId: z.coerce.number().int().positive(),
+  versionId: idSchema,
 });
 const versionQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(30),

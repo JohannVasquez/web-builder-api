@@ -3,7 +3,7 @@ import type { ShippingOption } from './StoreSettings';
 
 describe('cartPricing', () => {
   const line = (unitPriceCents: number, quantity: number): PricedLine => ({
-    productId: 1,
+    productId: '018f6f1a-0000-7000-8000-000000000001',
     name: 'Producto',
     variant: {},
     unitPriceCents,

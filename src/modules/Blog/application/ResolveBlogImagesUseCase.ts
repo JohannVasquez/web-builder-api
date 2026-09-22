@@ -1,4 +1,4 @@
-import { StorageProvider } from '../../FileStorage/domain/StorageProvider';
+import { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import type { BlogBlock, BlogContent } from '../domain/BlogPostContentSchema';
 
 const ABSOLUTE_URL = /^https?:\/\//;

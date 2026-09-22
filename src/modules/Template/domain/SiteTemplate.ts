@@ -1,4 +1,4 @@
-import type { BrandUpdate } from '../../Brand/domain/BrandSchema';
+import type { BrandUpdate } from '@/modules/Brand/domain/BrandSchema';
 
 export interface TemplateSection {
   readonly type: string;

@@ -1,6 +1,6 @@
 import { InvalidateTenantCacheUseCase } from './InvalidateTenantCacheUseCase';
 import type { SiteCacheInvalidator } from '../domain/SiteCacheInvalidator';
-import type { TenantRepository } from '../../Tenant/domain/TenantRepository';
+import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 
 describe('InvalidateTenantCacheUseCase', () => {
   const buildTenantRepository = (domains: string[]): jest.Mocked<TenantRepository> => ({
@@ -26,7 +26,7 @@ describe('InvalidateTenantCacheUseCase', () => {
       invalidator,
     );
 
-    await useCase.execute(7);
+    await useCase.execute('018f6f1a-0000-7000-8000-000000000007');
 
     expect(invalidator.invalidate).toHaveBeenCalledWith([
       'acme.cl',
@@ -41,7 +41,7 @@ describe('InvalidateTenantCacheUseCase', () => {
       invalidator,
     );
 
-    await useCase.execute(7);
+    await useCase.execute('018f6f1a-0000-7000-8000-000000000007');
 
     expect(invalidator.invalidate).toHaveBeenCalledWith([]);
   });

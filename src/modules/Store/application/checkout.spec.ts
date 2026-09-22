@@ -19,7 +19,7 @@ import type {
 } from '../domain/PaymentGateway';
 import { CheckoutUseCase } from './CheckoutUseCase';
 import { QuoteCartUseCase } from './QuoteCartUseCase';
-import type { PageRepository } from '../../Page/domain/PageRepository';
+import type { PageRepository } from '@/modules/Page/domain/PageRepository';
 
 const despacho: ShippingOption = {
   code: 'despacho',
@@ -31,7 +31,7 @@ const despacho: ShippingOption = {
 
 const settingsFor = (overrides: Partial<StoreSettings> = {}): StoreSettings =>
   new StoreSettings(
-    1,
+    '018f6f1a-0000-7000-8000-000000000001',
     overrides.isEnabled ?? true,
     'CLP',
     true,
@@ -46,7 +46,7 @@ const settingsFor = (overrides: Partial<StoreSettings> = {}): StoreSettings =>
 
 const productFor = (overrides: Partial<Product> = {}): Product =>
   new Product(
-    5,
+    '018f6f1a-0000-7000-8000-000000000005',
     'polera',
     'Polera',
     '',
@@ -81,7 +81,10 @@ const couponRepositoryFor = (coupon: Coupon | null): jest.Mocked<CouponRepositor
   }) as unknown as jest.Mocked<CouponRepository>;
 
 const cart = (overrides: Record<string, unknown> = {}): CartInput =>
-  CartSchema.parse({ items: [{ productId: 5, quantity: 2 }], ...overrides });
+  CartSchema.parse({
+    items: [{ productId: '018f6f1a-0000-7000-8000-000000000005', quantity: 2 }],
+    ...overrides,
+  });
 
 describe('QuoteCartUseCase', () => {
   const quoteWith = (
@@ -99,7 +102,7 @@ describe('QuoteCartUseCase', () => {
     const quote = await quoteWith(
       settingsFor(),
       productFor({ priceCents: 19990 }),
-    ).execute(1, cart());
+    ).execute('018f6f1a-0000-7000-8000-000000000001', cart());
 
     expect(quote.lines[0].unitPriceCents).toBe(19990);
     expect(quote.totals.subtotalCents).toBe(39980);
@@ -109,39 +112,53 @@ describe('QuoteCartUseCase', () => {
     const quote = await quoteWith(
       settingsFor(),
       productFor({ priceCents: 20000, salePriceCents: 15000 }),
-    ).execute(1, cart());
+    ).execute('018f6f1a-0000-7000-8000-000000000001', cart());
 
     expect(quote.lines[0].unitPriceCents).toBe(15000);
   });
 
   it('no deja comprar de una tienda apagada', async () => {
     await expect(
-      quoteWith(settingsFor({ isEnabled: false }), productFor()).execute(1, cart()),
+      quoteWith(settingsFor({ isEnabled: false }), productFor()).execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        cart(),
+      ),
     ).rejects.toThrow('no tiene tienda');
   });
 
   it('no deja comprar un producto inactivo', async () => {
     await expect(
-      quoteWith(settingsFor(), productFor({ isActive: false })).execute(1, cart()),
+      quoteWith(settingsFor(), productFor({ isActive: false })).execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        cart(),
+      ),
     ).rejects.toThrow('ya no está disponible');
   });
 
   it('no deja comprar más unidades que las que quedan', async () => {
     await expect(
-      quoteWith(settingsFor(), productFor({ stock: 1 })).execute(1, cart()),
+      quoteWith(settingsFor(), productFor({ stock: 1 })).execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        cart(),
+      ),
     ).rejects.toThrow('Solo quedan 1');
   });
 
   it('avisa que el producto se agotó en vez de hablar de unidades', async () => {
     await expect(
-      quoteWith(settingsFor(), productFor({ stock: 0 })).execute(1, cart()),
+      quoteWith(settingsFor(), productFor({ stock: 0 })).execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        cart(),
+      ),
     ).rejects.toThrow('se agotó');
   });
 
   it('ignora el stock de un producto que no lo controla', async () => {
     const quote = await quoteWith(settingsFor(), productFor({ stock: null })).execute(
-      1,
-      cart({ items: [{ productId: 5, quantity: 99 }] }),
+      '018f6f1a-0000-7000-8000-000000000001',
+      cart({
+        items: [{ productId: '018f6f1a-0000-7000-8000-000000000005', quantity: 99 }],
+      }),
     );
 
     expect(quote.lines[0].quantity).toBe(99);
@@ -149,7 +166,7 @@ describe('QuoteCartUseCase', () => {
 
   it('aplica un cupón vigente', async () => {
     const coupon = new Coupon(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       'VERANO',
       'percentage',
       10,
@@ -161,7 +178,7 @@ describe('QuoteCartUseCase', () => {
       true,
     );
     const quote = await quoteWith(settingsFor(), productFor(), coupon).execute(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       cart({ couponCode: 'verano' }),
     );
 
@@ -171,7 +188,7 @@ describe('QuoteCartUseCase', () => {
 
   it('sigue cotizando cuando el cupón no sirve, e informa por qué', async () => {
     const vencido = new Coupon(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       'VIEJO',
       'amount',
       5000,
@@ -183,7 +200,7 @@ describe('QuoteCartUseCase', () => {
       true,
     );
     const quote = await quoteWith(settingsFor(), productFor(), vencido).execute(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       cart({ couponCode: 'viejo' }),
     );
 
@@ -194,7 +211,7 @@ describe('QuoteCartUseCase', () => {
 
   it('avisa cuando el cupón no existe', async () => {
     const quote = await quoteWith(settingsFor(), productFor(), null).execute(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       cart({ couponCode: 'INVENTADO' }),
     );
 
@@ -205,7 +222,7 @@ describe('QuoteCartUseCase', () => {
 describe('CheckoutUseCase', () => {
   const checkoutInput = (overrides: Record<string, unknown> = {}): CheckoutInput =>
     CheckoutSchema.parse({
-      items: [{ productId: 5, quantity: 2 }],
+      items: [{ productId: '018f6f1a-0000-7000-8000-000000000005', quantity: 2 }],
       customer: { name: 'Ana', email: 'ana@ejemplo.cl', phone: '+56911111111' },
       delivery: { method: 'shipping', addressLine: 'Calle 1' },
       shippingCode: 'despacho',
@@ -224,7 +241,7 @@ describe('CheckoutUseCase', () => {
         .mockImplementation((_tenantId: number, order: { totalCents: number }) =>
           Promise.resolve(
             new Order(
-              1,
+              '018f6f1a-0000-7000-8000-000000000001',
               '0001',
               'pending',
               { name: 'Ana', email: 'ana@ejemplo.cl', phone: '+56911111111' },
@@ -278,10 +295,14 @@ describe('CheckoutUseCase', () => {
   it('guarda el pedido con los totales calculados en el servidor', async () => {
     const { useCase, repository } = build(settingsFor());
 
-    const result = await useCase.execute(1, checkoutInput(), context);
+    const result = await useCase.execute(
+      '018f6f1a-0000-7000-8000-000000000001',
+      checkoutInput(),
+      context,
+    );
 
     expect(repository.create).toHaveBeenCalledWith(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       expect.objectContaining({
         subtotalCents: 20000,
         shippingCents: 3990,
@@ -295,7 +316,11 @@ describe('CheckoutUseCase', () => {
     const { useCase } = build(settingsFor());
 
     await expect(
-      useCase.execute(1, checkoutInput({ delivery: { method: 'shipping' } }), context),
+      useCase.execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        checkoutInput({ delivery: { method: 'shipping' } }),
+        context,
+      ),
     ).rejects.toThrow('dirección');
   });
 
@@ -303,13 +328,13 @@ describe('CheckoutUseCase', () => {
     const { useCase, repository } = build(settingsFor());
 
     await useCase.execute(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       checkoutInput({ delivery: { method: 'pickup' }, shippingCode: null }),
       context,
     );
 
     expect(repository.create).toHaveBeenCalledWith(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       expect.objectContaining({ shippingCents: 0 }),
     );
   });
@@ -337,10 +362,18 @@ describe('CheckoutUseCase', () => {
       gateways,
     );
 
-    const result = await useCase.execute(1, checkoutInput(), context);
+    const result = await useCase.execute(
+      '018f6f1a-0000-7000-8000-000000000001',
+      checkoutInput(),
+      context,
+    );
 
     expect(start.mock.calls[0][2]).toEqual(context);
-    expect(repository.setPaymentReference).toHaveBeenCalledWith(1, 1, 'tk-1');
+    expect(repository.setPaymentReference).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000001',
+      '018f6f1a-0000-7000-8000-000000000001',
+      'tk-1',
+    );
     expect(result.redirectUrl).toBe('https://pago.cl?token=tk-1');
   });
 
@@ -351,10 +384,14 @@ describe('CheckoutUseCase', () => {
     it('una tienda sin términos vende sin pedir aceptarlos', async () => {
       const { useCase, repository } = build(settingsFor());
 
-      await useCase.execute(1, checkoutInput(), context);
+      await useCase.execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        checkoutInput(),
+        context,
+      );
 
       expect(repository.create).toHaveBeenCalledWith(
-        1,
+        '018f6f1a-0000-7000-8000-000000000001',
         expect.objectContaining({ termsAcceptedAt: null, termsVersion: null }),
       );
     });
@@ -367,9 +404,9 @@ describe('CheckoutUseCase', () => {
         publishedAt,
       );
 
-      await expect(useCase.execute(1, checkoutInput(), context)).rejects.toThrow(
-        'aceptar los términos',
-      );
+      await expect(
+        useCase.execute('018f6f1a-0000-7000-8000-000000000001', checkoutInput(), context),
+      ).rejects.toThrow('aceptar los términos');
       expect(repository.create).not.toHaveBeenCalled();
     });
 
@@ -382,10 +419,15 @@ describe('CheckoutUseCase', () => {
         publishedAt,
       );
 
-      await useCase.execute(1, checkoutInput({ acceptedTerms: true }), context, now);
+      await useCase.execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        checkoutInput({ acceptedTerms: true }),
+        context,
+        now,
+      );
 
       expect(repository.create).toHaveBeenCalledWith(
-        1,
+        '018f6f1a-0000-7000-8000-000000000001',
         expect.objectContaining({
           termsAcceptedAt: now,
           termsVersion: '2026-09-01T12:00:00.000Z',
@@ -401,7 +443,11 @@ describe('CheckoutUseCase', () => {
         null,
       );
 
-      await useCase.execute(1, checkoutInput(), context);
+      await useCase.execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        checkoutInput(),
+        context,
+      );
 
       expect(repository.create).toHaveBeenCalled();
     });

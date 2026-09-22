@@ -1,8 +1,8 @@
 import express, { type Express, type Request, type Response } from 'express';
 import request from 'supertest';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { Tenant } from '../../Tenant/domain/Tenant';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
+import { Tenant } from '@/modules/Tenant/domain/Tenant';
 import type {
   ClaimResult,
   IdempotencyStore,
@@ -18,7 +18,7 @@ class InMemoryStore implements IdempotencyStore {
   >();
 
   public claim(
-    tenantId: number,
+    tenantId: string,
     scope: string,
     key: string,
     requestHash: string,
@@ -40,7 +40,7 @@ class InMemoryStore implements IdempotencyStore {
   }
 
   public complete(
-    tenantId: number,
+    tenantId: string,
     scope: string,
     key: string,
     response: StoredResponse,
@@ -52,7 +52,7 @@ class InMemoryStore implements IdempotencyStore {
     return Promise.resolve();
   }
 
-  public release(tenantId: number, scope: string, key: string): Promise<void> {
+  public release(tenantId: string, scope: string, key: string): Promise<void> {
     this.rows.delete(`${String(tenantId)}:${scope}:${key}`);
     return Promise.resolve();
   }
@@ -62,7 +62,7 @@ describe('idempotencia de la compra', () => {
   const buildApp = (
     store: IdempotencyStore,
     handler: (req: Request, res: Response) => void | Promise<void>,
-    tenantId = 1,
+    tenantId = '018f6f1a-0000-7000-8000-000000000001',
   ): Express => {
     const app = express();
     app.use(express.json());
@@ -195,11 +195,11 @@ describe('idempotencia de la compra', () => {
       res.status(201).json({ ok: true });
     };
 
-    await request(buildApp(store, handler, 1))
+    await request(buildApp(store, handler, '018f6f1a-0000-7000-8000-000000000001'))
       .post('/checkout')
       .set('Idempotency-Key', 'clave-0005')
       .send(body);
-    await request(buildApp(store, handler, 2))
+    await request(buildApp(store, handler, '018f6f1a-0000-7000-8000-000000000002'))
       .post('/checkout')
       .set('Idempotency-Key', 'clave-0005')
       .send(body);

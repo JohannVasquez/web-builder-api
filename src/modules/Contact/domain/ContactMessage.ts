@@ -1,6 +1,6 @@
 export interface ContactMessagePrimitives {
-  readonly id: number;
-  readonly tenantId: number;
+  readonly id: string;
+  readonly tenantId: string;
   readonly name: string;
   readonly email: string;
   readonly phone: string | null;
@@ -12,7 +12,7 @@ export interface ContactMessagePrimitives {
 }
 
 export interface ContactMessageQuery {
-  readonly tenantId: number;
+  readonly tenantId: string;
   readonly unreadOnly: boolean;
   readonly limit: number;
   readonly offset: number;

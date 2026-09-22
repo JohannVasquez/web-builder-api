@@ -1,6 +1,7 @@
+import { isUuid } from '@/shared/domain/identifier';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { RecordActivityUseCase } from '../application/RecordActivityUseCase';
-import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
+import { getRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -45,11 +46,11 @@ export const createActivityRecordingMiddleware = (
         return;
       }
       const actor = getRequestActor(res);
-      const tenantId = Number(req.params.tenantId);
+      const tenantId = typeof req.params.tenantId === 'string' ? req.params.tenantId : '';
       const { action, entityType } = describe(req.method, originalUrl);
 
       void recordActivityUseCase.execute({
-        tenantId: Number.isInteger(tenantId) && tenantId > 0 ? tenantId : null,
+        tenantId: typeof tenantId === 'string' && isUuid(tenantId) ? tenantId : null,
         actorType: actor.type,
         actorId: actor.id,
         actorName: actor.name,

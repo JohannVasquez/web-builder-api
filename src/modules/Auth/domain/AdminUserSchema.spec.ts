@@ -23,7 +23,10 @@ describe('AdminUserSchema', () => {
   });
 
   it('acepta el rol cliente con su alcance', () => {
-    const change = ChangeRoleSchema.safeParse({ role: 'client', tenantIds: [40] });
+    const change = ChangeRoleSchema.safeParse({
+      role: 'client',
+      tenantIds: ['018f6f1a-0000-7000-8000-000000000040'],
+    });
 
     expect(change.success).toBe(true);
   });

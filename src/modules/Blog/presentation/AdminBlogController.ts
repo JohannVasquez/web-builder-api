@@ -8,10 +8,11 @@ import type {
   UpdateBlogPostUseCase,
 } from '../application/AdminBlogUseCases';
 import { BlogPostInputSchema, BlogPostUpdateSchema } from '../domain/BlogPostSchema';
+import { idSchema } from '@/shared/domain/identifier';
 
-const tenantParams = z.object({ tenantId: z.coerce.number().int().positive() });
+const tenantParams = z.object({ tenantId: idSchema });
 const postParams = tenantParams.extend({
-  postId: z.coerce.number().int().positive(),
+  postId: idSchema,
 });
 
 export class AdminBlogController {

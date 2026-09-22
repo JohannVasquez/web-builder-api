@@ -1,9 +1,9 @@
-import type { PrismaClient } from '../../src/shared/infrastructure/prisma/generated/client';
-import type { BrandUpdate } from '../../src/modules/Brand/domain/BrandSchema';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
+import type { BrandUpdate } from '@/modules/Brand/domain/BrandSchema';
 import type { Seeder } from './Seeder';
 
 export interface BrandSeedParams {
-  readonly tenantId: number;
+  readonly tenantId: string;
   readonly brand: BrandUpdate;
 }
 

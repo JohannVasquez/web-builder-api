@@ -8,10 +8,23 @@ describe('bloques ocultos', () => {
       'Inicio',
       null,
       [
-        new PageSection('Hero', 1, { title: 'Hola' }, null, 10),
-        new PageSection('Faq', 2, { title: 'Preguntas' }, null, 11, hidden),
+        new PageSection(
+          'Hero',
+          1,
+          { title: 'Hola' },
+          null,
+          '018f6f1a-0000-7000-8000-000000000010',
+        ),
+        new PageSection(
+          'Faq',
+          2,
+          { title: 'Preguntas' },
+          null,
+          '018f6f1a-0000-7000-8000-000000000011',
+          hidden,
+        ),
       ],
-      5,
+      '018f6f1a-0000-7000-8000-000000000005',
       true,
     );
 

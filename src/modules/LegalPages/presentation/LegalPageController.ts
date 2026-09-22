@@ -2,8 +2,9 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import type { CreateLegalPageUseCase } from '../application/CreateLegalPageUseCase';
 import { LEGAL_PAGE_TEMPLATES } from '../domain/legalTemplates';
+import { idSchema } from '@/shared/domain/identifier';
 
-const TenantIdSchema = z.coerce.number().int().positive();
+const TenantIdSchema = idSchema;
 const BodySchema = z.strictObject({ kind: z.enum(['privacidad', 'terminos', 'compra']) });
 
 export class LegalPageController {

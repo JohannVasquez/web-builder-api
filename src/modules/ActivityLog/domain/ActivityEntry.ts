@@ -1,7 +1,7 @@
 export interface ActivityEntryInput {
-  readonly tenantId: number | null;
+  readonly tenantId: string | null;
   readonly actorType: 'admin' | 'apiKey';
-  readonly actorId: number | null;
+  readonly actorId: string | null;
   readonly actorName: string;
   readonly action: string;
   readonly entityType: string;
@@ -12,14 +12,14 @@ export interface ActivityEntryInput {
 }
 
 export interface ActivityEntry extends ActivityEntryInput {
-  readonly id: number;
+  readonly id: string;
   readonly createdAt: string;
 }
 
 export interface ActivityQuery {
-  readonly tenantId?: number;
+  readonly tenantId?: string;
   readonly actorType?: 'admin' | 'apiKey';
-  readonly actorId?: number;
+  readonly actorId?: string;
   readonly from?: Date;
   readonly to?: Date;
   readonly limit: number;

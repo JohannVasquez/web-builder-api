@@ -7,9 +7,9 @@ export interface CreateApiKeyData {
   readonly keyHash: string;
   readonly permission: Permission;
   readonly scopeAllTenants: boolean;
-  readonly tenantIds: readonly number[];
+  readonly tenantIds: readonly string[];
   readonly rateLimitPerMinute: number;
-  readonly createdById: number;
+  readonly createdById: string;
   readonly expiresAt: Date | null;
 }
 
@@ -17,8 +17,8 @@ export interface CreateApiKeyData {
 export abstract class ApiKeyRepository {
   public abstract create(data: CreateApiKeyData): Promise<ApiKey>;
   public abstract findByHash(keyHash: string): Promise<ApiKey | null>;
-  public abstract findById(id: number): Promise<ApiKey | null>;
+  public abstract findById(id: string): Promise<ApiKey | null>;
   public abstract findAll(): Promise<ApiKey[]>;
-  public abstract revoke(id: number): Promise<ApiKey | null>;
-  public abstract touchLastUsed(id: number): Promise<void>;
+  public abstract revoke(id: string): Promise<ApiKey | null>;
+  public abstract touchLastUsed(id: string): Promise<void>;
 }

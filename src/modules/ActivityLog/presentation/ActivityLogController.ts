@@ -1,11 +1,12 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import type { SearchActivityUseCase } from '../application/SearchActivityUseCase';
+import { idSchema } from '@/shared/domain/identifier';
 
 const ActivityQuerySchema = z.object({
-  tenantId: z.coerce.number().int().positive().optional(),
+  tenantId: idSchema.optional(),
   actorType: z.enum(['admin', 'apiKey']).optional(),
-  actorId: z.coerce.number().int().positive().optional(),
+  actorId: idSchema.optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),

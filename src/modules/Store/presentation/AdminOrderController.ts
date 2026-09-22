@@ -1,6 +1,6 @@
+import { parseId } from '@/shared/domain/identifier';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
 import { ORDER_STATUSES } from '../domain/Order';
 import { DEFAULT_TIME_ZONE, isValidTimeZone } from '../domain/localDay';
 import { CouponInputSchema, CouponUpdateSchema } from '../domain/Coupon';
@@ -8,7 +8,7 @@ import { StoreSettingsUpdateSchema } from '../domain/StoreSettings';
 import type { ManageCouponsUseCase } from '../application/ManageCouponsUseCase';
 import type { ManageOrdersUseCase } from '../application/ManageOrdersUseCase';
 import type { ManageStoreSettingsUseCase } from '../application/ManageStoreSettingsUseCase';
-import type { TenantRepository } from '../../Tenant/domain/TenantRepository';
+import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 
 const OrderQuerySchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
@@ -119,15 +119,11 @@ export class AdminOrderController {
     res.status(204).send();
   };
 
-  private tenantIdOf(req: Request): number {
+  private tenantIdOf(req: Request): string {
     return this.idOf(req, 'tenantId');
   }
 
-  private idOf(req: Request, param: string): number {
-    const value = Number(req.params[param]);
-    if (!Number.isInteger(value) || value <= 0) {
-      throw new BadRequestError(`El identificador "${param}" no es válido.`);
-    }
-    return value;
+  private idOf(req: Request, param: string): string {
+    return parseId(req.params[param], param);
   }
 }

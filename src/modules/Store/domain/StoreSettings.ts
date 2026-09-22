@@ -44,7 +44,7 @@ export interface StoreSettingsPrimitives {
 
 export class StoreSettings {
   constructor(
-    public readonly tenantId: number,
+    public readonly tenantId: string,
     public readonly isEnabled: boolean,
     public readonly currency: string,
     public readonly taxIncluded: boolean,
@@ -58,7 +58,7 @@ export class StoreSettings {
   ) {}
 
   // Un cliente sin fila de configuración tiene tienda apagada, no una tienda a medias.
-  public static disabledFor(tenantId: number): StoreSettings {
+  public static disabledFor(tenantId: string): StoreSettings {
     return new StoreSettings(
       tenantId,
       false,

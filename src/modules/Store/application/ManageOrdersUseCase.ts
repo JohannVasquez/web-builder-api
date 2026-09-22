@@ -1,5 +1,5 @@
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 import {
   canTransition,
   ORDER_STATUS_LABELS,
@@ -20,13 +20,13 @@ export class ManageOrdersUseCase {
   ) {}
 
   public async list(
-    tenantId: number,
+    tenantId: string,
     query: OrderQuery,
   ): Promise<{ orders: Order[]; total: number }> {
     return this.orderRepository.list(tenantId, query);
   }
 
-  public async find(tenantId: number, id: number): Promise<Order> {
+  public async find(tenantId: string, id: string): Promise<Order> {
     const order = await this.orderRepository.findById(tenantId, id);
     if (order === null) {
       throw new NotFoundError('Ese pedido no existe.');
@@ -35,8 +35,8 @@ export class ManageOrdersUseCase {
   }
 
   public async changeStatus(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     status: OrderStatus,
     storeName: string,
   ): Promise<Order> {
@@ -71,7 +71,7 @@ export class ManageOrdersUseCase {
   }
 
   public async report(
-    tenantId: number,
+    tenantId: string,
     from: Date,
     to: Date,
     timeZone?: string,
@@ -80,7 +80,7 @@ export class ManageOrdersUseCase {
   }
 
   private async notifyPaid(
-    tenantId: number,
+    tenantId: string,
     order: Order,
     storeName: string,
   ): Promise<void> {

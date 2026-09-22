@@ -6,7 +6,7 @@ export class ReplaceNavigationUseCase {
   constructor(private readonly navigationRepository: NavigationRepository) {}
 
   public async execute(
-    tenantId: number,
+    tenantId: string,
     input: NavigationInput,
   ): Promise<NavigationLink[]> {
     return this.navigationRepository.replace(tenantId, input);

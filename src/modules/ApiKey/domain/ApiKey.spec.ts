@@ -6,18 +6,18 @@ describe('ApiKey', () => {
       revokedAt?: Date | null;
       expiresAt?: Date | null;
       scopeAllTenants?: boolean;
-      tenantIds?: readonly number[];
+      tenantIds?: readonly string[];
     } = {},
   ): ApiKey =>
     new ApiKey(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       'Agente MCP',
       'abcdef',
       'write',
       overrides.scopeAllTenants ?? true,
       overrides.tenantIds ?? [],
       120,
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       overrides.expiresAt ?? null,
       null,
       overrides.revokedAt ?? null,
@@ -54,15 +54,30 @@ describe('ApiKey', () => {
 
   describe('scope', () => {
     it('returns null when it reaches every tenant', () => {
-      const apiKey = buildApiKey({ scopeAllTenants: true, tenantIds: [1, 2] });
+      const apiKey = buildApiKey({
+        scopeAllTenants: true,
+        tenantIds: [
+          '018f6f1a-0000-7000-8000-000000000001',
+          '018f6f1a-0000-7000-8000-000000000002',
+        ],
+      });
 
       expect(apiKey.scope()).toBeNull();
     });
 
     it('returns the tenant list when limited', () => {
-      const apiKey = buildApiKey({ scopeAllTenants: false, tenantIds: [1, 2] });
+      const apiKey = buildApiKey({
+        scopeAllTenants: false,
+        tenantIds: [
+          '018f6f1a-0000-7000-8000-000000000001',
+          '018f6f1a-0000-7000-8000-000000000002',
+        ],
+      });
 
-      expect(apiKey.scope()).toEqual([1, 2]);
+      expect(apiKey.scope()).toEqual([
+        '018f6f1a-0000-7000-8000-000000000001',
+        '018f6f1a-0000-7000-8000-000000000002',
+      ]);
     });
   });
 

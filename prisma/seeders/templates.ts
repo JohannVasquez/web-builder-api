@@ -1,4 +1,4 @@
-import type { BrandUpdate } from '../../src/modules/Brand/domain/BrandSchema';
+import type { BrandUpdate } from '@/modules/Brand/domain/BrandSchema';
 import type { NavigationLinkSeed } from './NavigationSeeder';
 import type { PageSeed } from './PageSeeder';
 import type { SeedAssetKeys } from './StorageAssetsSeeder';

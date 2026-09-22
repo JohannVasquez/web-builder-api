@@ -2,12 +2,12 @@ import type { PageSnapshot } from './PageSnapshot';
 
 export interface PageVersionActor {
   readonly type: 'admin' | 'apiKey';
-  readonly id: number | null;
+  readonly id: string | null;
   readonly name: string;
 }
 
 export interface PageVersionPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly summary: string;
   readonly actorType: string;
   readonly actorName: string;
@@ -18,20 +18,20 @@ export interface PageVersionPrimitives {
 // Clase abstracta usada como token de inyección de dependencias (diod).
 export abstract class PageVersionRepository {
   public abstract record(
-    pageId: number,
+    pageId: string,
     snapshot: PageSnapshot,
     summary: string,
     actor: PageVersionActor,
   ): Promise<void>;
   public abstract list(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
     limit: number,
   ): Promise<PageVersionPrimitives[]>;
   public abstract findSnapshot(
-    tenantId: number,
-    pageId: number,
-    versionId: number,
+    tenantId: string,
+    pageId: string,
+    versionId: string,
   ): Promise<PageSnapshot | null>;
-  public abstract markPublished(pageId: number, versionId: number): Promise<void>;
+  public abstract markPublished(pageId: string, versionId: string): Promise<void>;
 }

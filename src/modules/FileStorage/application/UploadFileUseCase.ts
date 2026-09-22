@@ -16,7 +16,7 @@ export class UploadFileUseCase {
 
   public async execute(
     file: FileData,
-    tenantId: number | null = null,
+    tenantId: string | null = null,
     originalName: string | null = null,
   ): Promise<StoredFile> {
     if (!isAllowedMimeType(file.mimeType)) {

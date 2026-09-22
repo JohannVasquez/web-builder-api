@@ -8,8 +8,16 @@ describe('estilo visual por página', () => {
       'home',
       'Inicio',
       null,
-      [new PageSection('Hero', 1, { title: 'Hola' }, null, 10)],
-      5,
+      [
+        new PageSection(
+          'Hero',
+          1,
+          { title: 'Hola' },
+          null,
+          '018f6f1a-0000-7000-8000-000000000010',
+        ),
+      ],
+      '018f6f1a-0000-7000-8000-000000000005',
       true,
       null,
       visualStyle,

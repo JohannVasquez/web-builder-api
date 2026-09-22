@@ -4,14 +4,20 @@ describe('DnsDomainVerifier', () => {
   it('da un token distinto por cliente y estable en el tiempo', () => {
     const verifier = new DnsDomainVerifier('secreto-de-la-plataforma');
 
-    expect(verifier.tokenFor(1)).toBe(verifier.tokenFor(1));
-    expect(verifier.tokenFor(1)).not.toBe(verifier.tokenFor(2));
-    expect(verifier.tokenFor(1)).toHaveLength(32);
+    expect(verifier.tokenFor('018f6f1a-0000-7000-8000-000000000001')).toBe(
+      verifier.tokenFor('018f6f1a-0000-7000-8000-000000000001'),
+    );
+    expect(verifier.tokenFor('018f6f1a-0000-7000-8000-000000000001')).not.toBe(
+      verifier.tokenFor('018f6f1a-0000-7000-8000-000000000002'),
+    );
+    expect(verifier.tokenFor('018f6f1a-0000-7000-8000-000000000001')).toHaveLength(32);
   });
 
   it('no repite el token si cambia el secreto', () => {
-    expect(new DnsDomainVerifier('uno').tokenFor(1)).not.toBe(
-      new DnsDomainVerifier('dos').tokenFor(1),
+    expect(
+      new DnsDomainVerifier('uno').tokenFor('018f6f1a-0000-7000-8000-000000000001'),
+    ).not.toBe(
+      new DnsDomainVerifier('dos').tokenFor('018f6f1a-0000-7000-8000-000000000001'),
     );
   });
 

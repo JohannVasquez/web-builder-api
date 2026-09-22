@@ -1,4 +1,4 @@
-import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
+import { UnauthorizedError } from '@/shared/domain/UnauthorizedError';
 
 export class AccountDisabledError extends UnauthorizedError {
   constructor() {

@@ -2,7 +2,7 @@ export interface StorageAssetPrimitives {
   readonly key: string;
   readonly mimeType: string;
   readonly size: number;
-  readonly tenantId?: number | null;
+  readonly tenantId?: string | null;
   readonly originalName?: string | null;
   readonly alt?: string | null;
 }
@@ -28,12 +28,12 @@ export abstract class StorageAssetRepository {
   public abstract register(asset: StorageAssetPrimitives): Promise<void>;
   // Idempotente, igual que `StorageProvider.delete`.
   public abstract remove(key: string): Promise<void>;
-  public abstract findByTenant(tenantId: number, search: string): Promise<MediaAsset[]>;
-  public abstract findKey(tenantId: number, key: string): Promise<MediaAsset | null>;
+  public abstract findByTenant(tenantId: string, search: string): Promise<MediaAsset[]>;
+  public abstract findKey(tenantId: string, key: string): Promise<MediaAsset | null>;
   public abstract updateAlt(
-    tenantId: number,
+    tenantId: string,
     key: string,
     alt: string,
   ): Promise<MediaAsset | null>;
-  public abstract findUsage(tenantId: number, key: string): Promise<AssetUsage[]>;
+  public abstract findUsage(tenantId: string, key: string): Promise<AssetUsage[]>;
 }

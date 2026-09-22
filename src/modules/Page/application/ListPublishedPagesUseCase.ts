@@ -12,7 +12,7 @@ export interface PublishedPageSummary {
 export class ListPublishedPagesUseCase {
   constructor(private readonly pageRepository: PageRepository) {}
 
-  public async execute(tenantId: number): Promise<PublishedPageSummary[]> {
+  public async execute(tenantId: string): Promise<PublishedPageSummary[]> {
     const pages = await this.pageRepository.findAllByTenant(tenantId);
     return pages
       .filter((page) => page.isPublished)

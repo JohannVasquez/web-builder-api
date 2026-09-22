@@ -1,5 +1,5 @@
 import type { CatalogProvider } from '../domain/CatalogProvider';
-import { FONT_PAIRINGS } from '../../Brand/domain/fontPairings';
+import { FONT_PAIRINGS } from '@/modules/Brand/domain/fontPairings';
 
 export class CatalogConfig {
   constructor(public readonly catalogUrl: string) {}

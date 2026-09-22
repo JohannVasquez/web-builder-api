@@ -1,5 +1,5 @@
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 import type { DomainVerifier } from '../domain/DomainVerifier';
 import type { Tenant, TenantStatus } from '../domain/Tenant';
 import { verificationHostFor, type TenantDomainRecord } from '../domain/TenantDomain';
@@ -37,37 +37,37 @@ export class ManageTenantUseCase {
     private readonly platform: PlatformDomainConfig,
   ) {}
 
-  public async setStatus(tenantId: number, status: TenantStatus): Promise<Tenant> {
+  public async setStatus(tenantId: string, status: TenantStatus): Promise<Tenant> {
     await this.requireTenant(tenantId);
     return this.tenantRepository.setStatus(tenantId, status);
   }
 
-  public async listDomains(tenantId: number): Promise<TenantDomainRecord[]> {
+  public async listDomains(tenantId: string): Promise<TenantDomainRecord[]> {
     await this.requireTenant(tenantId);
     return this.tenantRepository.listDomains(tenantId);
   }
 
-  public async addDomain(tenantId: number, domain: string): Promise<TenantDomainRecord> {
+  public async addDomain(tenantId: string, domain: string): Promise<TenantDomainRecord> {
     await this.requireTenant(tenantId);
     return this.tenantRepository.addDomain(tenantId, domain, this.platform.owns(domain));
   }
 
   public async setPrimaryDomain(
-    tenantId: number,
-    domainId: number,
+    tenantId: string,
+    domainId: string,
   ): Promise<TenantDomainRecord> {
     return this.tenantRepository.setPrimaryDomain(tenantId, domainId);
   }
 
-  public async deleteDomain(tenantId: number, domainId: number): Promise<void> {
+  public async deleteDomain(tenantId: string, domainId: string): Promise<void> {
     await this.tenantRepository.deleteDomain(tenantId, domainId);
   }
 
   // Comprueba el DNS de verdad: marcar verificado sin mirar dejaría entrar el dominio de
   // otra persona al sitio de un cliente.
   public async verifyDomain(
-    tenantId: number,
-    domainId: number,
+    tenantId: string,
+    domainId: string,
   ): Promise<TenantDomainRecord> {
     const domains = await this.tenantRepository.listDomains(tenantId);
     const target = domains.find((candidate) => candidate.id === domainId);
@@ -88,7 +88,7 @@ export class ManageTenantUseCase {
   }
 
   public instructionsFor(
-    tenantId: number,
+    tenantId: string,
     domain: TenantDomainRecord,
   ): DomainInstructions {
     const isApex = domain.domain.split('.').length === 2;
@@ -112,7 +112,7 @@ export class ManageTenantUseCase {
     };
   }
 
-  private async requireTenant(tenantId: number): Promise<Tenant> {
+  private async requireTenant(tenantId: string): Promise<Tenant> {
     const tenant = await this.tenantRepository.findById(tenantId);
     if (tenant === null) {
       throw new NotFoundError('Ese cliente no existe.');

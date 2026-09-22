@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '@/shared/domain/identifier';
 
 const typeSchema = z.string().min(1).max(100);
 const positionSchema = z.number().int().min(0);
@@ -38,5 +39,5 @@ export const PageSectionUpdateSchema = z.strictObject({
 export type PageSectionUpdateInput = z.infer<typeof PageSectionUpdateSchema>;
 
 export const ReorderSectionsSchema = z.strictObject({
-  sectionIds: z.array(z.number().int().positive()).min(1),
+  sectionIds: z.array(idSchema).min(1),
 });

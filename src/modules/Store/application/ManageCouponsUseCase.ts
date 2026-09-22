@@ -1,15 +1,15 @@
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 import type { Coupon, CouponInput, CouponUpdate } from '../domain/Coupon';
 import type { CouponRepository } from '../domain/CouponRepository';
 
 export class ManageCouponsUseCase {
   constructor(private readonly couponRepository: CouponRepository) {}
 
-  public async list(tenantId: number): Promise<Coupon[]> {
+  public async list(tenantId: string): Promise<Coupon[]> {
     return this.couponRepository.findAllByTenant(tenantId);
   }
 
-  public async create(tenantId: number, input: CouponInput): Promise<Coupon> {
+  public async create(tenantId: string, input: CouponInput): Promise<Coupon> {
     const existing = await this.couponRepository.findByCode(tenantId, input.code);
     if (existing !== null) {
       throw new BadRequestError(`Ya existe un cupón con el código "${input.code}".`);
@@ -18,14 +18,14 @@ export class ManageCouponsUseCase {
   }
 
   public async update(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: CouponUpdate,
   ): Promise<Coupon> {
     return this.couponRepository.update(tenantId, id, input);
   }
 
-  public async delete(tenantId: number, id: number): Promise<void> {
+  public async delete(tenantId: string, id: string): Promise<void> {
     await this.couponRepository.delete(tenantId, id);
   }
 }

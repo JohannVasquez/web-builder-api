@@ -1,5 +1,6 @@
+import { isUuid } from '@/shared/domain/identifier';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import type { VerifyTokenUseCase } from '../../Auth/application/VerifyTokenUseCase';
+import type { VerifyTokenUseCase } from '@/modules/Auth/application/VerifyTokenUseCase';
 import type { AuthenticateApiKeyUseCase } from '../application/AuthenticateApiKeyUseCase';
 import type { RateLimiter } from '../application/RateLimiter';
 import {
@@ -9,10 +10,10 @@ import {
   type Permission,
 } from '../domain/Actor';
 import { looksLikeApiKeyToken } from '../domain/apiKeyToken';
-import type { AdminRole } from '../../Auth/domain/AdminUser';
-import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
-import { ForbiddenError } from '../../../shared/domain/ForbiddenError';
-import { TooManyRequestsError } from '../../../shared/domain/TooManyRequestsError';
+import type { AdminRole } from '@/modules/Auth/domain/AdminUser';
+import { UnauthorizedError } from '@/shared/domain/UnauthorizedError';
+import { ForbiddenError } from '@/shared/domain/ForbiddenError';
+import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 
 const BEARER_PREFIX = 'Bearer ';
 const DEFAULT_RATE_LIMIT = 120;
@@ -151,8 +152,8 @@ export const requireTenantScope: RequestHandler = (
   res: Response,
   next: NextFunction,
 ): void => {
-  const tenantId = Number(req.params.tenantId);
-  if (!Number.isInteger(tenantId) || tenantId <= 0) {
+  const tenantId = typeof req.params.tenantId === 'string' ? req.params.tenantId : '';
+  if (!isUuid(tenantId)) {
     next();
     return;
   }

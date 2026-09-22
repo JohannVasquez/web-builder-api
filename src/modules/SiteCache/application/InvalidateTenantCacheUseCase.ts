@@ -1,4 +1,4 @@
-import { TenantRepository } from '../../Tenant/domain/TenantRepository';
+import { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 import { SiteCacheInvalidator } from '../domain/SiteCacheInvalidator';
 
 // Invalida TODOS los dominios del tenant: si no, el cambio se vería por una URL y no por la otra.
@@ -8,7 +8,7 @@ export class InvalidateTenantCacheUseCase {
     private readonly invalidator: SiteCacheInvalidator,
   ) {}
 
-  public async execute(tenantId: number): Promise<void> {
+  public async execute(tenantId: string): Promise<void> {
     const domains = await this.tenantRepository.findDomainsByTenantId(tenantId);
     await this.invalidator.invalidate(domains);
   }

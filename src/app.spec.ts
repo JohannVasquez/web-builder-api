@@ -11,7 +11,12 @@ describe('buildApp (rutas protegidas)', () => {
 
   // Las rutas públicas pasan por `siteAvailability`, que necesita un tenant resuelto.
   const fakeTenantResolver: RequestHandler = (_req, res, next) => {
-    (res.locals as { tenant?: Tenant }).tenant = new Tenant(1, 'demo', 'Demo', null);
+    (res.locals as { tenant?: Tenant }).tenant = new Tenant(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'demo',
+      'Demo',
+      null,
+    );
     next();
   };
 
@@ -147,7 +152,7 @@ describe('buildApp (rutas protegidas)', () => {
     }
     setRequestActor(res, {
       type: 'admin',
-      id: 1,
+      id: '018f6f1a-0000-7000-8000-000000000001',
       name: 'Admin',
       role: 'owner',
       permission: 'full',

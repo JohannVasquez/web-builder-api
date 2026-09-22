@@ -1,3 +1,4 @@
+import { parseId } from '@/shared/domain/identifier';
 import type { Request, Response } from 'express';
 import type { ListTenantsUseCase } from '../application/ListTenantsUseCase';
 import type { CreateTenantUseCase } from '../application/CreateTenantUseCase';
@@ -6,9 +7,8 @@ import { CreateTenantSchema } from '../domain/TenantSchema';
 import type { ManageTenantUseCase } from '../application/ManageTenantUseCase';
 import { DomainSchema } from '../domain/TenantDomain';
 import { TENANT_STATUSES } from '../domain/Tenant';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { getRequestActor } from '../../ApiKey/presentation/actorMiddleware';
-import { actorReachesTenant } from '../../ApiKey/domain/Actor';
+import { getRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
+import { actorReachesTenant } from '@/modules/ApiKey/domain/Actor';
 import { z } from 'zod';
 
 const StatusSchema = z.strictObject({ status: z.enum(TENANT_STATUSES) });
@@ -95,15 +95,11 @@ export class AdminTenantController {
     res.status(204).send();
   };
 
-  private tenantIdOf(req: Request): number {
+  private tenantIdOf(req: Request): string {
     return this.idOf(req, 'tenantId');
   }
 
-  private idOf(req: Request, param: string): number {
-    const value = Number(req.params[param]);
-    if (!Number.isInteger(value) || value <= 0) {
-      throw new BadRequestError(`El identificador "${param}" no es válido.`);
-    }
-    return value;
+  private idOf(req: Request, param: string): string {
+    return parseId(req.params[param], param);
   }
 }

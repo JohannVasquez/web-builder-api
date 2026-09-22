@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 
 /** El set de ids a reordenar no coincide exactamente con las secciones de la página. */
 export class ReorderMismatchError extends BadRequestError {

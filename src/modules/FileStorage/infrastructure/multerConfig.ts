@@ -1,6 +1,6 @@
 import multer, { MulterError } from 'multer';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { FileTooLargeError } from '../domain/FileTooLargeError';
 
 /**

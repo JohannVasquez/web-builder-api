@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import { CartSchema, CheckoutSchema } from '../domain/Order';
 import { StoreDisabledError } from '../domain/StoreDisabledError';
 import type { CheckoutUseCase } from '../application/CheckoutUseCase';

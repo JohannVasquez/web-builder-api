@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import type { GetPageBySlugUseCase } from '../application/GetPageBySlugUseCase';
 import type { ListPublishedPagesUseCase } from '../application/ListPublishedPagesUseCase';
 

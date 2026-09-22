@@ -1,6 +1,6 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import type { PasswordResetMailer } from '../domain/PasswordResetMailer';
-import { SmtpConfig } from '../../Contact/infrastructure/SmtpEmailService';
+import { SmtpConfig } from '@/modules/Contact/infrastructure/SmtpEmailService';
 
 export class SmtpPasswordResetMailer implements PasswordResetMailer {
   private readonly transporter: Transporter;

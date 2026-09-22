@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import {
   mergePaymentCredentials,
   PAYMENT_PROVIDERS,
@@ -11,7 +11,7 @@ import {
 import type { StoreSettingsRepository } from '../domain/StoreSettingsRepository';
 
 interface StoreSettingsRecord {
-  readonly tenantId: number;
+  readonly tenantId: string;
   readonly isEnabled: boolean;
   readonly currency: string;
   readonly taxIncluded: boolean;
@@ -51,13 +51,13 @@ const toCredentials = (value: unknown): Record<string, string> => {
 export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  public async find(tenantId: number): Promise<StoreSettings> {
+  public async find(tenantId: string): Promise<StoreSettings> {
     const record = await this.prisma.storeSettings.findUnique({ where: { tenantId } });
     return record === null ? StoreSettings.disabledFor(tenantId) : this.toDomain(record);
   }
 
   public async save(
-    tenantId: number,
+    tenantId: string,
     update: StoreSettingsUpdate,
   ): Promise<StoreSettings> {
     const credentials =

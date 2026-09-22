@@ -4,7 +4,7 @@ import { StoreSettings } from '../domain/StoreSettings';
 
 describe('FlowPaymentGateway', () => {
   const settings = new StoreSettings(
-    1,
+    '018f6f1a-0000-7000-8000-000000000001',
     true,
     'CLP',
     true,
@@ -17,7 +17,7 @@ describe('FlowPaymentGateway', () => {
   );
 
   const order = new Order(
-    10,
+    '018f6f1a-0000-7000-8000-000000000010',
     '0007',
     'pending',
     { name: 'Ana', email: 'ana@ejemplo.cl', phone: '+56911111111' },
@@ -93,7 +93,7 @@ describe('FlowPaymentGateway', () => {
   it('usa la url de producción solo cuando el cliente la pidió', async () => {
     const fetchFn = fetchReturning({ url: 'u', token: 't' });
     const production = new StoreSettings(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       true,
       'CLP',
       true,
@@ -128,7 +128,7 @@ describe('FlowPaymentGateway', () => {
 
   it('avisa cuando la tienda no tiene configurada su cuenta de cobro', async () => {
     const sinCuenta = new StoreSettings(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       true,
       'CLP',
       true,

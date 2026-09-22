@@ -1,15 +1,15 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { ADMIN_ROLES, AdminUser, type AdminRole } from '../domain/AdminUser';
 import type { AdminUserRepository } from '../domain/AdminUserRepository';
 
 interface AdminUserRecord {
-  readonly id: number;
+  readonly id: string;
   readonly email: string;
   readonly name: string;
   readonly passwordHash: string;
   readonly role: string;
   readonly disabledAt: Date | null;
-  readonly tenants?: readonly { readonly tenantId: number }[];
+  readonly tenants?: readonly { readonly tenantId: string }[];
 }
 
 const withTenants = { tenants: { select: { tenantId: true } } };
@@ -25,7 +25,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     return record === null ? null : this.toDomain(record);
   }
 
-  public async findById(id: number): Promise<AdminUser | null> {
+  public async findById(id: string): Promise<AdminUser | null> {
     const record = await this.prisma.adminUser.findUnique({
       where: { id },
       include: withTenants,
@@ -46,7 +46,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     name: string,
     passwordHash: string,
     role: AdminRole,
-    tenantIds: readonly number[] = [],
+    tenantIds: readonly string[] = [],
   ): Promise<AdminUser> {
     const record = await this.prisma.adminUser.create({
       data: {
@@ -63,8 +63,8 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
 
   // Se reemplaza la lista completa: "estos son sus clientes ahora", no un parche.
   public async setTenants(
-    id: number,
-    tenantIds: readonly number[],
+    id: string,
+    tenantIds: readonly string[],
   ): Promise<AdminUser | null> {
     const record = await this.prisma.$transaction(async (tx) => {
       await tx.adminUserTenant.deleteMany({ where: { adminUserId: id } });
@@ -78,7 +78,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     return record === null ? null : this.toDomain(record);
   }
 
-  public async setRole(id: number, role: AdminRole): Promise<AdminUser | null> {
+  public async setRole(id: string, role: AdminRole): Promise<AdminUser | null> {
     const record = await this.prisma.adminUser.update({
       where: { id },
       data: { role },
@@ -87,7 +87,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     return this.toDomain(record);
   }
 
-  public async setDisabled(id: number, disabled: boolean): Promise<AdminUser | null> {
+  public async setDisabled(id: string, disabled: boolean): Promise<AdminUser | null> {
     const record = await this.prisma.adminUser.update({
       where: { id },
       data: { disabledAt: disabled ? new Date() : null },
@@ -96,7 +96,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     return this.toDomain(record);
   }
 
-  public async setPassword(id: number, passwordHash: string): Promise<void> {
+  public async setPassword(id: string, passwordHash: string): Promise<void> {
     await this.prisma.adminUser.update({ where: { id }, data: { passwordHash } });
   }
 

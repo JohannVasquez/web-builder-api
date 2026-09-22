@@ -13,17 +13,17 @@ export type ClaimResult =
 export abstract class IdempotencyStore {
   // Reserva la clave de forma atómica: si dos peticiones llegan a la vez, solo una la gana.
   public abstract claim(
-    tenantId: number,
+    tenantId: string,
     scope: string,
     key: string,
     requestHash: string,
   ): Promise<ClaimResult>;
   public abstract complete(
-    tenantId: number,
+    tenantId: string,
     scope: string,
     key: string,
     response: StoredResponse,
   ): Promise<void>;
   // Una operación que falló no dejó nada hecho: se suelta la clave para poder reintentar.
-  public abstract release(tenantId: number, scope: string, key: string): Promise<void>;
+  public abstract release(tenantId: string, scope: string, key: string): Promise<void>;
 }

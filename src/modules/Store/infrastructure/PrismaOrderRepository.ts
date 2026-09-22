@@ -1,5 +1,5 @@
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import {
   nextOrderNumber,
   Order,
@@ -12,7 +12,7 @@ import type { OrderQuery, OrderRepository, SalesReport } from '../domain/OrderRe
 import { DEFAULT_TIME_ZONE, localDayKey } from '../domain/localDay';
 
 interface OrderItemRecord {
-  readonly productId: number | null;
+  readonly productId: string | null;
   readonly name: string;
   readonly variant: unknown;
   readonly unitPriceCents: number;
@@ -21,7 +21,7 @@ interface OrderItemRecord {
 }
 
 interface OrderRecord {
-  readonly id: number;
+  readonly id: string;
   readonly number: string;
   readonly status: string;
   readonly customerName: string;
@@ -71,7 +71,7 @@ const toStatus = (value: string): OrderStatus =>
 export class PrismaOrderRepository implements OrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  public async create(tenantId: number, order: NewOrder): Promise<Order> {
+  public async create(tenantId: string, order: NewOrder): Promise<Order> {
     // Todo dentro de una transacción: dos compras a la vez no pueden quedarse con el
     // mismo número de pedido.
     const record = await this.prisma.$transaction(async (tx) => {
@@ -124,7 +124,7 @@ export class PrismaOrderRepository implements OrderRepository {
     return this.toDomain(record);
   }
 
-  public async findById(tenantId: number, id: number): Promise<Order | null> {
+  public async findById(tenantId: string, id: string): Promise<Order | null> {
     const record = await this.prisma.order.findFirst({
       where: { id, tenantId },
       include: { items: true },
@@ -132,7 +132,7 @@ export class PrismaOrderRepository implements OrderRepository {
     return record === null ? null : this.toDomain(record);
   }
 
-  public async findByNumber(tenantId: number, number: string): Promise<Order | null> {
+  public async findByNumber(tenantId: string, number: string): Promise<Order | null> {
     const record = await this.prisma.order.findFirst({
       where: { tenantId, number },
       include: { items: true },
@@ -141,7 +141,7 @@ export class PrismaOrderRepository implements OrderRepository {
   }
 
   public async findByPaymentReference(
-    tenantId: number,
+    tenantId: string,
     reference: string,
   ): Promise<Order | null> {
     const record = await this.prisma.order.findFirst({
@@ -152,7 +152,7 @@ export class PrismaOrderRepository implements OrderRepository {
   }
 
   public async list(
-    tenantId: number,
+    tenantId: string,
     query: OrderQuery,
   ): Promise<{ orders: Order[]; total: number }> {
     const where = {
@@ -183,8 +183,8 @@ export class PrismaOrderRepository implements OrderRepository {
   }
 
   public async setStatus(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     status: OrderStatus,
   ): Promise<Order> {
     await this.requireOwnership(tenantId, id);
@@ -196,7 +196,7 @@ export class PrismaOrderRepository implements OrderRepository {
     return this.toDomain(record);
   }
 
-  public async markPaid(tenantId: number, id: number, reference: string): Promise<Order> {
+  public async markPaid(tenantId: string, id: string, reference: string): Promise<Order> {
     await this.requireOwnership(tenantId, id);
     const record = await this.prisma.order.update({
       where: { id },
@@ -207,8 +207,8 @@ export class PrismaOrderRepository implements OrderRepository {
   }
 
   public async setPaymentReference(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     reference: string,
   ): Promise<void> {
     await this.prisma.order.updateMany({
@@ -217,16 +217,16 @@ export class PrismaOrderRepository implements OrderRepository {
     });
   }
 
-  public async discountStock(tenantId: number, orderId: number): Promise<void> {
+  public async discountStock(tenantId: string, orderId: string): Promise<void> {
     await this.moveStock(tenantId, orderId, -1);
   }
 
-  public async restoreStock(tenantId: number, orderId: number): Promise<void> {
+  public async restoreStock(tenantId: string, orderId: string): Promise<void> {
     await this.moveStock(tenantId, orderId, 1);
   }
 
   public async salesReport(
-    tenantId: number,
+    tenantId: string,
     from: Date,
     to: Date,
     timeZone: string = DEFAULT_TIME_ZONE,
@@ -244,7 +244,7 @@ export class PrismaOrderRepository implements OrderRepository {
     const byDay = new Map<string, { orders: number; totalCents: number }>();
     const byProduct = new Map<
       string,
-      { productId: number | null; name: string; units: number; totalCents: number }
+      { productId: string | null; name: string; units: number; totalCents: number }
     >();
     let totalCents = 0;
 
@@ -289,8 +289,8 @@ export class PrismaOrderRepository implements OrderRepository {
 
   // Los productos sin control de stock (`null`) se saltan: no hay nada que mover.
   private async moveStock(
-    tenantId: number,
-    orderId: number,
+    tenantId: string,
+    orderId: string,
     sign: 1 | -1,
   ): Promise<void> {
     const order = await this.prisma.order.findFirst({
@@ -318,7 +318,7 @@ export class PrismaOrderRepository implements OrderRepository {
     });
   }
 
-  private async requireOwnership(tenantId: number, id: number): Promise<void> {
+  private async requireOwnership(tenantId: string, id: string): Promise<void> {
     const found = await this.prisma.order.findFirst({
       where: { id, tenantId },
       select: { id: true },

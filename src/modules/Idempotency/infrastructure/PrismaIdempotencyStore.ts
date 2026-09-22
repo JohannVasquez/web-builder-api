@@ -1,7 +1,7 @@
 import {
   Prisma,
   type PrismaClient,
-} from '../../../shared/infrastructure/prisma/generated/client';
+} from '@/shared/infrastructure/prisma/generated/client';
 import type {
   ClaimResult,
   IdempotencyStore,
@@ -21,7 +21,7 @@ export class PrismaIdempotencyStore implements IdempotencyStore {
   constructor(private readonly prisma: PrismaClient) {}
 
   public async claim(
-    tenantId: number,
+    tenantId: string,
     scope: string,
     key: string,
     requestHash: string,
@@ -71,7 +71,7 @@ export class PrismaIdempotencyStore implements IdempotencyStore {
   }
 
   public async complete(
-    tenantId: number,
+    tenantId: string,
     scope: string,
     key: string,
     response: StoredResponse,
@@ -86,7 +86,7 @@ export class PrismaIdempotencyStore implements IdempotencyStore {
     });
   }
 
-  public async release(tenantId: number, scope: string, key: string): Promise<void> {
+  public async release(tenantId: string, scope: string, key: string): Promise<void> {
     await this.prisma.idempotencyKey.deleteMany({ where: { tenantId, scope, key } });
   }
 }

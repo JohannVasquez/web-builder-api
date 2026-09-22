@@ -6,8 +6,9 @@ import type { DeleteMediaUseCase } from '../application/DeleteMediaUseCase';
 import type { DescribeMediaUseCase } from '../application/DescribeMediaUseCase';
 import { FileKeySchema } from '../domain/FileKeySchema';
 import { MissingFileError } from '../domain/MissingFileError';
+import { idSchema } from '@/shared/domain/identifier';
 
-const TenantIdSchema = z.coerce.number().int().positive();
+const TenantIdSchema = idSchema;
 const ListQuerySchema = z.object({ search: z.string().max(200).default('') });
 const DeleteQuerySchema = z.object({
   force: z

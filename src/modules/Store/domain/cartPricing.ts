@@ -1,7 +1,7 @@
 import type { ShippingOption } from './StoreSettings';
 
 export interface PricedLine {
-  readonly productId: number;
+  readonly productId: string;
   readonly name: string;
   readonly variant: Readonly<Record<string, string>>;
   readonly unitPriceCents: number;

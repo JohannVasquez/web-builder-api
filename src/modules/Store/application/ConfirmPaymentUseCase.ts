@@ -15,7 +15,7 @@ export class ConfirmPaymentUseCase {
   ) {}
 
   public async execute(
-    tenantId: number,
+    tenantId: string,
     storeName: string,
     payload: Readonly<Record<string, unknown>>,
   ): Promise<{ confirmed: boolean }> {

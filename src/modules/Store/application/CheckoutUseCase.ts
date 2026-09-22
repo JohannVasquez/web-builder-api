@@ -4,7 +4,7 @@ import type { CheckoutInput, Order } from '../domain/Order';
 import type { OrderRepository } from '../domain/OrderRepository';
 import type { PaymentContext, PaymentGatewayRegistry } from '../domain/PaymentGateway';
 import type { QuoteCartUseCase } from './QuoteCartUseCase';
-import type { PageRepository } from '../../Page/domain/PageRepository';
+import type { PageRepository } from '@/modules/Page/domain/PageRepository';
 import type { StoreSettings } from '../domain/StoreSettings';
 
 export interface CheckoutResult {
@@ -24,7 +24,7 @@ export class CheckoutUseCase {
   // Los términos que rigen hoy, o nulo si la tienda no los exige. Solo cuentan si la página
   // está publicada: no se puede pedir aceptar algo que el comprador no puede leer.
   public async activeTerms(
-    tenantId: number,
+    tenantId: string,
     settings: StoreSettings,
   ): Promise<{ slug: string; version: string } | null> {
     if (settings.termsPageSlug === null) {
@@ -40,7 +40,7 @@ export class CheckoutUseCase {
   }
 
   public async execute(
-    tenantId: number,
+    tenantId: string,
     input: CheckoutInput,
     context: PaymentContext,
     now = new Date(),

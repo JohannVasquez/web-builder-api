@@ -3,7 +3,7 @@ import { effectivePriceCents, formatMoney, hasDiscount } from '../domain/money';
 import { buildWhatsAppOrderUrl } from '../domain/whatsAppOrder';
 
 export interface ProductView {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly name: string;
   readonly description: string;
@@ -15,7 +15,7 @@ export interface ProductView {
   readonly salePrice: string | null;
   readonly hasDiscount: boolean;
   readonly variants: readonly { name: string; options: readonly string[] }[];
-  readonly categoryId: number | null;
+  readonly categoryId: string | null;
   readonly whatsappOrderUrl: string | null;
   readonly stock: number | null;
   readonly isSoldOut: boolean;

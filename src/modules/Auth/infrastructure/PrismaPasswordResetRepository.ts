@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type {
   PasswordResetRepository,
   PasswordResetTicket,
@@ -8,7 +8,7 @@ export class PrismaPasswordResetRepository implements PasswordResetRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   public async create(
-    adminUserId: number,
+    adminUserId: string,
     tokenHash: string,
     expiresAt: Date,
   ): Promise<void> {
@@ -30,14 +30,14 @@ export class PrismaPasswordResetRepository implements PasswordResetRepository {
     };
   }
 
-  public async markUsed(id: number): Promise<void> {
+  public async markUsed(id: string): Promise<void> {
     await this.prisma.passwordReset.update({
       where: { id },
       data: { usedAt: new Date() },
     });
   }
 
-  public async invalidateAllFor(adminUserId: number): Promise<void> {
+  public async invalidateAllFor(adminUserId: string): Promise<void> {
     await this.prisma.passwordReset.updateMany({
       where: { adminUserId, usedAt: null },
       data: { usedAt: new Date() },

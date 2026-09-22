@@ -10,7 +10,7 @@ export const TENANT_STATUS_MESSAGES: Readonly<Record<TenantStatus, string>> = {
 };
 
 export interface TenantPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly name: string;
   readonly primaryDomain: string | null;
@@ -19,7 +19,7 @@ export interface TenantPrimitives {
 
 export class Tenant {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly slug: string,
     public readonly name: string,
     /**
