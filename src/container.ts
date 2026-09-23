@@ -679,7 +679,9 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(ManageCouponsUseCase).withDependencies([CouponRepository]);
   builder
     .registerAndUse(ManageStoreSettingsUseCase)
-    .withDependencies([StoreSettingsRepository]);
+    // Depende de las páginas para comprobar que los términos de compra estén publicados de
+    // verdad antes de dejar encender la tienda.
+    .withDependencies([StoreSettingsRepository, PageRepository]);
   builder
     .registerAndUse(CheckoutController)
     .withDependencies([QuoteCartUseCase, CheckoutUseCase, ConfirmPaymentUseCase]);

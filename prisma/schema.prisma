@@ -498,6 +498,15 @@ model StoreSettings {
   /// Página con los términos de compra. Si existe y está publicada, comprar exige aceptarlos.
   termsPageSlug      String? @map("terms_page_slug") @db.VarChar(255)
 
+  /// Identificación del proveedor que exige el Reglamento de Comercio Electrónico. Sin estos
+  /// datos completos la tienda no se puede encender (ver `sellerIsComplete`).
+  legalName     String? @map("legal_name") @db.VarChar(255)
+  /// RUT normalizado: sin puntos, con guion, K en mayúscula.
+  taxId         String? @map("tax_id") @db.VarChar(20)
+  sellerAddress String? @map("seller_address") @db.VarChar(255)
+  sellerEmail   String? @map("seller_email") @db.VarChar(255)
+  sellerPhone   String? @map("seller_phone") @db.VarChar(40)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -538,9 +547,17 @@ model Order {
 
   status String @default("pending") @db.VarChar(20)
 
-  customerName  String @map("customer_name") @db.VarChar(160)
-  customerEmail String @map("customer_email") @db.VarChar(255)
-  customerPhone String @map("customer_phone") @db.VarChar(40)
+  customerName  String  @map("customer_name") @db.VarChar(160)
+  customerEmail String  @map("customer_email") @db.VarChar(255)
+  customerPhone String  @map("customer_phone") @db.VarChar(40)
+  /// RUT del comprador: obligatorio solo si pide factura, necesario para el documento
+  /// tributario. Normalizado igual que el del vendedor.
+  customerTaxId String? @map("customer_tax_id") @db.VarChar(20)
+
+  /// Quién vendió, tal como estaba al confirmar la compra. Es una copia y no una referencia
+  /// a propósito: si el cliente cambia su razón social mañana, el pedido de hoy tiene que
+  /// seguir diciendo con quién se contrató.
+  seller Json? @map("seller")
 
   /// `shipping` o `pickup`.
   deliveryMethod String  @map("delivery_method") @db.VarChar(20)
