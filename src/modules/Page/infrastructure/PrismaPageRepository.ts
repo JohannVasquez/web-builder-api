@@ -33,6 +33,10 @@ interface PageRecord {
   readonly isPublished: boolean;
   readonly updatedAt?: Date | null;
   readonly visualStyle?: string | null;
+  readonly seoTitle?: string | null;
+  readonly seoDescription?: string | null;
+  readonly ogImageKey?: string | null;
+  readonly noindex?: boolean;
   readonly sections: readonly SectionRecord[];
 }
 
@@ -71,12 +75,27 @@ export class PrismaPageRepository implements PageRepository {
   public async findBySlug(tenantId: string, slug: string): Promise<Page | null> {
     const record = await this.prisma.page.findUnique({
       where: { tenantId_slug: { tenantId, slug }, isPublished: true },
-      select: { publishedContent: true },
+      // Los campos de buscador NO viven en la foto publicada: son ajustes de la página, no
+      // contenido. Si vivieran ahí, el sitemap (que lee la fila) y la propia página (que lee
+      // la foto) podrían contradecirse hasta la siguiente publicación.
+      select: {
+        publishedContent: true,
+        seoTitle: true,
+        seoDescription: true,
+        ogImageKey: true,
+        noindex: true,
+      },
     });
     if (record === null || record.publishedContent === null) {
       return null;
     }
-    return pageFromSnapshot(slug, record.publishedContent);
+    const page = pageFromSnapshot(slug, record.publishedContent);
+    return page === null ? null : page.withSeo({
+      seoTitle: record.seoTitle,
+      seoDescription: record.seoDescription,
+      ogImage: record.ogImageKey,
+      noindex: record.noindex,
+    });
   }
 
   public async publish(tenantId: string, id: string): Promise<Page> {
@@ -151,6 +170,10 @@ export class PrismaPageRepository implements PageRepository {
           description: input.description ?? null,
           isPublished: input.isPublished,
           visualStyle: input.visualStyle ?? null,
+          seoTitle: input.seoTitle ?? null,
+          seoDescription: input.seoDescription ?? null,
+          ogImageKey: input.ogImageKey ?? null,
+          noindex: input.noindex,
         },
         include: SECTIONS_INCLUDE,
       });
@@ -178,6 +201,10 @@ export class PrismaPageRepository implements PageRepository {
           description: input.description,
           isPublished: input.isPublished,
           visualStyle: input.visualStyle,
+          seoTitle: input.seoTitle,
+          seoDescription: input.seoDescription,
+          ogImageKey: input.ogImageKey,
+          noindex: input.noindex,
         },
       });
     } catch (error) {
@@ -391,6 +418,12 @@ export class PrismaPageRepository implements PageRepository {
       record.isPublished,
       record.updatedAt ?? null,
       record.visualStyle ?? null,
+      {
+        seoTitle: record.seoTitle ?? null,
+        seoDescription: record.seoDescription ?? null,
+        ogImage: record.ogImageKey ?? null,
+        noindex: record.noindex ?? false,
+      },
     );
   }
 }

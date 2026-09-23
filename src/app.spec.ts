@@ -90,6 +90,12 @@ describe('buildApp (rutas protegidas)', () => {
         list: ok(200),
         exportCsv: ok(200),
       },
+      dataRightsController: {
+        submit: ok(202),
+        verify: ok(200),
+        list: ok(200),
+        resolve: ok(204),
+      },
       mediaController: {
         list: ok(200),
         upload: ok(201),

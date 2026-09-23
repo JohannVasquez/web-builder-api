@@ -61,6 +61,11 @@ import {
   createNewsletterRouter,
   createUnsubscribeRouter,
 } from './modules/Newsletter/presentation/newsletterRouter';
+import {
+  createAdminDataRightsRouter,
+  createDataRightsRouter,
+} from './modules/DataRights/presentation/dataRightsRouter';
+import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
@@ -88,6 +93,7 @@ export interface AppControllers {
   readonly adminContactMessageController: AdminContactMessageController;
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
+  readonly dataRightsController: DataRightsController;
   readonly mediaController: MediaController;
   readonly blogController: BlogController;
   readonly adminBlogController: AdminBlogController;
@@ -194,6 +200,12 @@ export const buildApp = (
     createUnsubscribeRouter(controllers.newsletterController),
   );
   app.use(
+    '/api/solicitudes-datos',
+    tenantResolver,
+    siteAvailability,
+    createDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
     '/api/files',
     actorMiddleware,
     requireMethodPermission,
@@ -283,6 +295,11 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/media',
     ...adminGuards,
     createMediaRouter(controllers.mediaController, fileUploadMiddleware),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/solicitudes-datos',
+    ...adminGuards,
+    createAdminDataRightsRouter(controllers.dataRightsController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/subscribers',

@@ -44,6 +44,12 @@ export class GetPageBySlugUseCase {
       true,
       null,
       page.visualStyle,
+      // La imagen para compartir se firma aquí por la misma razón que las de `props`: en la
+      // base solo vive la `key`, y una URL firmada caduca.
+      {
+        ...page.seo,
+        ogImage: await this.resolveImageUrlsUseCase.signKey(page.seo.ogImage),
+      },
     );
   }
 }
