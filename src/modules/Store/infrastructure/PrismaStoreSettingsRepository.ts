@@ -23,6 +23,11 @@ interface StoreSettingsRecord {
   readonly paymentCredentials: unknown;
   readonly notificationEmail: string | null;
   readonly termsPageSlug: string | null;
+  readonly legalName?: string | null;
+  readonly taxId?: string | null;
+  readonly sellerAddress?: string | null;
+  readonly sellerEmail?: string | null;
+  readonly sellerPhone?: string | null;
 }
 
 const asJsonColumn = (value: unknown): object => value as object;
@@ -129,6 +134,13 @@ export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
       ...(update.termsPageSlug === undefined
         ? {}
         : { termsPageSlug: update.termsPageSlug }),
+      ...(update.legalName === undefined ? {} : { legalName: update.legalName }),
+      ...(update.taxId === undefined ? {} : { taxId: update.taxId }),
+      ...(update.sellerAddress === undefined
+        ? {}
+        : { sellerAddress: update.sellerAddress }),
+      ...(update.sellerEmail === undefined ? {} : { sellerEmail: update.sellerEmail }),
+      ...(update.sellerPhone === undefined ? {} : { sellerPhone: update.sellerPhone }),
     };
 
     const record = await this.prisma.storeSettings.upsert({
@@ -152,6 +164,13 @@ export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
       this.readCredentials(record.paymentCredentials),
       record.notificationEmail,
       record.termsPageSlug,
+      {
+        legalName: record.legalName ?? null,
+        taxId: record.taxId ?? null,
+        address: record.sellerAddress ?? null,
+        email: record.sellerEmail ?? null,
+        phone: record.sellerPhone ?? null,
+      },
     );
   }
 }

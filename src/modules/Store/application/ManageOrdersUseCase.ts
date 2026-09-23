@@ -7,7 +7,7 @@ import {
   type OrderStatus,
 } from '../domain/Order';
 import type { CouponRepository } from '../domain/CouponRepository';
-import type { OrderMailer } from '../domain/OrderMailer';
+import type { OrderMailContext, OrderMailer } from '../domain/OrderMailer';
 import type { OrderQuery, OrderRepository, SalesReport } from '../domain/OrderRepository';
 import type { StoreSettingsRepository } from '../domain/StoreSettingsRepository';
 
@@ -85,10 +85,29 @@ export class ManageOrdersUseCase {
     storeName: string,
   ): Promise<void> {
     const settings = await this.storeSettingsRepository.find(tenantId);
-    await this.mailer.sendBuyerConfirmation(order, storeName).catch(() => undefined);
+    const context: OrderMailContext = {
+      storeName,
+      seller: settings.seller,
+      termsUrl: settings.termsPageSlug === null ? null : `/${settings.termsPageSlug}`,
+      termsVersion: order.termsVersion,
+    };
+
+    // El fallo queda registrado en el pedido en vez de perderse: la confirmación escrita es
+    // una obligación, así que tiene que poder reintentarse.
+    try {
+      await this.mailer.sendBuyerConfirmation(order, context);
+      await this.orderRepository.markConfirmationEmailed(order.id, new Date(), null);
+    } catch (error) {
+      await this.orderRepository.markConfirmationEmailed(
+        order.id,
+        null,
+        error instanceof Error ? error.message : 'Error desconocido',
+      );
+    }
+
     if (settings.notificationEmail !== null) {
       await this.mailer
-        .sendOwnerNotice(order, storeName, settings.notificationEmail)
+        .sendOwnerNotice(order, context, settings.notificationEmail)
         .catch(() => undefined);
     }
   }

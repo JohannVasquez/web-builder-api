@@ -1,6 +1,6 @@
 import type { CouponRepository } from '../domain/CouponRepository';
 import type { Order } from '../domain/Order';
-import type { OrderMailer } from '../domain/OrderMailer';
+import type { OrderMailContext, OrderMailer } from '../domain/OrderMailer';
 import type { OrderRepository } from '../domain/OrderRepository';
 import type { PaymentGatewayRegistry } from '../domain/PaymentGateway';
 import type { StoreSettingsRepository } from '../domain/StoreSettingsRepository';
@@ -49,22 +49,59 @@ export class ConfirmPaymentUseCase {
     if (order.couponCode !== null) {
       await this.couponRepository.registerUse(tenantId, order.couponCode);
     }
-    await this.notify(paid, storeName, settings.notificationEmail);
+    const terms = await this.termsFor(tenantId, settings);
+    await this.notify(
+      paid,
+      {
+        storeName,
+        seller: settings.seller,
+        termsUrl: terms.url,
+        termsVersion: paid.termsVersion,
+      },
+      settings.notificationEmail,
+    );
 
     return { confirmed: true };
   }
 
-  // Que falle un correo no puede deshacer un pago que ya ocurrió.
+  // La página de términos vive en el sitio del cliente; el correo enlaza a ella y no la copia,
+  // para que el enlace siga sirviendo aunque el texto se corrija después.
+  private termsFor(
+    _tenantId: string,
+    settings: { termsPageSlug: string | null },
+  ): Promise<{ url: string | null }> {
+    return Promise.resolve({
+      url: settings.termsPageSlug === null ? null : `/${settings.termsPageSlug}`,
+    });
+  }
+
+  /**
+   * Que falle un correo no puede deshacer un pago que ya ocurrió, pero tampoco puede perderse
+   * en silencio: el fallo queda registrado en el pedido para poder reintentarlo.
+   */
   private async notify(
     order: Order,
-    storeName: string,
+    context: OrderMailContext,
     ownerEmail: string | null,
   ): Promise<void> {
-    await this.mailer.sendBuyerConfirmation(order, storeName).catch(() => undefined);
+    await this.sendAndRecord(order, context);
     if (ownerEmail !== null) {
       await this.mailer
-        .sendOwnerNotice(order, storeName, ownerEmail)
+        .sendOwnerNotice(order, context, ownerEmail)
         .catch(() => undefined);
+    }
+  }
+
+  private async sendAndRecord(order: Order, context: OrderMailContext): Promise<void> {
+    try {
+      await this.mailer.sendBuyerConfirmation(order, context);
+      await this.orderRepository.markConfirmationEmailed(order.id, new Date(), null);
+    } catch (error) {
+      await this.orderRepository.markConfirmationEmailed(
+        order.id,
+        null,
+        error instanceof Error ? error.message : 'Error desconocido',
+      );
     }
   }
 }
