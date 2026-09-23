@@ -4,6 +4,15 @@ import type { EnvConfig } from './shared/config/EnvConfig';
 import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
 import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
+import { DataRightsRepository } from './modules/DataRights/domain/DataRightsRepository';
+import { DataRightsMailer } from './modules/DataRights/domain/DataRightsMailer';
+import { PrismaDataRightsRepository } from './modules/DataRights/infrastructure/PrismaDataRightsRepository';
+import { SmtpDataRightsMailer } from './modules/DataRights/infrastructure/SmtpDataRightsMailer';
+import { SubmitDataRightsRequestUseCase } from './modules/DataRights/application/SubmitDataRightsRequestUseCase';
+import { VerifyDataRightsRequestUseCase } from './modules/DataRights/application/VerifyDataRightsRequestUseCase';
+import { ListDataRightsRequestsUseCase } from './modules/DataRights/application/ListDataRightsRequestsUseCase';
+import { ResolveDataRightsRequestUseCase } from './modules/DataRights/application/ResolveDataRightsRequestUseCase';
+import { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
@@ -505,6 +514,37 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .register(PasswordResetRepository)
     .use(PrismaPasswordResetRepository)
     .withDependencies([PrismaClient]);
+  // Derechos del titular sobre sus datos (Ley 21.719).
+  builder
+    .register(DataRightsRepository)
+    .use(PrismaDataRightsRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(DataRightsMailer)
+    .use(SmtpDataRightsMailer)
+    .withDependencies([SmtpConfig]);
+  builder
+    .registerAndUse(SubmitDataRightsRequestUseCase)
+    .withDependencies([DataRightsRepository, DataRightsMailer]);
+  builder
+    .registerAndUse(VerifyDataRightsRequestUseCase)
+    .withDependencies([DataRightsRepository, DataRightsMailer]);
+  builder
+    .registerAndUse(ListDataRightsRequestsUseCase)
+    .withDependencies([DataRightsRepository]);
+  builder
+    .registerAndUse(ResolveDataRightsRequestUseCase)
+    .withDependencies([DataRightsRepository]);
+  builder
+    .registerAndUse(DataRightsController)
+    .withDependencies([
+      SubmitDataRightsRequestUseCase,
+      VerifyDataRightsRequestUseCase,
+      ListDataRightsRequestsUseCase,
+      ResolveDataRightsRequestUseCase,
+      RateLimiter,
+    ]);
+
   builder
     .register(PasswordResetMailer)
     .use(SmtpPasswordResetMailer)
@@ -771,6 +811,7 @@ export class Container {
         catalogController: this.services.get(CatalogController),
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
+        dataRightsController: this.services.get(DataRightsController),
         mediaController: this.services.get(MediaController),
         blogController: this.services.get(BlogController),
         adminBlogController: this.services.get(AdminBlogController),
