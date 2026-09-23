@@ -13,6 +13,7 @@ import { VerifyDataRightsRequestUseCase } from './modules/DataRights/application
 import { ListDataRightsRequestsUseCase } from './modules/DataRights/application/ListDataRightsRequestsUseCase';
 import { ResolveDataRightsRequestUseCase } from './modules/DataRights/application/ResolveDataRightsRequestUseCase';
 import { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { SecretBox } from './shared/infrastructure/crypto/SecretBox';
 import { ConsentRepository } from './modules/Consent/domain/ConsentRepository';
 import { PrismaConsentRepository } from './modules/Consent/infrastructure/PrismaConsentRepository';
 import { RecordConsentUseCase } from './modules/Consent/application/RecordConsentUseCase';
@@ -231,6 +232,14 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   const builder = new ContainerBuilder();
 
   // Valores construidos manualmente a partir de variables de entorno.
+  builder
+    .register(SecretBox)
+    .useFactory(() =>
+      SecretBox.fromEnv(
+        env.get('CREDENTIALS_ENCRYPTION_KEY'),
+        env.get('CREDENTIALS_ENCRYPTION_RETIRED_KEYS'),
+      ),
+    );
   builder
     .register(PrismaConnection)
     .useFactory(() => new PrismaConnection(env.get('DATABASE_URL')))
@@ -672,7 +681,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .register(StoreSettingsRepository)
     .use(PrismaStoreSettingsRepository)
-    .withDependencies([PrismaClient]);
+    .withDependencies([PrismaClient, SecretBox]);
   builder
     .register(CouponRepository)
     .use(PrismaCouponRepository)
