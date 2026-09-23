@@ -60,6 +60,8 @@ import {
   createAdminNewsletterRouter,
   createNewsletterRouter,
 } from './modules/Newsletter/presentation/newsletterRouter';
+import { createMediaProxyRouter } from './modules/FileStorage/presentation/mediaProxyRouter';
+import type { MediaProxyController } from './modules/FileStorage/presentation/MediaProxyController';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
@@ -88,6 +90,7 @@ export interface AppControllers {
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
   readonly mediaController: MediaController;
+  readonly mediaProxyController: MediaProxyController;
   readonly blogController: BlogController;
   readonly adminBlogController: AdminBlogController;
   readonly storeController: StoreController;
@@ -186,6 +189,12 @@ export const buildApp = (
     tenantResolver,
     siteAvailability,
     createNewsletterRouter(controllers.newsletterController),
+  );
+  app.use(
+    '/api/media',
+    tenantResolver,
+    siteAvailability,
+    createMediaProxyRouter(controllers.mediaProxyController),
   );
   app.use(
     '/api/files',

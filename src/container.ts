@@ -4,6 +4,8 @@ import type { EnvConfig } from './shared/config/EnvConfig';
 import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
 import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
+import { ResolveMediaUseCase } from './modules/FileStorage/application/ResolveMediaUseCase';
+import { MediaProxyController } from './modules/FileStorage/presentation/MediaProxyController';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
@@ -368,6 +370,12 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(PageController)
     .withDependencies([GetPageBySlugUseCase, ListPublishedPagesUseCase]);
+  // Dirección estable para las imágenes del bucket, que `next/image` necesita.
+  builder
+    .registerAndUse(ResolveMediaUseCase)
+    .withDependencies([StorageAssetRepository, StorageProvider]);
+  builder.registerAndUse(MediaProxyController).withDependencies([ResolveMediaUseCase]);
+
   builder.registerAndUse(ListPagesUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(GetPageByIdUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(CreatePageUseCase).withDependencies([PageRepository]);
@@ -770,6 +778,7 @@ export class Container {
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
         mediaController: this.services.get(MediaController),
+        mediaProxyController: this.services.get(MediaProxyController),
         blogController: this.services.get(BlogController),
         adminBlogController: this.services.get(AdminBlogController),
         storeController: this.services.get(StoreController),

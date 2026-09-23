@@ -7,6 +7,8 @@ export interface BlogPostSummaryView {
   readonly title: string;
   readonly excerpt: string;
   readonly coverImageUrl: string | null;
+  /** La misma portada como clave; la URL firmada caduca y no sirve para `next/image`. */
+  readonly coverImageKey: string | null;
   readonly authorName: string;
   readonly publishedAt: string | null;
   readonly tags: readonly string[];
@@ -31,6 +33,7 @@ export const toSummaryView = async (
   title: post.title,
   excerpt: post.excerpt,
   coverImageUrl: await sign(post.coverImageKey),
+  coverImageKey: post.coverImageKey,
   authorName: post.authorName,
   publishedAt: post.publishedAt?.toISOString() ?? null,
   tags: post.tags,

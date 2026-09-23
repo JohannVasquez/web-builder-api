@@ -8,6 +8,11 @@ export interface ProductView {
   readonly name: string;
   readonly description: string;
   readonly imageUrls: readonly string[];
+  /**
+   * Las mismas imágenes como clave del bucket. La URL firmada caduca, así que no sirve para
+   * `next/image`: con la clave, el sitio arma `/api/media/<clave>`, que es estable.
+   */
+  readonly imageKeys: readonly string[];
   readonly priceCents: number;
   readonly salePriceCents: number | null;
   readonly currency: string;
@@ -40,6 +45,7 @@ export const toProductView = async (
   name: product.name,
   description: product.description,
   imageUrls: await sign(product.imageKeys),
+  imageKeys: product.imageKeys,
   priceCents: product.priceCents,
   salePriceCents: product.salePriceCents,
   currency: product.currency,
