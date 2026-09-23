@@ -8,6 +8,18 @@ export const createNewsletterRouter = (controller: NewsletterController): Router
   return router;
 };
 
+/**
+ * Montado fuera del resolutor de tenant, en `/api/newsletter-baja/:token`: el enlace llega
+ * por correo y puede abrirse desde cualquier dominio, incluido el de un cliente de otro
+ * tenant. El token es único en toda la plataforma, así que identifica solo.
+ */
+export const createUnsubscribeRouter = (controller: NewsletterController): Router => {
+  const router = Router();
+  router.get('/:token', controller.unsubscribe);
+  router.post('/:token', controller.unsubscribe);
+  return router;
+};
+
 // Montado bajo `/api/admin/tenants/:tenantId/subscribers`, detrás del middleware de actor.
 export const createAdminNewsletterRouter = (controller: NewsletterController): Router => {
   const router = Router({ mergeParams: true });

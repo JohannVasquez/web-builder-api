@@ -392,8 +392,13 @@ model NewsletterSubscriber {
   /// Nulo si la persona se dio de baja; la fila se conserva para no volver a escribirle.
   confirmedAt    DateTime? @map("confirmed_at") @db.Timestamptz()
   unsubscribedAt DateTime? @map("unsubscribed_at") @db.Timestamptz()
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Token de baja: va en el enlace de cada correo comercial, que el art. 28 B de la Ley
+  /// 19.496 exige. Es estable (el mismo enlace sirve siempre) e imposible de adivinar, así
+  /// que nadie puede dar de baja a otro probando correos.
+  unsubscribeToken String   @unique @map("unsubscribe_token") @db.VarChar(64)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@index([tenantId, createdAt])
