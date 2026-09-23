@@ -4,6 +4,11 @@ import type { EnvConfig } from './shared/config/EnvConfig';
 import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
 import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
+import { ConsumerClaimRepository } from './modules/ConsumerClaims/domain/ConsumerClaimRepository';
+import { PrismaConsumerClaimRepository } from './modules/ConsumerClaims/infrastructure/PrismaConsumerClaimRepository';
+import { SubmitConsumerClaimUseCase } from './modules/ConsumerClaims/application/SubmitConsumerClaimUseCase';
+import { ManageConsumerClaimsUseCase } from './modules/ConsumerClaims/application/ManageConsumerClaimsUseCase';
+import { ConsumerClaimController } from './modules/ConsumerClaims/presentation/ConsumerClaimController';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
@@ -677,6 +682,25 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       OrderMailer,
     ]);
   builder.registerAndUse(ManageCouponsUseCase).withDependencies([CouponRepository]);
+
+  // Retractos y reclamos.
+  builder
+    .register(ConsumerClaimRepository)
+    .use(PrismaConsumerClaimRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(SubmitConsumerClaimUseCase)
+    .withDependencies([ConsumerClaimRepository, OrderRepository]);
+  builder
+    .registerAndUse(ManageConsumerClaimsUseCase)
+    .withDependencies([ConsumerClaimRepository]);
+  builder
+    .registerAndUse(ConsumerClaimController)
+    .withDependencies([
+      SubmitConsumerClaimUseCase,
+      ManageConsumerClaimsUseCase,
+      RateLimiter,
+    ]);
   builder
     .registerAndUse(ManageStoreSettingsUseCase)
     // Depende de las páginas para comprobar que los términos de compra estén publicados de
@@ -771,6 +795,7 @@ export class Container {
         catalogController: this.services.get(CatalogController),
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
+        consumerClaimController: this.services.get(ConsumerClaimController),
         mediaController: this.services.get(MediaController),
         blogController: this.services.get(BlogController),
         adminBlogController: this.services.get(AdminBlogController),
