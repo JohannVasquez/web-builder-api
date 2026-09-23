@@ -13,6 +13,11 @@ import { VerifyDataRightsRequestUseCase } from './modules/DataRights/application
 import { ListDataRightsRequestsUseCase } from './modules/DataRights/application/ListDataRightsRequestsUseCase';
 import { ResolveDataRightsRequestUseCase } from './modules/DataRights/application/ResolveDataRightsRequestUseCase';
 import { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { RedirectRepository } from './modules/Redirect/domain/RedirectRepository';
+import { PrismaRedirectRepository } from './modules/Redirect/infrastructure/PrismaRedirectRepository';
+import { ManageRedirectsUseCase } from './modules/Redirect/application/ManageRedirectsUseCase';
+import { RecordSlugChangeUseCase } from './modules/Redirect/application/RecordSlugChangeUseCase';
+import { RedirectController } from './modules/Redirect/presentation/RedirectController';
 import { SecretBox } from './shared/infrastructure/crypto/SecretBox';
 import { ConsentRepository } from './modules/Consent/domain/ConsentRepository';
 import { PrismaConsentRepository } from './modules/Consent/infrastructure/PrismaConsentRepository';
@@ -392,10 +397,23 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(PageController)
     .withDependencies([GetPageBySlugUseCase, ListPublishedPagesUseCase]);
+  // Redirecciones: las registran los casos de uso que renombran contenido, así que van antes.
+  builder
+    .register(RedirectRepository)
+    .use(PrismaRedirectRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(ManageRedirectsUseCase).withDependencies([RedirectRepository]);
+  builder
+    .registerAndUse(RecordSlugChangeUseCase)
+    .withDependencies([ManageRedirectsUseCase]);
+  builder.registerAndUse(RedirectController).withDependencies([ManageRedirectsUseCase]);
+
   builder.registerAndUse(ListPagesUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(GetPageByIdUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(CreatePageUseCase).withDependencies([PageRepository]);
-  builder.registerAndUse(UpdatePageUseCase).withDependencies([PageRepository]);
+  builder
+    .registerAndUse(UpdatePageUseCase)
+    .withDependencies([PageRepository, RecordSlugChangeUseCase]);
   builder.registerAndUse(DeletePageUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(AddSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(UpdateSectionUseCase).withDependencies([PageRepository]);
@@ -658,7 +676,9 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([ProductRepository, GlobalSettingsRepository, StorageProvider]);
   builder.registerAndUse(ListAllProductsUseCase).withDependencies([ProductRepository]);
   builder.registerAndUse(CreateProductUseCase).withDependencies([ProductRepository]);
-  builder.registerAndUse(UpdateProductUseCase).withDependencies([ProductRepository]);
+  builder
+    .registerAndUse(UpdateProductUseCase)
+    .withDependencies([ProductRepository, RecordSlugChangeUseCase]);
   builder.registerAndUse(DeleteProductUseCase).withDependencies([ProductRepository]);
   builder.registerAndUse(StoreController).withDependencies([PublicCatalogUseCase]);
   builder
@@ -764,7 +784,9 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(ListAllBlogPostsUseCase).withDependencies([BlogPostRepository]);
   builder.registerAndUse(GetBlogPostByIdUseCase).withDependencies([BlogPostRepository]);
   builder.registerAndUse(CreateBlogPostUseCase).withDependencies([BlogPostRepository]);
-  builder.registerAndUse(UpdateBlogPostUseCase).withDependencies([BlogPostRepository]);
+  builder
+    .registerAndUse(UpdateBlogPostUseCase)
+    .withDependencies([BlogPostRepository, RecordSlugChangeUseCase]);
   builder.registerAndUse(DeleteBlogPostUseCase).withDependencies([BlogPostRepository]);
   builder
     .registerAndUse(BlogController)
@@ -850,6 +872,7 @@ export class Container {
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
         dataRightsController: this.services.get(DataRightsController),
+        redirectController: this.services.get(RedirectController),
         consentController: this.services.get(ConsentController),
         mediaController: this.services.get(MediaController),
         blogController: this.services.get(BlogController),

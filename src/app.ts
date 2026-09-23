@@ -66,6 +66,11 @@ import {
   createDataRightsRouter,
 } from './modules/DataRights/presentation/dataRightsRouter';
 import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import {
+  createAdminRedirectRouter,
+  createRedirectRouter,
+} from './modules/Redirect/presentation/redirectRouter';
+import type { RedirectController } from './modules/Redirect/presentation/RedirectController';
 import { createConsentRouter } from './modules/Consent/presentation/consentRouter';
 import type { ConsentController } from './modules/Consent/presentation/ConsentController';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
@@ -96,6 +101,7 @@ export interface AppControllers {
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
   readonly dataRightsController: DataRightsController;
+  readonly redirectController: RedirectController;
   readonly consentController: ConsentController;
   readonly mediaController: MediaController;
   readonly blogController: BlogController;
@@ -209,6 +215,12 @@ export const buildApp = (
     createDataRightsRouter(controllers.dataRightsController),
   );
   app.use(
+    '/api/redirecciones',
+    tenantResolver,
+    siteAvailability,
+    createRedirectRouter(controllers.redirectController),
+  );
+  app.use(
     '/api/consents',
     tenantResolver,
     siteAvailability,
@@ -309,6 +321,11 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/solicitudes-datos',
     ...adminGuards,
     createAdminDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/redirecciones',
+    ...adminGuards,
+    createAdminRedirectRouter(controllers.redirectController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/subscribers',
