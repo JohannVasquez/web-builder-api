@@ -58,7 +58,15 @@ const envSchema = z.strictObject({
   // Clave de 32 bytes en base64 con la que se cifran las credenciales de cobro de cada
   // tienda. Sin default: una clave "de fábrica" que alguien olvide cambiar deja las
   // credenciales tan expuestas como si no hubiera cifrado (mismo criterio que AUTH_JWT_SECRET).
-  CREDENTIALS_ENCRYPTION_KEY: z.string().min(1),
+  CREDENTIALS_ENCRYPTION_KEY: z
+    .string()
+    .min(
+      1,
+      'Falta CREDENTIALS_ENCRYPTION_KEY: con ella se cifran las credenciales de cobro de cada ' +
+        'tienda. Genera una con `openssl rand -base64 32` y ponla en el .env. No tiene valor ' +
+        'por omisión a propósito: una clave de fábrica deja las credenciales tan expuestas ' +
+        'como si no hubiera cifrado.',
+    ),
   // Claves retiradas, separadas por coma: solo descifran. Permiten rotar sin reescribir la
   // tabla entera de una vez.
   CREDENTIALS_ENCRYPTION_RETIRED_KEYS: z.string().default(''),
