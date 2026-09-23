@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { PricedLine } from './cartPricing';
 import { idSchema } from '@/shared/domain/identifier';
+import { isValidRut, normalizeRut } from './rut';
+import type { SellerIdentity } from './StoreSettings';
 
 export const ORDER_STATUSES = [
   'pending',
@@ -78,12 +80,17 @@ export interface OrderPrimitives {
   // Constancia de los términos de compra aceptados; nula si la tienda no los exigía.
   readonly termsAcceptedAt: string | null;
   readonly termsVersion: string | null;
+  // Quién vendió, tal como estaba al confirmar. Copia y no referencia: si el cliente cambia
+  // su razón social mañana, este pedido tiene que seguir diciendo con quién se contrató.
+  readonly seller: SellerIdentity | null;
 }
 
 export interface OrderCustomer {
   readonly name: string;
   readonly email: string;
   readonly phone: string;
+  // Solo cuando pidió factura; una boleta no lo exige.
+  readonly taxId?: string | null;
 }
 
 export interface OrderDelivery {
@@ -117,6 +124,7 @@ export class Order {
     public readonly createdAt: Date,
     public readonly termsAcceptedAt: Date | null = null,
     public readonly termsVersion: string | null = null,
+    public readonly seller: SellerIdentity | null = null,
   ) {}
 
   public toPrimitives(): OrderPrimitives {
@@ -147,6 +155,7 @@ export class Order {
       createdAt: this.createdAt.toISOString(),
       termsAcceptedAt: this.termsAcceptedAt?.toISOString() ?? null,
       termsVersion: this.termsVersion,
+      seller: this.seller,
     };
   }
 }
@@ -165,6 +174,7 @@ export interface NewOrder {
   readonly paymentProvider: string | null;
   readonly termsAcceptedAt: Date | null;
   readonly termsVersion: string | null;
+  readonly seller: SellerIdentity | null;
 }
 
 // Correlativo por cliente y de largo fijo: "0001". Lo ve el comprador, así que no
@@ -192,7 +202,17 @@ export const CheckoutSchema = CartSchema.extend({
     name: z.string().trim().min(2, 'Necesitamos tu nombre').max(160),
     email: z.email('Necesitamos un correo válido para enviarte la confirmación'),
     phone: z.string().trim().min(6, 'Necesitamos un teléfono de contacto').max(40),
+    // El RUT solo hace falta para emitir factura; una boleta no lo pide.
+    taxId: z
+      .string()
+      .trim()
+      .transform((value) => (value === '' ? null : normalizeRut(value)))
+      .refine((value) => value === null || isValidRut(value), 'El RUT no es válido')
+      .nullable()
+      .default(null),
   }),
+  // Pedir factura obliga a identificarse: sin RUT el documento no se puede emitir.
+  wantsInvoice: z.boolean().default(false),
   delivery: z.strictObject({
     method: z.enum(['shipping', 'pickup']),
     addressLine: z.string().trim().max(255).nullable().default(null),
@@ -203,6 +223,9 @@ export const CheckoutSchema = CartSchema.extend({
   returnUrl: z.url().optional(),
   // Solo cuenta si la tienda exige términos; ahí es obligatorio que venga en `true`.
   acceptedTerms: z.boolean().default(false),
+}).refine((value) => !value.wantsInvoice || value.customer.taxId !== null, {
+  message: 'Para emitir factura necesitamos tu RUT',
+  path: ['customer', 'taxId'],
 });
 
 export type CartInput = z.infer<typeof CartSchema>;

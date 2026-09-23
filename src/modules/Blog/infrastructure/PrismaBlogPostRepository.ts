@@ -32,6 +32,7 @@ interface BlogPostRecord {
   readonly seoTitle: string | null;
   readonly seoDescription: string | null;
   readonly ogImageKey: string | null;
+  readonly noindex?: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -147,6 +148,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
           seoTitle: input.seoTitle ?? null,
           seoDescription: input.seoDescription ?? null,
           ogImageKey: input.ogImageKey ?? null,
+          noindex: input.noindex,
         },
       });
       return this.toDomain(record);
@@ -180,6 +182,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
           seoTitle: input.seoTitle,
           seoDescription: input.seoDescription,
           ogImageKey: input.ogImageKey,
+          noindex: input.noindex,
         },
       });
     } catch (error) {
@@ -228,6 +231,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
       record.ogImageKey,
       record.createdAt,
       record.updatedAt,
+      record.noindex ?? false,
     );
   }
 }

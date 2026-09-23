@@ -18,6 +18,7 @@ export interface BlogPostPrimitives {
   readonly ogImageKey: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly noindex: boolean;
 }
 
 // Sin variante "admin" vs "pública" como Page: acá la diferencia (URLs firmadas,
@@ -39,6 +40,7 @@ export class BlogPost {
     public readonly ogImageKey: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly noindex: boolean = false,
   ) {}
 
   public toPrimitives(): BlogPostPrimitives {
@@ -58,6 +60,7 @@ export class BlogPost {
       ogImageKey: this.ogImageKey,
       createdAt: this.createdAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
+      noindex: this.noindex,
     };
   }
 }

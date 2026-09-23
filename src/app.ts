@@ -61,6 +61,11 @@ import {
   createNewsletterRouter,
 } from './modules/Newsletter/presentation/newsletterRouter';
 import {
+  createAdminDataRightsRouter,
+  createDataRightsRouter,
+} from './modules/DataRights/presentation/dataRightsRouter';
+import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import {
   createAdminRedirectRouter,
   createRedirectRouter,
 } from './modules/Redirect/presentation/redirectRouter';
@@ -92,6 +97,7 @@ export interface AppControllers {
   readonly adminContactMessageController: AdminContactMessageController;
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
+  readonly dataRightsController: DataRightsController;
   readonly redirectController: RedirectController;
   readonly mediaController: MediaController;
   readonly blogController: BlogController;
@@ -194,6 +200,12 @@ export const buildApp = (
     createNewsletterRouter(controllers.newsletterController),
   );
   app.use(
+    '/api/solicitudes-datos',
+    tenantResolver,
+    siteAvailability,
+    createDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
     '/api/redirecciones',
     tenantResolver,
     siteAvailability,
@@ -289,6 +301,11 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/media',
     ...adminGuards,
     createMediaRouter(controllers.mediaController, fileUploadMiddleware),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/solicitudes-datos',
+    ...adminGuards,
+    createAdminDataRightsRouter(controllers.dataRightsController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/redirecciones',
