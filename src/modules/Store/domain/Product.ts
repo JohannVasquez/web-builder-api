@@ -20,6 +20,13 @@ export interface ProductPrimitives {
   // `null` = la tienda no controla stock de este producto.
   readonly stock: number | null;
   readonly isSoldOut: boolean;
+  // Nulos = se usan `name` y `description`.
+  readonly seoTitle: string | null;
+  readonly seoDescription: string | null;
+  // Activo pero fuera del índice: se compra por el enlace, el buscador no lo lista.
+  readonly noindex: boolean;
+  // Solo lo usa el sitemap, para el `lastmod`.
+  readonly updatedAt: string | null;
 }
 
 export class Product {
@@ -38,6 +45,10 @@ export class Product {
     public readonly featured: boolean,
     public readonly position: number,
     public readonly stock: number | null = null,
+    public readonly seoTitle: string | null = null,
+    public readonly seoDescription: string | null = null,
+    public readonly noindex: boolean = false,
+    public readonly updatedAt: Date | null = null,
   ) {}
 
   public isSoldOut(): boolean {
@@ -68,6 +79,10 @@ export class Product {
       featured: this.featured,
       position: this.position,
       stock: this.stock,
+      seoTitle: this.seoTitle,
+      seoDescription: this.seoDescription,
+      noindex: this.noindex,
+      updatedAt: this.updatedAt?.toISOString() ?? null,
       isSoldOut: this.isSoldOut(),
     };
   }

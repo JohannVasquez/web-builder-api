@@ -32,6 +32,7 @@ export class CreateLegalPageUseCase {
       description: template.description,
       // Nace despublicada: un texto legal lo revisa una persona antes de publicarlo.
       isPublished: false,
+      noindex: false,
     });
 
     if (page.id === undefined) {

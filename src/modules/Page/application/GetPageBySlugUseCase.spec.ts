@@ -36,6 +36,9 @@ describe('GetPageBySlugUseCase', () => {
       execute: jest
         .fn()
         .mockImplementation((props: Record<string, unknown>) => Promise.resolve(props)),
+      signKey: jest
+        .fn()
+        .mockImplementation((key: string | null) => Promise.resolve(key)),
     }) as unknown as jest.Mocked<ResolveImageUrlsUseCase>;
 
   it('returns the page when the slug exists', async () => {

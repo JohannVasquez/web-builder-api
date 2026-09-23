@@ -36,7 +36,13 @@ export class CheckoutController {
     // sabe si mostrar la casilla de términos sin otra llamada.
     const settings = await this.quoteCartUseCase.settingsFor(tenant.id);
     const terms = await this.checkoutUseCase.activeTerms(tenant.id, settings);
-    res.json({ ...quote, termsPageSlug: terms?.slug ?? null });
+    // El vendedor viaja igual que los términos: es lo que hay que mostrar antes de pagar, y
+    // pedirlo aparte obligaría a una segunda llamada en la misma pantalla.
+    res.json({
+      ...quote,
+      termsPageSlug: terms?.slug ?? null,
+      seller: settings.seller,
+    });
   };
 
   public readonly checkout = async (req: Request, res: Response): Promise<void> => {

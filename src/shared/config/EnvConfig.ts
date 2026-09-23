@@ -50,6 +50,11 @@ const envSchema = z.strictObject({
   PLATFORM_SITE_TARGET: z.string().min(1).default('sitios.webbuilder.co'),
   // Catálogo de bloques y estilos: vive en el frontend, la API solo lo reexpone (SPEC 10.5).
   WEBAPP_CATALOG_URL: z.string().default(''),
+  // Plazos de conservación en días (ver `scripts/purge-expired-data.ts`). Vacíos = los
+  // valores por omisión del dominio.
+  RETENTION_CONTACT_DAYS: z.string().default(''),
+  RETENTION_SUBSCRIBER_DAYS: z.string().default(''),
+  RETENTION_ORDER_DAYS: z.string().default(''),
   // Sal para la huella de IP del registro de consentimiento. Vacía = no se guarda huella
   // alguna, que es preferible a guardar un sha256 de IP, reversible en segundos sin sal.
   CONSENT_IP_SALT: z.string().default(''),
@@ -86,6 +91,9 @@ export class EnvConfig {
       WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
       REVALIDATE_SECRET: source.REVALIDATE_SECRET,
       WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,
+      RETENTION_CONTACT_DAYS: source.RETENTION_CONTACT_DAYS,
+      RETENTION_SUBSCRIBER_DAYS: source.RETENTION_SUBSCRIBER_DAYS,
+      RETENTION_ORDER_DAYS: source.RETENTION_ORDER_DAYS,
       PLATFORM_DOMAIN: source.PLATFORM_DOMAIN,
       PLATFORM_SITE_TARGET: source.PLATFORM_SITE_TARGET,
       CONSENT_IP_SALT: source.CONSENT_IP_SALT,

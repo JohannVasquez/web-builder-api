@@ -84,6 +84,9 @@ export class CheckoutUseCase {
       paymentProvider: settings.paymentProvider,
       termsAcceptedAt: terms === null ? null : now,
       termsVersion: terms?.version ?? null,
+      // Copia, no referencia: el pedido tiene que poder decir con quién se contrató aunque
+      // el cliente cambie su razón social después.
+      seller: settings.seller,
     });
 
     if (!settings.acceptsOnlinePayment()) {
