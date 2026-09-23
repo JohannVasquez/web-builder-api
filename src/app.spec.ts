@@ -91,6 +91,7 @@ describe('buildApp (rutas protegidas)', () => {
         list: ok(200),
         resolve: ok(204),
       },
+      consentController: { record: ok(201), current: ok(200) },
       mediaController: {
         list: ok(200),
         upload: ok(201),

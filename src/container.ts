@@ -13,6 +13,11 @@ import { VerifyDataRightsRequestUseCase } from './modules/DataRights/application
 import { ListDataRightsRequestsUseCase } from './modules/DataRights/application/ListDataRightsRequestsUseCase';
 import { ResolveDataRightsRequestUseCase } from './modules/DataRights/application/ResolveDataRightsRequestUseCase';
 import { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { ConsentRepository } from './modules/Consent/domain/ConsentRepository';
+import { PrismaConsentRepository } from './modules/Consent/infrastructure/PrismaConsentRepository';
+import { RecordConsentUseCase } from './modules/Consent/application/RecordConsentUseCase';
+import { GetCurrentConsentUseCase } from './modules/Consent/application/GetCurrentConsentUseCase';
+import { ConsentController } from './modules/Consent/presentation/ConsentController';
 import { PrismaPageRepository } from './modules/Page/infrastructure/PrismaPageRepository';
 import { GetPageBySlugUseCase } from './modules/Page/application/GetPageBySlugUseCase';
 import { ListPagesUseCase } from './modules/Page/application/ListPagesUseCase';
@@ -773,6 +778,25 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(SubscribeToNewsletterUseCase)
     .withDependencies([NewsletterRepository]);
   builder.registerAndUse(ListSubscribersUseCase).withDependencies([NewsletterRepository]);
+  // Consentimiento
+  builder
+    .register(ConsentRepository)
+    .use(PrismaConsentRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(RecordConsentUseCase)
+    .useFactory(
+      (container) =>
+        new RecordConsentUseCase(
+          container.get(ConsentRepository),
+          env.get('CONSENT_IP_SALT'),
+        ),
+    );
+  builder.registerAndUse(GetCurrentConsentUseCase).withDependencies([ConsentRepository]);
+  builder
+    .registerAndUse(ConsentController)
+    .withDependencies([RecordConsentUseCase, GetCurrentConsentUseCase, RateLimiter]);
+
   builder
     .registerAndUse(NewsletterController)
     .withDependencies([
@@ -812,6 +836,7 @@ export class Container {
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
         dataRightsController: this.services.get(DataRightsController),
+        consentController: this.services.get(ConsentController),
         mediaController: this.services.get(MediaController),
         blogController: this.services.get(BlogController),
         adminBlogController: this.services.get(AdminBlogController),

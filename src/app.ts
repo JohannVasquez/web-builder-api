@@ -65,6 +65,8 @@ import {
   createDataRightsRouter,
 } from './modules/DataRights/presentation/dataRightsRouter';
 import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { createConsentRouter } from './modules/Consent/presentation/consentRouter';
+import type { ConsentController } from './modules/Consent/presentation/ConsentController';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
 import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
@@ -93,6 +95,7 @@ export interface AppControllers {
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
   readonly dataRightsController: DataRightsController;
+  readonly consentController: ConsentController;
   readonly mediaController: MediaController;
   readonly blogController: BlogController;
   readonly adminBlogController: AdminBlogController;
@@ -198,6 +201,12 @@ export const buildApp = (
     tenantResolver,
     siteAvailability,
     createDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
+    '/api/consents',
+    tenantResolver,
+    siteAvailability,
+    createConsentRouter(controllers.consentController),
   );
   app.use(
     '/api/files',
