@@ -9,6 +9,7 @@ import {
   type StoreSettingsUpdate,
 } from '../domain/StoreSettings';
 import type { StoreSettingsRepository } from '../domain/StoreSettingsRepository';
+import { looksEncrypted, type SecretBox } from '@/shared/infrastructure/crypto/SecretBox';
 
 interface StoreSettingsRecord {
   readonly tenantId: string;
@@ -42,7 +43,7 @@ const toProvider = (value: string): PaymentProvider =>
     ? (value as PaymentProvider)
     : 'none';
 
-const toCredentials = (value: unknown): Record<string, string> => {
+const asCredentialMap = (value: unknown): Record<string, string> => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return {};
   }
@@ -53,8 +54,43 @@ const toCredentials = (value: unknown): Record<string, string> => {
   );
 };
 
+/**
+ * Las credenciales se guardan como UN solo valor cifrado bajo la clave `enc`, no campo por
+ * campo: así ni los nombres de los campos dicen qué pasarela usa cada cliente.
+ *
+ * Una fila de antes del cifrado trae el mapa en claro; se lee igual y queda cifrada la
+ * próxima vez que alguien guarde la configuración.
+ */
+const ENCRYPTED_KEY = 'enc';
+
 export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly secrets: SecretBox,
+  ) {}
+
+  private readCredentials(value: unknown): Record<string, string> {
+    const raw = asCredentialMap(value);
+    const sealed = raw[ENCRYPTED_KEY];
+    if (!looksEncrypted(sealed)) {
+      // Fila anterior al cifrado: se lee tal cual y se cifra al próximo guardado.
+      return raw;
+    }
+    const plaintext = this.secrets.decrypt(sealed);
+    if (plaintext === null) {
+      // Con una clave que ya no descifra, la tienda queda sin credenciales y el cobro en
+      // línea se apaga solo. Es preferible a mandarle basura a la pasarela.
+      return {};
+    }
+    return asCredentialMap(JSON.parse(plaintext));
+  }
+
+  private sealCredentials(credentials: Record<string, string>): object {
+    if (Object.keys(credentials).length === 0) {
+      return {};
+    }
+    return { [ENCRYPTED_KEY]: this.secrets.encrypt(JSON.stringify(credentials)) };
+  }
 
   public async find(tenantId: string): Promise<StoreSettings> {
     const record = await this.prisma.storeSettings.findUnique({ where: { tenantId } });
@@ -91,7 +127,7 @@ export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
         : { paymentProvider: update.paymentProvider }),
       ...(credentials === undefined
         ? {}
-        : { paymentCredentials: asJsonColumn(credentials) }),
+        : { paymentCredentials: asJsonColumn(this.sealCredentials(credentials)) }),
       ...(update.notificationEmail === undefined
         ? {}
         : { notificationEmail: update.notificationEmail }),
@@ -125,7 +161,7 @@ export class PrismaStoreSettingsRepository implements StoreSettingsRepository {
       toShippingOptions(record.shippingOptions),
       record.freeShippingThresholdCents,
       toProvider(record.paymentProvider),
-      toCredentials(record.paymentCredentials),
+      this.readCredentials(record.paymentCredentials),
       record.notificationEmail,
       record.termsPageSlug,
       {

@@ -36,6 +36,8 @@ model Tenant {
   adminUsers         AdminUserTenant[]
   idempotencyKeys    IdempotencyKey[]
   dataRightsRequests DataRightsRequest[]
+  consumerClaims     ConsumerClaim[]
+  redirects          Redirect[]
   consents           ConsentRecord[]
 
   @@map("tenants")
@@ -685,6 +687,28 @@ model DataRightsRequest {
   @@map("data_rights_requests")
 }
 
+/// Redirección de una ruta vieja a una nueva. Se crea sola al cambiar el slug de una página,
+/// una publicación o un producto: sin ella, la URL que Google indexó y la que alguien
+/// compartió pasan a 404 y se pierde el posicionamiento acumulado.
+model Redirect {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Ruta de origen, siempre con barra inicial y sin barra final: `/servicios-antiguos`.
+  fromPath String @map("from_path") @db.VarChar(512)
+  toPath   String @map("to_path") @db.VarChar(512)
+
+  /// 301 (permanente) o 302 (temporal). Un cambio de slug es siempre permanente.
+  statusCode Int @default(301) @map("status_code")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, fromPath])
+  @@index([tenantId])
+  @@map("redirects")
+}
+
 /// Registro de consentimiento. Es la prueba que la Ley 21.719 le exige al responsable poder
 /// mostrar: quién aceptó, qué aceptó, cuándo y sobre qué texto. Es INMUTABLE — cambiar de
 /// opinión crea una fila nueva, nunca edita la anterior — porque un registro que se puede
@@ -714,4 +738,29 @@ model ConsentRecord {
   @@index([tenantId, subject, createdAt])
   @@index([tenantId, createdAt])
   @@map("consent_records")
+}
+
+/// Retracto o reclamo de un comprador. La Ley 19.496 pide que revertir la compra sea tan
+/// simple como hacerla y que exista un canal de reclamos con respuesta en plazo; se guardan
+/// para poder acreditar que se respondió y cuándo.
+model ConsumerClaim {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// `retracto` | `reclamo`.
+  kind   String @db.VarChar(20)
+  /// `pendiente` | `aceptado` | `rechazado`.
+  status String @default("pendiente") @db.VarChar(20)
+
+  /// Número de pedido tal como lo ve el comprador; nulo en un reclamo sin compra asociada.
+  orderNumber String? @map("order_number") @db.VarChar(20)
+  email       String  @db.VarChar(255)
+  message     String  @default("")
+
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz()
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@map("consumer_claims")
 }

@@ -1,4 +1,8 @@
 import { BlogPostRepository } from '../domain/BlogPostRepository';
+import {
+  BLOG_PREFIX,
+  RecordSlugChangeUseCase,
+} from '@/modules/Redirect/application/RecordSlugChangeUseCase';
 import { BlogPostIdNotFoundError } from '../domain/BlogPostIdNotFoundError';
 import type { BlogPost } from '../domain/BlogPost';
 import type { BlogPostInput, BlogPostUpdateInput } from '../domain/BlogPostSchema';
@@ -34,14 +38,24 @@ export class CreateBlogPostUseCase {
 }
 
 export class UpdateBlogPostUseCase {
-  constructor(private readonly repository: BlogPostRepository) {}
+  constructor(
+    private readonly repository: BlogPostRepository,
+    private readonly slugChanges: RecordSlugChangeUseCase,
+  ) {}
 
   public async execute(
     tenantId: string,
     id: string,
     input: BlogPostUpdateInput,
   ): Promise<BlogPost> {
-    return this.repository.update(tenantId, id, input);
+    // Se lee antes de actualizar: después ya no se sabe cuál era el slug viejo.
+    const previous = await this.repository.findById(tenantId, id);
+    const updated = await this.repository.update(tenantId, id, input);
+
+    if (previous !== null) {
+      await this.slugChanges.execute(tenantId, BLOG_PREFIX, previous.slug, input.slug);
+    }
+    return updated;
   }
 }
 

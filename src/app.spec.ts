@@ -96,6 +96,14 @@ describe('buildApp (rutas protegidas)', () => {
         list: ok(200),
         resolve: ok(204),
       },
+      mediaProxyController: { get: ok(307) },
+      consumerClaimController: { submit: ok(201), list: ok(200), resolve: ok(204) },
+      redirectController: {
+        resolve: ok(200),
+        list: ok(200),
+        create: ok(201),
+        remove: ok(204),
+      },
       consentController: { record: ok(201), current: ok(200) },
       mediaController: {
         list: ok(200),
