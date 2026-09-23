@@ -36,6 +36,7 @@ model Tenant {
   adminUsers         AdminUserTenant[]
   idempotencyKeys    IdempotencyKey[]
   dataRightsRequests DataRightsRequest[]
+  consumerClaims     ConsumerClaim[]
   redirects          Redirect[]
   consents           ConsentRecord[]
 
@@ -737,4 +738,29 @@ model ConsentRecord {
   @@index([tenantId, subject, createdAt])
   @@index([tenantId, createdAt])
   @@map("consent_records")
+}
+
+/// Retracto o reclamo de un comprador. La Ley 19.496 pide que revertir la compra sea tan
+/// simple como hacerla y que exista un canal de reclamos con respuesta en plazo; se guardan
+/// para poder acreditar que se respondió y cuándo.
+model ConsumerClaim {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// `retracto` | `reclamo`.
+  kind   String @db.VarChar(20)
+  /// `pendiente` | `aceptado` | `rechazado`.
+  status String @default("pendiente") @db.VarChar(20)
+
+  /// Número de pedido tal como lo ve el comprador; nulo en un reclamo sin compra asociada.
+  orderNumber String? @map("order_number") @db.VarChar(20)
+  email       String  @db.VarChar(255)
+  message     String  @default("")
+
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz()
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@map("consumer_claims")
 }

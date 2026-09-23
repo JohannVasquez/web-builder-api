@@ -67,6 +67,11 @@ import {
 } from './modules/DataRights/presentation/dataRightsRouter';
 import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
 import {
+  createAdminConsumerClaimRouter,
+  createConsumerClaimRouter,
+} from './modules/ConsumerClaims/presentation/consumerClaimRouter';
+import type { ConsumerClaimController } from './modules/ConsumerClaims/presentation/ConsumerClaimController';
+import {
   createAdminRedirectRouter,
   createRedirectRouter,
 } from './modules/Redirect/presentation/redirectRouter';
@@ -101,6 +106,7 @@ export interface AppControllers {
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
   readonly dataRightsController: DataRightsController;
+  readonly consumerClaimController: ConsumerClaimController;
   readonly redirectController: RedirectController;
   readonly consentController: ConsentController;
   readonly mediaController: MediaController;
@@ -215,6 +221,12 @@ export const buildApp = (
     createDataRightsRouter(controllers.dataRightsController),
   );
   app.use(
+    '/api/reclamos',
+    tenantResolver,
+    siteAvailability,
+    createConsumerClaimRouter(controllers.consumerClaimController),
+  );
+  app.use(
     '/api/redirecciones',
     tenantResolver,
     siteAvailability,
@@ -321,6 +333,11 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/solicitudes-datos',
     ...adminGuards,
     createAdminDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/reclamos',
+    ...adminGuards,
+    createAdminConsumerClaimRouter(controllers.consumerClaimController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/redirecciones',

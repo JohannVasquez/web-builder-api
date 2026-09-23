@@ -13,6 +13,11 @@ import { VerifyDataRightsRequestUseCase } from './modules/DataRights/application
 import { ListDataRightsRequestsUseCase } from './modules/DataRights/application/ListDataRightsRequestsUseCase';
 import { ResolveDataRightsRequestUseCase } from './modules/DataRights/application/ResolveDataRightsRequestUseCase';
 import { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { ConsumerClaimRepository } from './modules/ConsumerClaims/domain/ConsumerClaimRepository';
+import { PrismaConsumerClaimRepository } from './modules/ConsumerClaims/infrastructure/PrismaConsumerClaimRepository';
+import { SubmitConsumerClaimUseCase } from './modules/ConsumerClaims/application/SubmitConsumerClaimUseCase';
+import { ManageConsumerClaimsUseCase } from './modules/ConsumerClaims/application/ManageConsumerClaimsUseCase';
+import { ConsumerClaimController } from './modules/ConsumerClaims/presentation/ConsumerClaimController';
 import { RedirectRepository } from './modules/Redirect/domain/RedirectRepository';
 import { PrismaRedirectRepository } from './modules/Redirect/infrastructure/PrismaRedirectRepository';
 import { ManageRedirectsUseCase } from './modules/Redirect/application/ManageRedirectsUseCase';
@@ -752,6 +757,25 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       OrderMailer,
     ]);
   builder.registerAndUse(ManageCouponsUseCase).withDependencies([CouponRepository]);
+
+  // Retractos y reclamos.
+  builder
+    .register(ConsumerClaimRepository)
+    .use(PrismaConsumerClaimRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(SubmitConsumerClaimUseCase)
+    .withDependencies([ConsumerClaimRepository, OrderRepository]);
+  builder
+    .registerAndUse(ManageConsumerClaimsUseCase)
+    .withDependencies([ConsumerClaimRepository]);
+  builder
+    .registerAndUse(ConsumerClaimController)
+    .withDependencies([
+      SubmitConsumerClaimUseCase,
+      ManageConsumerClaimsUseCase,
+      RateLimiter,
+    ]);
   builder
     .registerAndUse(ManageStoreSettingsUseCase)
     // Depende de las páginas para comprobar que los términos de compra estén publicados de
@@ -872,6 +896,7 @@ export class Container {
         legalPageController: this.services.get(LegalPageController),
         newsletterController: this.services.get(NewsletterController),
         dataRightsController: this.services.get(DataRightsController),
+        consumerClaimController: this.services.get(ConsumerClaimController),
         redirectController: this.services.get(RedirectController),
         consentController: this.services.get(ConsentController),
         mediaController: this.services.get(MediaController),

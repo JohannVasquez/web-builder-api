@@ -96,6 +96,7 @@ describe('buildApp (rutas protegidas)', () => {
         list: ok(200),
         resolve: ok(204),
       },
+      consumerClaimController: { submit: ok(201), list: ok(200), resolve: ok(204) },
       redirectController: {
         resolve: ok(200),
         list: ok(200),
