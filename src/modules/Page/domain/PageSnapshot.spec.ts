@@ -7,10 +7,22 @@ describe('PageSnapshot', () => {
     'Inicio',
     'Descripción',
     [
-      new PageSection('Features', 2, { title: 'Dos' }, null, 20),
-      new PageSection('Hero', 1, { title: 'Uno' }, 'portada', 10),
+      new PageSection(
+        'Features',
+        2,
+        { title: 'Dos' },
+        null,
+        '018f6f1a-0000-7000-8000-000000000020',
+      ),
+      new PageSection(
+        'Hero',
+        1,
+        { title: 'Uno' },
+        'portada',
+        '018f6f1a-0000-7000-8000-000000000010',
+      ),
     ],
-    5,
+    '018f6f1a-0000-7000-8000-000000000005',
     true,
   );
 

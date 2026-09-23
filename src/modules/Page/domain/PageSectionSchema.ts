@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '@/shared/domain/identifier';
 
 const typeSchema = z.string().min(1).max(100);
 const positionSchema = z.number().int().min(0);
@@ -16,6 +17,7 @@ export const PageSectionInputSchema = z.strictObject({
   position: positionSchema,
   props: propsSchema.default({}),
   anchor: anchorSchema,
+  isHidden: z.boolean().default(false),
 });
 
 export type PageSectionInput = z.infer<typeof PageSectionInputSchema>;
@@ -31,10 +33,11 @@ export const PageSectionUpdateSchema = z.strictObject({
   position: positionSchema.optional(),
   props: propsSchema.optional(),
   anchor: anchorSchema,
+  isHidden: z.boolean().optional(),
 });
 
 export type PageSectionUpdateInput = z.infer<typeof PageSectionUpdateSchema>;
 
 export const ReorderSectionsSchema = z.strictObject({
-  sectionIds: z.array(z.number().int().positive()).min(1),
+  sectionIds: z.array(idSchema).min(1),
 });

@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type {
   ContactMessagePrimitives,
   ContactMessageQuery,
@@ -7,8 +7,8 @@ import type { ContactMessageRepository } from '../domain/ContactMessageRepositor
 import type { ContactRequest } from '../domain/ContactRequest';
 
 interface ContactMessageRecord {
-  readonly id: number;
-  readonly tenantId: number;
+  readonly id: string;
+  readonly tenantId: string;
   readonly name: string;
   readonly email: string;
   readonly phone: string | null;
@@ -23,7 +23,7 @@ export class PrismaContactMessageRepository implements ContactMessageRepository 
   constructor(private readonly prisma: PrismaClient) {}
 
   public async save(
-    tenantId: number,
+    tenantId: string,
     request: ContactRequest,
   ): Promise<ContactMessagePrimitives> {
     const record = await this.prisma.contactMessage.create({
@@ -38,7 +38,7 @@ export class PrismaContactMessageRepository implements ContactMessageRepository 
     return this.toPrimitives(record);
   }
 
-  public async markEmailed(id: number, error: string | null): Promise<void> {
+  public async markEmailed(id: string, error: string | null): Promise<void> {
     await this.prisma.contactMessage.update({
       where: { id },
       data: { emailedAt: error === null ? new Date() : null, emailError: error },
@@ -46,8 +46,8 @@ export class PrismaContactMessageRepository implements ContactMessageRepository 
   }
 
   public async markRead(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     read: boolean,
   ): Promise<ContactMessagePrimitives | null> {
     const existing = await this.prisma.contactMessage.findFirst({

@@ -7,11 +7,11 @@ import type { EmailService } from '../domain/EmailService';
 import type { ContactMessagePrimitives } from '../domain/ContactMessage';
 import type { ContactMessageRepository } from '../domain/ContactMessageRepository';
 import { createContactRouter } from './contactRouter';
-import { GlobalSettings } from '../../GlobalSettings/domain/GlobalSettings';
-import type { GlobalSettingsRepository } from '../../GlobalSettings/domain/GlobalSettingsRepository';
-import { RateLimiter } from '../../ApiKey/application/RateLimiter';
-import { Tenant } from '../../Tenant/domain/Tenant';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { GlobalSettings } from '@/modules/GlobalSettings/domain/GlobalSettings';
+import type { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
+import { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
+import { Tenant } from '@/modules/Tenant/domain/Tenant';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 const openServer = (app: Express): Server => createServer(app).listen(0);
 
@@ -21,8 +21,8 @@ describe('ContactController (HTTP)', () => {
   });
 
   const buildStoredMessage = (): ContactMessagePrimitives => ({
-    id: 1,
-    tenantId: 1,
+    id: '018f6f1a-0000-7000-8000-000000000001',
+    tenantId: '018f6f1a-0000-7000-8000-000000000001',
     name: 'Johann Vasquez',
     email: 'johann@example.com',
     phone: null,
@@ -43,9 +43,13 @@ describe('ContactController (HTTP)', () => {
   const buildApp = (options: {
     emailService: EmailService;
     rateLimiter?: RateLimiter;
-    tenantId?: number;
+    tenantId?: string;
   }): Express => {
-    const { emailService, rateLimiter = new RateLimiter(), tenantId = 1 } = options;
+    const {
+      emailService,
+      rateLimiter = new RateLimiter(),
+      tenantId = '018f6f1a-0000-7000-8000-000000000001',
+    } = options;
     const app = express();
     app.use(express.json());
     const settingsRepository: jest.Mocked<GlobalSettingsRepository> = {
@@ -184,12 +188,12 @@ describe('ContactController (HTTP)', () => {
     const appTenantA = buildApp({
       emailService: buildEmailService(),
       rateLimiter,
-      tenantId: 1,
+      tenantId: '018f6f1a-0000-7000-8000-000000000001',
     });
     const appTenantB = buildApp({
       emailService: buildEmailService(),
       rateLimiter,
-      tenantId: 2,
+      tenantId: '018f6f1a-0000-7000-8000-000000000002',
     });
 
     const serverA = openServer(appTenantA);

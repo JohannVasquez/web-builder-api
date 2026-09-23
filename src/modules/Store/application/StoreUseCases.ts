@@ -1,6 +1,6 @@
 import { ProductRepository, type CatalogQuery } from '../domain/ProductRepository';
-import { GlobalSettingsRepository } from '../../GlobalSettings/domain/GlobalSettingsRepository';
-import { StorageProvider } from '../../FileStorage/domain/StorageProvider';
+import { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
+import { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { ProductNotFoundError } from '../domain/ProductNotFoundError';
 import { toProductView, type ProductView, type ProductViewContext } from './ProductView';
 import type { Product, ProductCategoryPrimitives } from '../domain/Product';
@@ -18,7 +18,7 @@ export class PublicCatalogUseCase {
   ) {}
 
   public async list(
-    tenantId: number,
+    tenantId: string,
     query: CatalogQuery,
   ): Promise<{ products: ProductView[]; total: number; page: number; perPage: number }> {
     const [{ products, total }, context] = await Promise.all([
@@ -33,7 +33,7 @@ export class PublicCatalogUseCase {
     };
   }
 
-  public async get(tenantId: number, slug: string): Promise<ProductView> {
+  public async get(tenantId: string, slug: string): Promise<ProductView> {
     const product = await this.products.findActiveBySlug(tenantId, slug);
     if (product === null) {
       throw new ProductNotFoundError(slug);
@@ -45,7 +45,7 @@ export class PublicCatalogUseCase {
     return view;
   }
 
-  public async featured(tenantId: number, limit: number): Promise<ProductView[]> {
+  public async featured(tenantId: string, limit: number): Promise<ProductView[]> {
     const [products, context] = await Promise.all([
       this.products.listFeatured(tenantId, limit),
       this.contextOf(tenantId),
@@ -53,11 +53,11 @@ export class PublicCatalogUseCase {
     return this.viewAll(products, context);
   }
 
-  public async categories(tenantId: number): Promise<ProductCategoryPrimitives[]> {
+  public async categories(tenantId: string): Promise<ProductCategoryPrimitives[]> {
     return this.products.listCategories(tenantId);
   }
 
-  private async contextOf(tenantId: number): Promise<ProductViewContext> {
+  private async contextOf(tenantId: string): Promise<ProductViewContext> {
     const settings = await this.settings.find(tenantId);
     return {
       whatsappNumber: settings.get('whatsappNumber'),
@@ -90,7 +90,7 @@ export class PublicCatalogUseCase {
 export class ListAllProductsUseCase {
   constructor(private readonly repository: ProductRepository) {}
 
-  public async execute(tenantId: number): Promise<Product[]> {
+  public async execute(tenantId: string): Promise<Product[]> {
     return this.repository.findAllByTenant(tenantId);
   }
 }
@@ -98,7 +98,7 @@ export class ListAllProductsUseCase {
 export class CreateProductUseCase {
   constructor(private readonly repository: ProductRepository) {}
 
-  public async execute(tenantId: number, input: ProductInput): Promise<Product> {
+  public async execute(tenantId: string, input: ProductInput): Promise<Product> {
     return this.repository.create(tenantId, input);
   }
 }
@@ -107,8 +107,8 @@ export class UpdateProductUseCase {
   constructor(private readonly repository: ProductRepository) {}
 
   public async execute(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: ProductUpdateInput,
   ): Promise<Product> {
     return this.repository.update(tenantId, id, input);
@@ -118,7 +118,7 @@ export class UpdateProductUseCase {
 export class DeleteProductUseCase {
   constructor(private readonly repository: ProductRepository) {}
 
-  public async execute(tenantId: number, id: number): Promise<void> {
+  public async execute(tenantId: string, id: string): Promise<void> {
     await this.repository.delete(tenantId, id);
   }
 }

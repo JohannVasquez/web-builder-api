@@ -1,16 +1,16 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { BrandSchema, type Brand, type BrandUpdate } from '../domain/BrandSchema';
 import type { BrandRepository } from '../domain/BrandRepository';
 
 export class PrismaBrandRepository implements BrandRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  public async find(tenantId: number): Promise<Brand> {
+  public async find(tenantId: string): Promise<Brand> {
     const record = await this.prisma.tenantBrand.findUnique({ where: { tenantId } });
     return this.toDomain(record);
   }
 
-  public async update(tenantId: number, changes: BrandUpdate): Promise<Brand> {
+  public async update(tenantId: string, changes: BrandUpdate): Promise<Brand> {
     const current = await this.find(tenantId);
     // Merge por sección: mandar `palette` la reemplaza entera; no mandarla la deja intacta.
     const next: Brand = {

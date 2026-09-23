@@ -13,8 +13,8 @@ export class PublishPageUseCase {
   ) {}
 
   public async execute(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
     actor: PageVersionActor,
   ): Promise<Page> {
     const published = await this.pageRepository.publish(tenantId, pageId);

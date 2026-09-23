@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import type { GetGlobalSettingsUseCase } from '../application/GetGlobalSettingsUseCase';
-import type { GetBrandUseCase } from '../../Brand/application/GetBrandUseCase';
-import type { ResolveBrandAssetsUseCase } from '../../Brand/application/ResolveBrandAssetsUseCase';
+import type { GetBrandUseCase } from '@/modules/Brand/application/GetBrandUseCase';
+import type { ResolveBrandAssetsUseCase } from '@/modules/Brand/application/ResolveBrandAssetsUseCase';
 
 // Devuelve datos del negocio y marca juntos: el frontend los necesita en el mismo render.
 export class GlobalSettingsController {

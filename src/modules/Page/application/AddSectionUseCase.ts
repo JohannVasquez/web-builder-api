@@ -6,8 +6,8 @@ export class AddSectionUseCase {
   constructor(private readonly pageRepository: PageRepository) {}
 
   public async execute(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
     input: PageSectionInput,
   ): Promise<Page> {
     return this.pageRepository.addSection(tenantId, pageId, input);

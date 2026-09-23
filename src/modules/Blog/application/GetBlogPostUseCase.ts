@@ -12,7 +12,7 @@ export class GetBlogPostUseCase {
   ) {}
 
   public async execute(
-    tenantId: number,
+    tenantId: string,
     slug: string,
     now = new Date(),
   ): Promise<BlogPostDetailView> {

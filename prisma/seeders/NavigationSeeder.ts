@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../src/shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type { Seeder } from './Seeder';
 
 export interface NavigationLinkSeed {
@@ -8,7 +8,7 @@ export interface NavigationLinkSeed {
 }
 
 export interface NavigationSeedParams {
-  readonly tenantId: number;
+  readonly tenantId: string;
   readonly links: readonly NavigationLinkSeed[];
 }
 

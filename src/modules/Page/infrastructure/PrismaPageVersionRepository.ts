@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { PageSnapshotSchema, type PageSnapshot } from '../domain/PageSnapshot';
 import type {
   PageVersionActor,
@@ -17,7 +17,7 @@ export class PrismaPageVersionRepository implements PageVersionRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   public async record(
-    pageId: number,
+    pageId: string,
     snapshot: PageSnapshot,
     summary: string,
     actor: PageVersionActor,
@@ -36,8 +36,8 @@ export class PrismaPageVersionRepository implements PageVersionRepository {
   }
 
   public async list(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
     limit: number,
   ): Promise<PageVersionPrimitives[]> {
     const records = await this.prisma.pageVersion.findMany({
@@ -57,9 +57,9 @@ export class PrismaPageVersionRepository implements PageVersionRepository {
 
   // Siempre con `tenantId`: un id de versión adivinado no puede alcanzar otro cliente.
   public async findSnapshot(
-    tenantId: number,
-    pageId: number,
-    versionId: number,
+    tenantId: string,
+    pageId: string,
+    versionId: string,
   ): Promise<PageSnapshot | null> {
     const record = await this.prisma.pageVersion.findFirst({
       where: { id: versionId, pageId, page: { tenantId } },
@@ -71,7 +71,7 @@ export class PrismaPageVersionRepository implements PageVersionRepository {
     return parsed.success ? parsed.data : null;
   }
 
-  public async markPublished(pageId: number, versionId: number): Promise<void> {
+  public async markPublished(pageId: string, versionId: string): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.pageVersion.updateMany({
         where: { pageId, published: true },
@@ -86,7 +86,7 @@ export class PrismaPageVersionRepository implements PageVersionRepository {
 
   // Un historial infinito crece sin límite y nadie mira más allá de las últimas decenas.
   // Se conserva siempre la versión publicada, que es la que permite volver atrás de verdad.
-  private async pruneOldVersions(pageId: number): Promise<void> {
+  private async pruneOldVersions(pageId: string): Promise<void> {
     const keep = await this.prisma.pageVersion.findMany({
       where: { pageId },
       orderBy: { createdAt: 'desc' },

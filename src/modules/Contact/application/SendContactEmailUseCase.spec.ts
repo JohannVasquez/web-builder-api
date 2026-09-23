@@ -1,5 +1,5 @@
-import { GlobalSettings } from '../../GlobalSettings/domain/GlobalSettings';
-import type { GlobalSettingsRepository } from '../../GlobalSettings/domain/GlobalSettingsRepository';
+import { GlobalSettings } from '@/modules/GlobalSettings/domain/GlobalSettings';
+import type { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
 import { SendContactEmailUseCase } from './SendContactEmailUseCase';
 import { ContactRequest } from '../domain/ContactRequest';
 import { ContactSchema } from '../domain/ContactSchema';
@@ -8,8 +8,8 @@ import type { ContactMessageRepository } from '../domain/ContactMessageRepositor
 import type { EmailService } from '../domain/EmailService';
 
 describe('SendContactEmailUseCase', () => {
-  const TENANT_ID = 7;
-  const STORED_ID = 42;
+  const TENANT_ID = '018f6f1a-0000-7000-8000-000000000007';
+  const STORED_ID = '018f6f1a-0000-7000-8000-000000000042';
 
   const validInput = {
     name: 'Johann Vasquez',

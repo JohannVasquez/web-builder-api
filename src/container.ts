@@ -14,6 +14,7 @@ import { UpdatePageUseCase } from './modules/Page/application/UpdatePageUseCase'
 import { DeletePageUseCase } from './modules/Page/application/DeletePageUseCase';
 import { AddSectionUseCase } from './modules/Page/application/AddSectionUseCase';
 import { UpdateSectionUseCase } from './modules/Page/application/UpdateSectionUseCase';
+import { DuplicateSectionUseCase } from './modules/Page/application/DuplicateSectionUseCase';
 import { DeleteSectionUseCase } from './modules/Page/application/DeleteSectionUseCase';
 import { ReorderSectionsUseCase } from './modules/Page/application/ReorderSectionsUseCase';
 import { PageController } from './modules/Page/presentation/PageController';
@@ -32,6 +33,8 @@ import { NavigationRepository } from './modules/Navigation/domain/NavigationRepo
 import { PrismaNavigationRepository } from './modules/Navigation/infrastructure/PrismaNavigationRepository';
 import { GetNavigationUseCase } from './modules/Navigation/application/GetNavigationUseCase';
 import { NavigationController } from './modules/Navigation/presentation/NavigationController';
+import { AdminNavigationController } from './modules/Navigation/presentation/AdminNavigationController';
+import { ReplaceNavigationUseCase } from './modules/Navigation/application/ReplaceNavigationUseCase';
 import { EmailService } from './modules/Contact/domain/EmailService';
 import {
   SmtpEmailService,
@@ -55,6 +58,12 @@ import { SiteContentSource } from './modules/Tenant/domain/SiteContentSource';
 import { TemplateSiteContentSource } from './modules/Tenant/infrastructure/TemplateSiteContentSource';
 import { TenantController } from './modules/Tenant/presentation/TenantController';
 import { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
+import {
+  ManageTenantUseCase,
+  PlatformDomainConfig,
+} from './modules/Tenant/application/ManageTenantUseCase';
+import { DomainVerifier } from './modules/Tenant/domain/DomainVerifier';
+import { DnsDomainVerifier } from './modules/Tenant/infrastructure/DnsDomainVerifier';
 import { createTenantResolver } from './modules/Tenant/presentation/tenantResolver';
 import { StorageProvider } from './modules/FileStorage/domain/StorageProvider';
 import { StorageAssetRepository } from './modules/FileStorage/domain/StorageAssetRepository';
@@ -83,8 +92,20 @@ import {
   JwtTokenService,
 } from './modules/Auth/infrastructure/JwtTokenService';
 import { LoginUseCase } from './modules/Auth/application/LoginUseCase';
+import { LoginAttempts } from './modules/Auth/application/LoginAttempts';
 import { VerifyTokenUseCase } from './modules/Auth/application/VerifyTokenUseCase';
 import { AuthController } from './modules/Auth/presentation/AuthController';
+import { AdminUserController } from './modules/Auth/presentation/AdminUserController';
+import { ManageAdminUsersUseCase } from './modules/Auth/application/ManageAdminUsersUseCase';
+import {
+  PasswordResetConfig,
+  RequestPasswordResetUseCase,
+} from './modules/Auth/application/RequestPasswordResetUseCase';
+import { ResetPasswordUseCase } from './modules/Auth/application/ResetPasswordUseCase';
+import { PasswordResetRepository } from './modules/Auth/domain/PasswordResetRepository';
+import { PasswordResetMailer } from './modules/Auth/domain/PasswordResetMailer';
+import { PrismaPasswordResetRepository } from './modules/Auth/infrastructure/PrismaPasswordResetRepository';
+import { SmtpPasswordResetMailer } from './modules/Auth/infrastructure/SmtpPasswordResetMailer';
 import { ApiKeyRepository } from './modules/ApiKey/domain/ApiKeyRepository';
 import { PrismaApiKeyRepository } from './modules/ApiKey/infrastructure/PrismaApiKeyRepository';
 import { AuthenticateApiKeyUseCase } from './modules/ApiKey/application/AuthenticateApiKeyUseCase';
@@ -110,6 +131,29 @@ import { GetCatalogUseCase } from './modules/Catalog/application/GetCatalogUseCa
 import { CatalogController } from './modules/Catalog/presentation/CatalogController';
 import { ProductRepository } from './modules/Store/domain/ProductRepository';
 import { PrismaProductRepository } from './modules/Store/infrastructure/PrismaProductRepository';
+import { StoreSettingsRepository } from './modules/Store/domain/StoreSettingsRepository';
+import { PrismaStoreSettingsRepository } from './modules/Store/infrastructure/PrismaStoreSettingsRepository';
+import { CouponRepository } from './modules/Store/domain/CouponRepository';
+import { PrismaCouponRepository } from './modules/Store/infrastructure/PrismaCouponRepository';
+import { OrderRepository } from './modules/Store/domain/OrderRepository';
+import { PrismaOrderRepository } from './modules/Store/infrastructure/PrismaOrderRepository';
+import { OrderMailer } from './modules/Store/domain/OrderMailer';
+import { SmtpOrderMailer } from './modules/Store/infrastructure/SmtpOrderMailer';
+import { PaymentGatewayRegistry } from './modules/Store/domain/PaymentGateway';
+import { DefaultPaymentGatewayRegistry } from './modules/Store/infrastructure/DefaultPaymentGatewayRegistry';
+import { FlowPaymentGateway } from './modules/Store/infrastructure/FlowPaymentGateway';
+import { TransferPaymentGateway } from './modules/Store/infrastructure/TransferPaymentGateway';
+import { QuoteCartUseCase } from './modules/Store/application/QuoteCartUseCase';
+import { CheckoutUseCase } from './modules/Store/application/CheckoutUseCase';
+import { ConfirmPaymentUseCase } from './modules/Store/application/ConfirmPaymentUseCase';
+import { ManageOrdersUseCase } from './modules/Store/application/ManageOrdersUseCase';
+import { ManageCouponsUseCase } from './modules/Store/application/ManageCouponsUseCase';
+import { ManageStoreSettingsUseCase } from './modules/Store/application/ManageStoreSettingsUseCase';
+import { CheckoutController } from './modules/Store/presentation/CheckoutController';
+import { IdempotencyStore } from './modules/Idempotency/domain/IdempotencyStore';
+import { PrismaIdempotencyStore } from './modules/Idempotency/infrastructure/PrismaIdempotencyStore';
+import { createIdempotency } from './modules/Idempotency/presentation/idempotency';
+import { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
 import {
   CreateProductUseCase,
   DeleteProductUseCase,
@@ -211,11 +255,29 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([TenantRepository, SiteContentSource]);
   builder.registerAndUse(ListSiteTemplatesUseCase).withDependencies([SiteContentSource]);
   builder
+    .register(PlatformDomainConfig)
+    .useFactory(
+      () =>
+        new PlatformDomainConfig(
+          env.get('PLATFORM_DOMAIN'),
+          env.get('PLATFORM_SITE_TARGET'),
+        ),
+    )
+    .asSingleton();
+  builder
+    .register(DomainVerifier)
+    .useFactory(() => new DnsDomainVerifier(env.get('AUTH_JWT_SECRET')))
+    .asSingleton();
+  builder
+    .registerAndUse(ManageTenantUseCase)
+    .withDependencies([TenantRepository, DomainVerifier, PlatformDomainConfig]);
+  builder
     .registerAndUse(AdminTenantController)
     .withDependencies([
       ListTenantsUseCase,
       CreateTenantUseCase,
       ListSiteTemplatesUseCase,
+      ManageTenantUseCase,
     ]);
 
   // SiteCache: cada escritura admin avisa al frontend qué dominios invalidar (SPEC 0.2).
@@ -314,6 +376,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(AddSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(UpdateSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(DeleteSectionUseCase).withDependencies([PageRepository]);
+  builder.registerAndUse(DuplicateSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(ReorderSectionsUseCase).withDependencies([PageRepository]);
   builder
     .register(PageVersionRepository)
@@ -341,6 +404,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       DeletePageUseCase,
       AddSectionUseCase,
       UpdateSectionUseCase,
+      DuplicateSectionUseCase,
       DeleteSectionUseCase,
       ReorderSectionsUseCase,
       PublishPageUseCase,
@@ -384,6 +448,12 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([PrismaClient]);
   builder.registerAndUse(GetNavigationUseCase).withDependencies([NavigationRepository]);
   builder.registerAndUse(NavigationController).withDependencies([GetNavigationUseCase]);
+  builder
+    .registerAndUse(ReplaceNavigationUseCase)
+    .withDependencies([NavigationRepository]);
+  builder
+    .registerAndUse(AdminNavigationController)
+    .withDependencies([GetNavigationUseCase, ReplaceNavigationUseCase]);
 
   // Contact
   builder.register(EmailService).use(SmtpEmailService).withDependencies([SmtpConfig]);
@@ -422,13 +492,50 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     )
     .asSingleton();
   builder.register(TokenService).use(JwtTokenService).withDependencies([JwtConfig]);
+  // Estado en memoria del bloqueo por intentos fallidos: debe ser el mismo objeto en cada
+  // request, de ahí el singleton (si no, cada login reiniciaría el conteo de intentos).
+  builder.registerAndUse(LoginAttempts).withDependencies([]).asSingleton();
   builder
     .registerAndUse(LoginUseCase)
-    .withDependencies([AdminUserRepository, PasswordHasher, TokenService]);
+    .withDependencies([AdminUserRepository, PasswordHasher, TokenService, LoginAttempts]);
   builder
     .registerAndUse(VerifyTokenUseCase)
     .withDependencies([TokenService, AdminUserRepository]);
-  builder.registerAndUse(AuthController).withDependencies([LoginUseCase]);
+  builder
+    .register(PasswordResetRepository)
+    .use(PrismaPasswordResetRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(PasswordResetMailer)
+    .use(SmtpPasswordResetMailer)
+    .withDependencies([SmtpConfig]);
+  builder
+    .register(PasswordResetConfig)
+    .useFactory(() => new PasswordResetConfig(env.get('ADMIN_PANEL_URL')))
+    .asSingleton();
+  builder
+    .registerAndUse(RequestPasswordResetUseCase)
+    .withDependencies([
+      AdminUserRepository,
+      PasswordResetRepository,
+      PasswordResetMailer,
+      PasswordResetConfig,
+    ]);
+  builder
+    .registerAndUse(ResetPasswordUseCase)
+    .withDependencies([AdminUserRepository, PasswordResetRepository, PasswordHasher]);
+  builder
+    .registerAndUse(ManageAdminUsersUseCase)
+    .withDependencies([
+      AdminUserRepository,
+      PasswordHasher,
+      RequestPasswordResetUseCase,
+      PasswordResetMailer,
+    ]);
+  builder
+    .registerAndUse(AuthController)
+    .withDependencies([LoginUseCase, RequestPasswordResetUseCase, ResetPasswordUseCase]);
+  builder.registerAndUse(AdminUserController).withDependencies([ManageAdminUsersUseCase]);
 
   // ApiKey: el mismo middleware de actor resuelve una sesión de panel o una clave de
   // agente, para que ambos entren por las mismas rutas con las mismas reglas (Épica 10).
@@ -509,6 +616,82 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       ProductRepository,
     ]);
 
+  // Idempotencia: una compra repetida con la misma clave no crea un segundo pedido.
+  builder
+    .register(IdempotencyStore)
+    .use(PrismaIdempotencyStore)
+    .withDependencies([PrismaClient]);
+
+  // Store: etapas 2 a 4, carrito, pago en línea, pedidos y reportes.
+  builder
+    .register(StoreSettingsRepository)
+    .use(PrismaStoreSettingsRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(CouponRepository)
+    .use(PrismaCouponRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .register(OrderRepository)
+    .use(PrismaOrderRepository)
+    .withDependencies([PrismaClient]);
+  builder.register(OrderMailer).use(SmtpOrderMailer).withDependencies([SmtpConfig]);
+  // Cada cliente cobra con su propia cuenta, así que las credenciales viajan en la
+  // configuración de su tienda y no en el entorno de la API.
+  builder
+    .register(PaymentGatewayRegistry)
+    .useFactory(
+      () =>
+        new DefaultPaymentGatewayRegistry([
+          new TransferPaymentGateway(),
+          new FlowPaymentGateway(),
+        ]),
+    )
+    .asSingleton();
+  builder
+    .registerAndUse(QuoteCartUseCase)
+    .withDependencies([StoreSettingsRepository, ProductRepository, CouponRepository]);
+  builder
+    .registerAndUse(CheckoutUseCase)
+    .withDependencies([
+      QuoteCartUseCase,
+      OrderRepository,
+      PaymentGatewayRegistry,
+      PageRepository,
+    ]);
+  builder
+    .registerAndUse(ConfirmPaymentUseCase)
+    .withDependencies([
+      StoreSettingsRepository,
+      OrderRepository,
+      CouponRepository,
+      PaymentGatewayRegistry,
+      OrderMailer,
+    ]);
+  builder
+    .registerAndUse(ManageOrdersUseCase)
+    .withDependencies([
+      OrderRepository,
+      CouponRepository,
+      StoreSettingsRepository,
+      OrderMailer,
+    ]);
+  builder.registerAndUse(ManageCouponsUseCase).withDependencies([CouponRepository]);
+  builder
+    .registerAndUse(ManageStoreSettingsUseCase)
+    .withDependencies([StoreSettingsRepository]);
+  builder
+    .registerAndUse(CheckoutController)
+    .withDependencies([QuoteCartUseCase, CheckoutUseCase, ConfirmPaymentUseCase]);
+  builder
+    .registerAndUse(AdminOrderController)
+    .withDependencies([
+      ManageOrdersUseCase,
+      ManageCouponsUseCase,
+      ManageStoreSettingsUseCase,
+      TenantRepository,
+    ]);
+
   // Blog
   builder
     .register(BlogPostRepository)
@@ -571,10 +754,12 @@ export class Container {
         pageController: this.services.get(PageController),
         globalSettingsController: this.services.get(GlobalSettingsController),
         navigationController: this.services.get(NavigationController),
+        adminNavigationController: this.services.get(AdminNavigationController),
         contactController: this.services.get(ContactController),
         fileController: this.services.get(FileController),
         tenantController: this.services.get(TenantController),
         authController: this.services.get(AuthController),
+        adminUserController: this.services.get(AdminUserController),
         adminTenantController: this.services.get(AdminTenantController),
         adminPageController: this.services.get(AdminPageController),
         adminBrandController: this.services.get(AdminBrandController),
@@ -589,6 +774,8 @@ export class Container {
         adminBlogController: this.services.get(AdminBlogController),
         storeController: this.services.get(StoreController),
         adminStoreController: this.services.get(AdminStoreController),
+        checkoutController: this.services.get(CheckoutController),
+        adminOrderController: this.services.get(AdminOrderController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
@@ -600,6 +787,7 @@ export class Container {
       ),
       createCacheInvalidationMiddleware(this.services.get(InvalidateTenantCacheUseCase)),
       createActivityRecordingMiddleware(this.services.get(RecordActivityUseCase)),
+      createIdempotency(this.services.get(IdempotencyStore), 'store.checkout'),
     );
   }
 

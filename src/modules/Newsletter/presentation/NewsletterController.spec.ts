@@ -3,12 +3,12 @@ import express, { type Express } from 'express';
 import request from 'supertest';
 import { NewsletterController } from './NewsletterController';
 import { createAdminNewsletterRouter, createNewsletterRouter } from './newsletterRouter';
-import { RateLimiter } from '../../ApiKey/application/RateLimiter';
+import { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
 import { SubscribeToNewsletterUseCase } from '../application/SubscribeToNewsletterUseCase';
 import { ListSubscribersUseCase } from '../application/ListSubscribersUseCase';
 import type { NewsletterRepository } from '../domain/NewsletterRepository';
-import { Tenant } from '../../Tenant/domain/Tenant';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { Tenant } from '@/modules/Tenant/domain/Tenant';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 // Un solo servidor para los bucles de peticiones: `request(app)` levanta uno efímero por
 // llamada, y varios seguidos hacen fallar el test por sockets, no por el límite probado.
@@ -33,7 +33,7 @@ describe('NewsletterController (HTTP)', () => {
   const buildApp = (
     repository: NewsletterRepository,
     rateLimiter = new RateLimiter(),
-    tenantId = 1,
+    tenantId = '018f6f1a-0000-7000-8000-000000000001',
   ): Express => {
     const controller = new NewsletterController(
       new SubscribeToNewsletterUseCase(repository),
@@ -68,7 +68,10 @@ describe('NewsletterController (HTTP)', () => {
       .send({ email: 'ana@ejemplo.cl' });
 
     expect(response.status).toBe(200);
-    expect(repository.subscribe).toHaveBeenCalledWith(1, 'ana@ejemplo.cl');
+    expect(repository.subscribe).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'ana@ejemplo.cl',
+    );
   });
 
   it('rechaza un correo inválido con un mensaje entendible', async () => {
@@ -110,8 +113,16 @@ describe('NewsletterController (HTTP)', () => {
 
   it('la cuota es por tenant: agotar uno no bloquea a otro', async () => {
     const rateLimiter = new RateLimiter();
-    const first = buildApp(buildRepository(), rateLimiter, 1);
-    const second = buildApp(buildRepository(), rateLimiter, 2);
+    const first = buildApp(
+      buildRepository(),
+      rateLimiter,
+      '018f6f1a-0000-7000-8000-000000000001',
+    );
+    const second = buildApp(
+      buildRepository(),
+      rateLimiter,
+      '018f6f1a-0000-7000-8000-000000000002',
+    );
 
     const firstServer = openServer(first);
     const secondServer = openServer(second);
@@ -137,16 +148,20 @@ describe('NewsletterController (HTTP)', () => {
     const repository = buildRepository();
 
     const response = await request(buildApp(repository)).get(
-      '/api/admin/tenants/7/subscribers',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000007/subscribers',
     );
 
     expect(response.status).toBe(200);
-    expect(repository.list).toHaveBeenCalledWith(7, 100, 0);
+    expect(repository.list).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000007',
+      100,
+      0,
+    );
   });
 
   it('exporta los suscriptores como CSV descargable', async () => {
     const response = await request(buildApp(buildRepository())).get(
-      '/api/admin/tenants/7/subscribers/export.csv',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000007/subscribers/export.csv',
     );
 
     expect(response.status).toBe(200);

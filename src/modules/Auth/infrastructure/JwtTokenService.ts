@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { TokenService, type AdminTokenPayload } from '../domain/TokenService';
+import { idSchema } from '@/shared/domain/identifier';
 
-const PayloadSchema = z.object({ adminUserId: z.number().int().positive() });
+const PayloadSchema = z.object({ adminUserId: idSchema });
 
 /**
  * Clase (no interface) para poder registrarse como token resoluble por diod

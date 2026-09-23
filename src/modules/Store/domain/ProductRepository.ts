@@ -17,35 +17,35 @@ export interface CatalogQuery {
 export abstract class ProductRepository {
   // Público: solo productos activos. Un inactivo no existe para el visitante.
   public abstract listActive(
-    tenantId: number,
+    tenantId: string,
     query: CatalogQuery,
   ): Promise<{ products: Product[]; total: number }>;
   public abstract findActiveBySlug(
-    tenantId: number,
+    tenantId: string,
     slug: string,
   ): Promise<Product | null>;
-  public abstract listFeatured(tenantId: number, limit: number): Promise<Product[]>;
-  public abstract listCategories(tenantId: number): Promise<ProductCategoryPrimitives[]>;
+  public abstract listFeatured(tenantId: string, limit: number): Promise<Product[]>;
+  public abstract listCategories(tenantId: string): Promise<ProductCategoryPrimitives[]>;
 
   // Admin: incluye inactivos, todo scoped por tenant.
-  public abstract findAllByTenant(tenantId: number): Promise<Product[]>;
-  public abstract findById(tenantId: number, id: number): Promise<Product | null>;
-  public abstract create(tenantId: number, input: ProductInput): Promise<Product>;
+  public abstract findAllByTenant(tenantId: string): Promise<Product[]>;
+  public abstract findById(tenantId: string, id: string): Promise<Product | null>;
+  public abstract create(tenantId: string, input: ProductInput): Promise<Product>;
   public abstract update(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: ProductUpdateInput,
   ): Promise<Product>;
-  public abstract delete(tenantId: number, id: number): Promise<void>;
+  public abstract delete(tenantId: string, id: string): Promise<void>;
 
   public abstract createCategory(
-    tenantId: number,
+    tenantId: string,
     input: CategoryInput,
   ): Promise<ProductCategoryPrimitives>;
   public abstract updateCategory(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: CategoryUpdateInput,
   ): Promise<ProductCategoryPrimitives>;
-  public abstract deleteCategory(tenantId: number, id: number): Promise<void>;
+  public abstract deleteCategory(tenantId: string, id: string): Promise<void>;
 }

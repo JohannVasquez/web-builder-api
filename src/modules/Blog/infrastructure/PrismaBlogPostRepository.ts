@@ -1,7 +1,7 @@
 import {
   Prisma,
   type PrismaClient,
-} from '../../../shared/infrastructure/prisma/generated/client';
+} from '@/shared/infrastructure/prisma/generated/client';
 import { BlogPost, type BlogPostStatus } from '../domain/BlogPost';
 import { BlogContentSchema } from '../domain/BlogPostContentSchema';
 import type {
@@ -19,7 +19,7 @@ const isUniqueConstraintError = (error: unknown): boolean =>
   error.code === UNIQUE_CONSTRAINT_VIOLATION;
 
 interface BlogPostRecord {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly title: string;
   readonly excerpt: string;
@@ -32,6 +32,7 @@ interface BlogPostRecord {
   readonly seoTitle: string | null;
   readonly seoDescription: string | null;
   readonly ogImageKey: string | null;
+  readonly noindex?: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -64,7 +65,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   public async findVisibleBySlug(
-    tenantId: number,
+    tenantId: string,
     slug: string,
     now: Date,
   ): Promise<BlogPost | null> {
@@ -75,7 +76,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
   }
 
   public async listVisible(
-    tenantId: number,
+    tenantId: string,
     options: ListVisibleBlogPostsOptions,
     now: Date,
   ): Promise<{ posts: BlogPost[]; total: number }> {
@@ -97,8 +98,8 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
   }
 
   public async listRelatedVisible(
-    tenantId: number,
-    excludePostId: number,
+    tenantId: string,
+    excludePostId: string,
     tags: readonly string[],
     now: Date,
     limit: number,
@@ -116,7 +117,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async findAllByTenant(tenantId: number): Promise<BlogPost[]> {
+  public async findAllByTenant(tenantId: string): Promise<BlogPost[]> {
     const records = await this.prisma.blogPost.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
@@ -124,12 +125,12 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  public async findById(tenantId: number, id: number): Promise<BlogPost | null> {
+  public async findById(tenantId: string, id: string): Promise<BlogPost | null> {
     const record = await this.prisma.blogPost.findFirst({ where: { id, tenantId } });
     return record === null ? null : this.toDomain(record);
   }
 
-  public async create(tenantId: number, input: BlogPostInput): Promise<BlogPost> {
+  public async create(tenantId: string, input: BlogPostInput): Promise<BlogPost> {
     try {
       const record = await this.prisma.blogPost.create({
         data: {
@@ -147,6 +148,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
           seoTitle: input.seoTitle ?? null,
           seoDescription: input.seoDescription ?? null,
           ogImageKey: input.ogImageKey ?? null,
+          noindex: input.noindex,
         },
       });
       return this.toDomain(record);
@@ -159,8 +161,8 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
   }
 
   public async update(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: BlogPostUpdateInput,
   ): Promise<BlogPost> {
     await this.ensurePostOwnership(tenantId, id);
@@ -180,6 +182,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
           seoTitle: input.seoTitle,
           seoDescription: input.seoDescription,
           ogImageKey: input.ogImageKey,
+          noindex: input.noindex,
         },
       });
     } catch (error) {
@@ -191,19 +194,19 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
     return this.reload(tenantId, id);
   }
 
-  public async delete(tenantId: number, id: number): Promise<void> {
+  public async delete(tenantId: string, id: string): Promise<void> {
     await this.ensurePostOwnership(tenantId, id);
     await this.prisma.blogPost.delete({ where: { id } });
   }
 
-  private async ensurePostOwnership(tenantId: number, id: number): Promise<void> {
+  private async ensurePostOwnership(tenantId: string, id: string): Promise<void> {
     const record = await this.prisma.blogPost.findFirst({ where: { id, tenantId } });
     if (record === null) {
       throw new BlogPostIdNotFoundError(id);
     }
   }
 
-  private async reload(tenantId: number, id: number): Promise<BlogPost> {
+  private async reload(tenantId: string, id: string): Promise<BlogPost> {
     const post = await this.findById(tenantId, id);
     if (post === null) {
       throw new BlogPostIdNotFoundError(id);
@@ -228,6 +231,7 @@ export class PrismaBlogPostRepository implements BlogPostRepository {
       record.ogImageKey,
       record.createdAt,
       record.updatedAt,
+      record.noindex ?? false,
     );
   }
 }

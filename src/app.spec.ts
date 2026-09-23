@@ -3,10 +3,22 @@ import request from 'supertest';
 import { buildApp, type AppControllers } from './app';
 import { UnauthorizedError } from './shared/domain/UnauthorizedError';
 import { setRequestActor } from './modules/ApiKey/presentation/actorMiddleware';
+import { Tenant } from './modules/Tenant/domain/Tenant';
 
 // Prueba de cableado: el bug de SPEC 0.1 estaba en el montaje, no en un controller.
 describe('buildApp (rutas protegidas)', () => {
   const noop: RequestHandler = (_req, _res, next) => next();
+
+  // Las rutas públicas pasan por `siteAvailability`, que necesita un tenant resuelto.
+  const fakeTenantResolver: RequestHandler = (_req, res, next) => {
+    (res.locals as { tenant?: Tenant }).tenant = new Tenant(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'demo',
+      'Demo',
+      null,
+    );
+    next();
+  };
 
   const buildControllers = (): AppControllers => {
     const ok =
@@ -21,8 +33,48 @@ describe('buildApp (rutas protegidas)', () => {
       contactController: { send: ok(200) },
       fileController: { upload: ok(201), remove: ok(204) },
       tenantController: { checkDomainAllowed: ok(200) },
-      authController: { login: ok(200), me: ok(200) },
-      adminTenantController: { list: ok(200), create: ok(201), listTemplates: ok(200) },
+      authController: {
+        login: ok(200),
+        me: ok(200),
+        forgotPassword: ok(200),
+        resetPassword: ok(200),
+      },
+      adminTenantController: {
+        list: ok(200),
+        create: ok(201),
+        listTemplates: ok(200),
+        changeStatus: ok(200),
+        listDomains: ok(200),
+        addDomain: ok(201),
+        verifyDomain: ok(200),
+        setPrimaryDomain: ok(200),
+        removeDomain: ok(204),
+      },
+      adminNavigationController: { list: ok(200), replace: ok(200) },
+      checkoutController: {
+        settings: ok(200),
+        quote: ok(200),
+        checkout: ok(201),
+        confirm: ok(200),
+      },
+      adminOrderController: {
+        listOrders: ok(200),
+        getOrder: ok(200),
+        changeOrderStatus: ok(200),
+        report: ok(200),
+        getSettings: ok(200),
+        saveSettings: ok(200),
+        listCoupons: ok(200),
+        createCoupon: ok(201),
+        updateCoupon: ok(200),
+        removeCoupon: ok(204),
+      },
+      adminUserController: {
+        list: ok(200),
+        invite: ok(201),
+        changeRole: ok(200),
+        setDisabled: ok(200),
+      },
       apiKeyController: {
         list: ok(200),
         create: ok(201),
@@ -82,6 +134,7 @@ describe('buildApp (rutas protegidas)', () => {
         remove: ok(204),
         addSection: ok(201),
         updateSection: ok(200),
+        duplicateSection: ok(201),
         deleteSection: ok(204),
         reorderSections: ok(200),
         publish: ok(200),
@@ -99,8 +152,9 @@ describe('buildApp (rutas protegidas)', () => {
     }
     setRequestActor(res, {
       type: 'admin',
-      id: 1,
+      id: '018f6f1a-0000-7000-8000-000000000001',
       name: 'Admin',
+      role: 'owner',
       permission: 'full',
       tenantScope: null,
       rateLimitPerMinute: null,
@@ -109,7 +163,7 @@ describe('buildApp (rutas protegidas)', () => {
   };
 
   const app = (): Express =>
-    buildApp(buildControllers(), ['*'], noop, noop, fakeActor, noop, noop);
+    buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop);
 
   it('rechaza subir un archivo sin sesión de administración', async () => {
     const response = await request(app()).post('/api/files');

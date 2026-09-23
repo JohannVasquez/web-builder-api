@@ -5,6 +5,8 @@ export interface PublishedPageSummary {
   readonly title: string;
   readonly description: string | null;
   readonly updatedAt: string | null;
+  // El sitemap lo necesita para no listar lo que la propia página pide no indexar.
+  readonly noindex: boolean;
 }
 
 // Alimenta el sitemap del sitio público, así que filtra las despublicadas aquí y no
@@ -12,7 +14,7 @@ export interface PublishedPageSummary {
 export class ListPublishedPagesUseCase {
   constructor(private readonly pageRepository: PageRepository) {}
 
-  public async execute(tenantId: number): Promise<PublishedPageSummary[]> {
+  public async execute(tenantId: string): Promise<PublishedPageSummary[]> {
     const pages = await this.pageRepository.findAllByTenant(tenantId);
     return pages
       .filter((page) => page.isPublished)
@@ -21,6 +23,7 @@ export class ListPublishedPagesUseCase {
         title: page.title,
         description: page.description,
         updatedAt: page.updatedAt?.toISOString() ?? null,
+        noindex: page.seo.noindex,
       }));
   }
 }

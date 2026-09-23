@@ -5,11 +5,27 @@ import {
 } from './legalTemplates';
 
 describe('plantillas legales', () => {
-  it('trae política de privacidad y términos', () => {
+  it('trae política de privacidad, términos de uso y términos de compra', () => {
     expect(LEGAL_PAGE_TEMPLATES.map((template) => template.kind).sort()).toEqual([
+      'compra',
       'privacidad',
       'terminos',
     ]);
+  });
+
+  it('los términos de compra cubren lo que exige la Ley del Consumidor', () => {
+    const purchase = LEGAL_PAGE_TEMPLATES.find((template) => template.kind === 'compra');
+
+    expect(purchase?.slug).toBe('terminos-de-compra');
+    for (const topic of [
+      'Derecho a retracto',
+      'Garantía legal',
+      'Despacho',
+      'IVA',
+      '19.496',
+    ]) {
+      expect(purchase?.body).toContain(topic);
+    }
   });
 
   it('devuelve undefined para un tipo desconocido', () => {

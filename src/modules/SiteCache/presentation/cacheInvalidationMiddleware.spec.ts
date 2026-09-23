@@ -28,16 +28,20 @@ describe('createCacheInvalidationMiddleware', () => {
     const useCase = buildUseCase();
     const { app } = buildApp(useCase, 201);
 
-    await request(app).post('/api/admin/tenants/9/pages');
+    await request(app).post(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000009/pages',
+    );
 
-    expect(useCase.execute).toHaveBeenCalledWith(9);
+    expect(useCase.execute).toHaveBeenCalledWith('018f6f1a-0000-7000-8000-000000000009');
   });
 
   it('no invalida nada cuando la escritura falló', async () => {
     const useCase = buildUseCase();
     const { app } = buildApp(useCase, 422);
 
-    await request(app).post('/api/admin/tenants/9/pages');
+    await request(app).post(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000009/pages',
+    );
 
     expect(useCase.execute).not.toHaveBeenCalled();
   });
@@ -46,7 +50,9 @@ describe('createCacheInvalidationMiddleware', () => {
     const useCase = buildUseCase();
     const { app } = buildApp(useCase);
 
-    await request(app).get('/api/admin/tenants/9/pages');
+    await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000009/pages',
+    );
 
     expect(useCase.execute).not.toHaveBeenCalled();
   });
@@ -55,9 +61,11 @@ describe('createCacheInvalidationMiddleware', () => {
     const useCase = buildUseCase();
     const { app } = buildApp(useCase, 200);
 
-    await request(app).patch('/api/admin/tenants/3/pages');
+    await request(app).patch(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages',
+    );
 
     expect(useCase.execute).toHaveBeenCalledTimes(1);
-    expect(useCase.execute).toHaveBeenCalledWith(3);
+    expect(useCase.execute).toHaveBeenCalledWith('018f6f1a-0000-7000-8000-000000000003');
   });
 });

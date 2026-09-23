@@ -1,5 +1,5 @@
-import type { PrismaClient } from '../../src/shared/infrastructure/prisma/generated/client';
-import { ScryptPasswordHasher } from '../../src/modules/Auth/infrastructure/ScryptPasswordHasher';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
+import { ScryptPasswordHasher } from '@/modules/Auth/infrastructure/ScryptPasswordHasher';
 import type { Seeder } from './Seeder';
 
 export interface AdminUserSeedParams {

@@ -13,9 +13,9 @@ describe('GetGlobalSettingsUseCase', () => {
     };
     const useCase = new GetGlobalSettingsUseCase(repository);
 
-    const result = await useCase.execute(1);
+    const result = await useCase.execute('018f6f1a-0000-7000-8000-000000000001');
 
-    expect(repository.find).toHaveBeenCalledWith(1);
+    expect(repository.find).toHaveBeenCalledWith('018f6f1a-0000-7000-8000-000000000001');
     expect(result).toBe(settings);
   });
 

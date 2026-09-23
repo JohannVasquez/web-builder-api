@@ -20,7 +20,10 @@ describe('ListMediaUseCase', () => {
       getPresignedUrl: jest.fn().mockResolvedValue('https://bucket/firmada'),
     } as unknown as jest.Mocked<StorageProvider>;
 
-    const assets = await new ListMediaUseCase(repository, provider).execute(9, '');
+    const assets = await new ListMediaUseCase(repository, provider).execute(
+      '018f6f1a-0000-7000-8000-000000000009',
+      '',
+    );
 
     expect(assets[0]?.url).toBe('https://bucket/firmada');
     expect(provider.getPresignedUrl).toHaveBeenCalledWith('a.png');
@@ -34,8 +37,14 @@ describe('ListMediaUseCase', () => {
       getPresignedUrl: jest.fn(),
     } as unknown as jest.Mocked<StorageProvider>;
 
-    await new ListMediaUseCase(repository, provider).execute(9, 'logo');
+    await new ListMediaUseCase(repository, provider).execute(
+      '018f6f1a-0000-7000-8000-000000000009',
+      'logo',
+    );
 
-    expect(repository.findByTenant).toHaveBeenCalledWith(9, 'logo');
+    expect(repository.findByTenant).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000009',
+      'logo',
+    );
   });
 });

@@ -1,18 +1,24 @@
 import express, { type Express, type RequestHandler } from 'express';
 import cors from 'cors';
+import { buildOriginMatcher } from './shared/presentation/corsOrigins';
 import type { PageController } from './modules/Page/presentation/PageController';
 import { createPageRouter } from './modules/Page/presentation/pageRouter';
 import type { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
 import { createGlobalSettingsRouter } from './modules/GlobalSettings/presentation/globalSettingsRouter';
 import type { NavigationController } from './modules/Navigation/presentation/NavigationController';
+import type { AdminNavigationController } from './modules/Navigation/presentation/AdminNavigationController';
+import { createAdminNavigationRouter } from './modules/Navigation/presentation/adminNavigationRouter';
 import { createNavigationRouter } from './modules/Navigation/presentation/navigationRouter';
 import type { ContactController } from './modules/Contact/presentation/ContactController';
 import { createContactRouter } from './modules/Contact/presentation/contactRouter';
 import type { FileController } from './modules/FileStorage/presentation/FileController';
 import { createFileRouter } from './modules/FileStorage/presentation/fileRouter';
 import type { TenantController } from './modules/Tenant/presentation/TenantController';
+import { siteAvailability } from './modules/Tenant/presentation/siteAvailability';
 import { createTenantInternalRouter } from './modules/Tenant/presentation/tenantRouter';
 import type { AuthController } from './modules/Auth/presentation/AuthController';
+import type { AdminUserController } from './modules/Auth/presentation/AdminUserController';
+import { createAdminUserRouter } from './modules/Auth/presentation/adminUserRouter';
 import { createAuthRouter } from './modules/Auth/presentation/authRouter';
 import type { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
 import { createAdminTenantRouter } from './modules/Tenant/presentation/adminTenantRouter';
@@ -22,6 +28,8 @@ import type { ApiKeyController } from './modules/ApiKey/presentation/ApiKeyContr
 import { createApiKeyRouter } from './modules/ApiKey/presentation/apiKeyRouter';
 import {
   requireMethodPermission,
+  requireRole,
+  requireStaff,
   requireTenantScope,
 } from './modules/ApiKey/presentation/actorMiddleware';
 import type { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
@@ -30,6 +38,12 @@ import type { MediaController } from './modules/FileStorage/presentation/MediaCo
 import { createMediaRouter } from './modules/FileStorage/presentation/mediaRouter';
 import type { StoreController } from './modules/Store/presentation/StoreController';
 import type { AdminStoreController } from './modules/Store/presentation/AdminStoreController';
+import type { CheckoutController } from './modules/Store/presentation/CheckoutController';
+import type { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
+import {
+  createAdminOrderRouter,
+  createCheckoutRouter,
+} from './modules/Store/presentation/checkoutRouter';
 import {
   createAdminStoreRouter,
   createProductCategoryRouter,
@@ -58,10 +72,12 @@ export interface AppControllers {
   readonly pageController: PageController;
   readonly globalSettingsController: GlobalSettingsController;
   readonly navigationController: NavigationController;
+  readonly adminNavigationController: AdminNavigationController;
   readonly contactController: ContactController;
   readonly fileController: FileController;
   readonly tenantController: TenantController;
   readonly authController: AuthController;
+  readonly adminUserController: AdminUserController;
   readonly adminTenantController: AdminTenantController;
   readonly adminPageController: AdminPageController;
   readonly adminBrandController: AdminBrandController;
@@ -76,6 +92,8 @@ export interface AppControllers {
   readonly adminBlogController: AdminBlogController;
   readonly storeController: StoreController;
   readonly adminStoreController: AdminStoreController;
+  readonly checkoutController: CheckoutController;
+  readonly adminOrderController: AdminOrderController;
 }
 
 export const buildApp = (
@@ -86,11 +104,23 @@ export const buildApp = (
   actorMiddleware: RequestHandler,
   cacheInvalidation: RequestHandler,
   activityRecording: RequestHandler,
+  // Sin clave de idempotencia la compra se comporta igual; por defecto no hace nada.
+  checkoutIdempotency: RequestHandler = (_req, _res, next) => {
+    next();
+  },
 ): Express => {
   const app = express();
   const errorHandler = new ErrorHandler();
 
-  app.use(cors({ origin: corsOrigin }));
+  const isAllowedOrigin = buildOriginMatcher(corsOrigin);
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Sin `Origin` es una llamada del mismo sitio o de servidor a servidor: CORS no aplica.
+        callback(null, origin === undefined || isAllowedOrigin(origin));
+      },
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_req, res) => {
@@ -102,37 +132,59 @@ export const buildApp = (
   app.use('/internal', createTenantInternalRouter(controllers.tenantController));
 
   // Rutas scoped por tenant: el resolver deja el tenant en res.locals.
-  app.use('/api/pages', tenantResolver, createPageRouter(controllers.pageController));
+  app.use(
+    '/api/pages',
+    tenantResolver,
+    siteAvailability,
+    createPageRouter(controllers.pageController),
+  );
   app.use(
     '/api/settings',
     tenantResolver,
+    siteAvailability,
     createGlobalSettingsRouter(controllers.globalSettingsController),
   );
   app.use(
     '/api/navigation',
     tenantResolver,
+    siteAvailability,
     createNavigationRouter(controllers.navigationController),
   );
   app.use(
     '/api/contact',
     tenantResolver,
+    siteAvailability,
     createContactRouter(controllers.contactController),
   );
   // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
-  app.use('/api/blog', tenantResolver, createBlogRouter(controllers.blogController));
+  app.use(
+    '/api/blog',
+    tenantResolver,
+    siteAvailability,
+    createBlogRouter(controllers.blogController),
+  );
   app.use(
     '/api/products',
     tenantResolver,
+    siteAvailability,
     createStoreRouter(controllers.storeController),
+  );
+  app.use(
+    '/api/store',
+    tenantResolver,
+    siteAvailability,
+    createCheckoutRouter(controllers.checkoutController, checkoutIdempotency),
   );
   app.use(
     '/api/product-categories',
     tenantResolver,
+    siteAvailability,
     createProductCategoryRouter(controllers.storeController),
   );
   app.use(
     '/api/newsletter',
     tenantResolver,
+    siteAvailability,
     createNewsletterRouter(controllers.newsletterController),
   );
   app.use(
@@ -159,11 +211,21 @@ export const buildApp = (
 
   // Resto de /api/admin/**: mismo middleware, scoped por :tenantId en la ruta
   // (no por dominio — un admin gestiona todos los tenants desde un login).
+  // Emitir claves y administrar personas son las dos formas de repartir acceso: ambas
+  // quedan detrás de `requireRole('owner')`, y una clave de agente nunca pasa (rol null).
   app.use(
     '/api/admin/api-keys',
     actorMiddleware,
+    requireRole('owner'),
     activityRecording,
     createApiKeyRouter(controllers.apiKeyController),
+  );
+  app.use(
+    '/api/admin/users',
+    actorMiddleware,
+    requireRole('owner'),
+    activityRecording,
+    createAdminUserRouter(controllers.adminUserController),
   );
   app.use(
     '/api/admin/activity',
@@ -194,6 +256,18 @@ export const buildApp = (
     createAdminStoreRouter(controllers.adminStoreController),
   );
   app.use(
+    '/api/admin/tenants/:tenantId/navigation',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminNavigationRouter(controllers.adminNavigationController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/store',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminOrderRouter(controllers.adminOrderController),
+  );
+  app.use(
     '/api/admin/tenants/:tenantId/posts',
     ...adminGuards,
     cacheInvalidation,
@@ -218,7 +292,7 @@ export const buildApp = (
   app.use(
     '/api/admin/tenants',
     ...adminGuards,
-    createAdminTenantRouter(controllers.adminTenantController),
+    createAdminTenantRouter(controllers.adminTenantController, requireStaff),
   );
   // `cacheInvalidation` aquí y no en cada caso de uso: cubre toda ruta admin futura (SPEC 0.2).
   app.use(

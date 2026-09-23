@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '@/shared/domain/identifier';
 
 const slug = z
   .string()
@@ -28,11 +29,17 @@ const base = {
   priceCents,
   salePriceCents: priceCents.nullable().default(null),
   currency: z.string().length(3).default('CLP'),
-  categoryId: z.number().int().positive().nullable().default(null),
+  categoryId: idSchema.nullable().default(null),
   variants,
   isActive: z.boolean().default(true),
   featured: z.boolean().default(false),
   position: z.number().int().min(0).default(0),
+  // `null` = sin control de stock; 0 = agotado.
+  stock: z.number().int().min(0).nullable().default(null),
+  // Nulos = el buscador ve `name` y `description`.
+  seoTitle: z.string().max(255).nullable().default(null),
+  seoDescription: z.string().max(2000).nullable().default(null),
+  noindex: z.boolean().default(false),
 };
 
 // Una oferta que no es más barata que el precio normal no es una oferta: o es un error de
@@ -62,7 +69,7 @@ export const ProductUpdateSchema = z
     priceCents: priceCents.optional(),
     salePriceCents: priceCents.nullable().optional(),
     currency: z.string().length(3).optional(),
-    categoryId: z.number().int().positive().nullable().optional(),
+    categoryId: idSchema.nullable().optional(),
     variants: z
       .array(
         z.strictObject({
@@ -74,6 +81,10 @@ export const ProductUpdateSchema = z
     isActive: z.boolean().optional(),
     featured: z.boolean().optional(),
     position: z.number().int().min(0).optional(),
+    stock: z.number().int().min(0).nullable().optional(),
+    seoTitle: z.string().max(255).nullable().optional(),
+    seoDescription: z.string().max(2000).nullable().optional(),
+    noindex: z.boolean().optional(),
   })
   .refine(
     (value) =>

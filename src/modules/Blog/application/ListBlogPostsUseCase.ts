@@ -16,7 +16,7 @@ export class ListBlogPostsUseCase {
   ) {}
 
   public async execute(
-    tenantId: number,
+    tenantId: string,
     page: number,
     perPage: number,
     tag: string | undefined,

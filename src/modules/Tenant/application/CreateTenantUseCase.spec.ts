@@ -3,8 +3,8 @@ import { Tenant } from '../domain/Tenant';
 import type { SiteContent } from '../domain/SiteContent';
 import type { SiteContentSource } from '../domain/SiteContentSource';
 import type { TenantRepository } from '../domain/TenantRepository';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 describe('CreateTenantUseCase', () => {
   const content = (isPublished: boolean): SiteContent => ({
@@ -20,7 +20,14 @@ describe('CreateTenantUseCase', () => {
     ({
       createWithContent: jest
         .fn()
-        .mockResolvedValue(new Tenant(3, 'nuevo', 'Nuevo', 'nuevo.cl')),
+        .mockResolvedValue(
+          new Tenant(
+            '018f6f1a-0000-7000-8000-000000000003',
+            'nuevo',
+            'Nuevo',
+            'nuevo.cl',
+          ),
+        ),
       readContent: jest.fn().mockResolvedValue(content(true)),
     }) as unknown as jest.Mocked<TenantRepository>;
 
@@ -90,10 +97,12 @@ describe('CreateTenantUseCase', () => {
 
     await new CreateTenantUseCase(repository, buildSource()).execute({
       ...input,
-      duplicateFromTenantId: 9,
+      duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000009',
     });
 
-    expect(repository.readContent).toHaveBeenCalledWith(9);
+    expect(repository.readContent).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000009',
+    );
   });
 
   it('la copia nace despublicada: publicarla tiene que ser una decisión', async () => {
@@ -101,7 +110,7 @@ describe('CreateTenantUseCase', () => {
 
     await new CreateTenantUseCase(repository, buildSource()).execute({
       ...input,
-      duplicateFromTenantId: 9,
+      duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000009',
     });
 
     const [, , , written] = repository.createWithContent.mock.calls[0] ?? [];
@@ -115,7 +124,7 @@ describe('CreateTenantUseCase', () => {
     await expect(
       new CreateTenantUseCase(repository, buildSource()).execute({
         ...input,
-        duplicateFromTenantId: 404,
+        duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000404',
       }),
     ).rejects.toThrow(NotFoundError);
   });
@@ -125,7 +134,7 @@ describe('CreateTenantUseCase', () => {
       new CreateTenantUseCase(buildRepository(), buildSource()).execute({
         ...input,
         templateId: 'pasteleria',
-        duplicateFromTenantId: 9,
+        duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000009',
       }),
     ).rejects.toThrow(BadRequestError);
   });
@@ -136,8 +145,21 @@ describe('CreateTenantUseCase (lo publicado)', () => {
     const repository = {
       createWithContent: jest
         .fn()
-        .mockResolvedValue(new Tenant(3, 'nuevo', 'Nuevo', 'nuevo.cl')),
+        .mockResolvedValue(
+          new Tenant(
+            '018f6f1a-0000-7000-8000-000000000003',
+            'nuevo',
+            'Nuevo',
+            'nuevo.cl',
+          ),
+        ),
       readContent: jest.fn(),
+      setStatus: jest.fn(),
+      listDomains: jest.fn(),
+      addDomain: jest.fn(),
+      markDomainVerified: jest.fn(),
+      setPrimaryDomain: jest.fn(),
+      deleteDomain: jest.fn(),
     } as unknown as jest.Mocked<TenantRepository>;
     const source = {
       fromTemplate: jest.fn().mockResolvedValue({

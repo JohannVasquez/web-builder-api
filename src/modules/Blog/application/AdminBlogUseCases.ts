@@ -8,7 +8,7 @@ import type { BlogPostInput, BlogPostUpdateInput } from '../domain/BlogPostSchem
 export class ListAllBlogPostsUseCase {
   constructor(private readonly repository: BlogPostRepository) {}
 
-  public async execute(tenantId: number): Promise<BlogPost[]> {
+  public async execute(tenantId: string): Promise<BlogPost[]> {
     return this.repository.findAllByTenant(tenantId);
   }
 }
@@ -16,7 +16,7 @@ export class ListAllBlogPostsUseCase {
 export class GetBlogPostByIdUseCase {
   constructor(private readonly repository: BlogPostRepository) {}
 
-  public async execute(tenantId: number, id: number): Promise<BlogPost> {
+  public async execute(tenantId: string, id: string): Promise<BlogPost> {
     const post = await this.repository.findById(tenantId, id);
     if (post === null) {
       throw new BlogPostIdNotFoundError(id);
@@ -28,7 +28,7 @@ export class GetBlogPostByIdUseCase {
 export class CreateBlogPostUseCase {
   constructor(private readonly repository: BlogPostRepository) {}
 
-  public async execute(tenantId: number, input: BlogPostInput): Promise<BlogPost> {
+  public async execute(tenantId: string, input: BlogPostInput): Promise<BlogPost> {
     return this.repository.create(tenantId, input);
   }
 }
@@ -37,8 +37,8 @@ export class UpdateBlogPostUseCase {
   constructor(private readonly repository: BlogPostRepository) {}
 
   public async execute(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: BlogPostUpdateInput,
   ): Promise<BlogPost> {
     return this.repository.update(tenantId, id, input);
@@ -48,7 +48,7 @@ export class UpdateBlogPostUseCase {
 export class DeleteBlogPostUseCase {
   constructor(private readonly repository: BlogPostRepository) {}
 
-  public async execute(tenantId: number, id: number): Promise<void> {
+  public async execute(tenantId: string, id: string): Promise<void> {
     await this.repository.delete(tenantId, id);
   }
 }

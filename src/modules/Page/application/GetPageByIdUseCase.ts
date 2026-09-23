@@ -5,7 +5,7 @@ import { PageIdNotFoundError } from '../domain/PageIdNotFoundError';
 export class GetPageByIdUseCase {
   constructor(private readonly pageRepository: PageRepository) {}
 
-  public async execute(tenantId: number, id: number): Promise<Page> {
+  public async execute(tenantId: string, id: string): Promise<Page> {
     const page = await this.pageRepository.findById(tenantId, id);
     if (page === null) {
       throw new PageIdNotFoundError(id);

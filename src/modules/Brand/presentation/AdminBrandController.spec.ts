@@ -7,7 +7,7 @@ import { UpdateBrandUseCase } from '../application/UpdateBrandUseCase';
 import { BrandSchema } from '../domain/BrandSchema';
 import { FONT_PAIRINGS } from '../domain/fontPairings';
 import type { BrandRepository } from '../domain/BrandRepository';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('AdminBrandController (HTTP)', () => {
   const buildRepository = (): jest.Mocked<BrandRepository> => ({
@@ -34,10 +34,12 @@ describe('AdminBrandController (HTTP)', () => {
     const repository = buildRepository();
     const app = buildApp(repository);
 
-    const response = await request(app).get('/api/admin/tenants/3/brand');
+    const response = await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/brand',
+    );
 
     expect(response.status).toBe(200);
-    expect(repository.find).toHaveBeenCalledWith(3);
+    expect(repository.find).toHaveBeenCalledWith('018f6f1a-0000-7000-8000-000000000003');
     expect(response.body).toEqual({ brand: BrandSchema.parse({}) });
   });
 
@@ -46,12 +48,12 @@ describe('AdminBrandController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .patch('/api/admin/tenants/3/brand')
+      .patch('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/brand')
       .send({ colorMode: 'dark' });
 
     expect(response.status).toBe(200);
     expect(repository.update).toHaveBeenCalledWith(
-      3,
+      '018f6f1a-0000-7000-8000-000000000003',
       expect.objectContaining({ colorMode: 'dark' }),
     );
   });
@@ -61,7 +63,7 @@ describe('AdminBrandController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .patch('/api/admin/tenants/3/brand')
+      .patch('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/brand')
       .send({ palette: { primary: 'rojo' } });
 
     expect(response.status).toBe(400);
@@ -74,7 +76,7 @@ describe('AdminBrandController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .patch('/api/admin/tenants/3/brand')
+      .patch('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/brand')
       .send({ unknownKey: true });
 
     expect(response.status).toBe(400);

@@ -1,14 +1,20 @@
 import { VerifyTokenUseCase } from './VerifyTokenUseCase';
 import { AdminUser } from '../domain/AdminUser';
+import { AccountDisabledError } from '../domain/AccountDisabledError';
 import type { AdminUserRepository } from '../domain/AdminUserRepository';
 import type { TokenService } from '../domain/TokenService';
-import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
+import { UnauthorizedError } from '@/shared/domain/UnauthorizedError';
 
 describe('VerifyTokenUseCase', () => {
-  const user = new AdminUser(1, 'johann@webbuilder.co', 'Johann', 'hashed-password');
+  const user = new AdminUser(
+    '018f6f1a-0000-7000-8000-000000000001',
+    'johann@webbuilder.co',
+    'Johann',
+    'hashed-password',
+  );
 
   const buildTokenService = (
-    payload: { adminUserId: number } | null,
+    payload: { adminUserId: string } | null,
   ): jest.Mocked<TokenService> => ({
     sign: jest.fn(),
     verify: jest.fn().mockReturnValue(payload),
@@ -19,16 +25,26 @@ describe('VerifyTokenUseCase', () => {
   ): jest.Mocked<AdminUserRepository> => ({
     findByEmail: jest.fn(),
     findById: jest.fn().mockResolvedValue(found),
+    findAll: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    setRole: jest.fn(),
+    setDisabled: jest.fn(),
+    setPassword: jest.fn(),
+    setTenants: jest.fn().mockResolvedValue(null),
   });
 
   it('resolves the admin user for a valid token', async () => {
-    const tokenService = buildTokenService({ adminUserId: 1 });
+    const tokenService = buildTokenService({
+      adminUserId: '018f6f1a-0000-7000-8000-000000000001',
+    });
     const repository = buildRepository(user);
     const useCase = new VerifyTokenUseCase(tokenService, repository);
 
     const result = await useCase.execute('valid-token');
 
-    expect(repository.findById).toHaveBeenCalledWith(1);
+    expect(repository.findById).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000001',
+    );
     expect(result).toBe(user);
   });
 
@@ -40,12 +56,34 @@ describe('VerifyTokenUseCase', () => {
   });
 
   it('throws UnauthorizedError when the token is valid but the user no longer exists', async () => {
-    const tokenService = buildTokenService({ adminUserId: 999 });
+    const tokenService = buildTokenService({
+      adminUserId: '018f6f1a-0000-7000-8000-000000000999',
+    });
     const repository = buildRepository(null);
     const useCase = new VerifyTokenUseCase(tokenService, repository);
 
     await expect(useCase.execute('stale-token')).rejects.toBeInstanceOf(
       UnauthorizedError,
+    );
+  });
+
+  it('rejects the token of a user that was disabled after signing in', async () => {
+    const disabled = new AdminUser(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'ex@webbuilder.co',
+      'Ex',
+      'hash',
+      'editor',
+      new Date('2026-01-01T00:00:00.000Z'),
+    );
+    const repository = buildRepository(disabled);
+    const useCase = new VerifyTokenUseCase(
+      buildTokenService({ adminUserId: '018f6f1a-0000-7000-8000-000000000001' }),
+      repository,
+    );
+
+    await expect(useCase.execute('token-vigente')).rejects.toBeInstanceOf(
+      AccountDisabledError,
     );
   });
 });

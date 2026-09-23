@@ -1,5 +1,5 @@
 import { PrismaBlogPostRepository } from './PrismaBlogPostRepository';
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 
 // La regla de visibilidad es una cláusula WHERE, así que lo que se puede comprobar sin base
 // de datos es que se aplique siempre y con la forma correcta. Que el SQL haga lo esperado
@@ -38,10 +38,18 @@ describe('PrismaBlogPostRepository (la regla de visibilidad)', () => {
   it('al buscar por slug exige que sea visible, no solo que exista', async () => {
     const { prisma, findFirst } = buildPrisma();
 
-    await new PrismaBlogPostRepository(prisma).findVisibleBySlug(9, 'hola', now);
+    await new PrismaBlogPostRepository(prisma).findVisibleBySlug(
+      '018f6f1a-0000-7000-8000-000000000009',
+      'hola',
+      now,
+    );
 
     expect(findFirst).toHaveBeenCalledWith({
-      where: { tenantId: 9, slug: 'hola', ...visibilidad },
+      where: {
+        tenantId: '018f6f1a-0000-7000-8000-000000000009',
+        slug: 'hola',
+        ...visibilidad,
+      },
     });
   });
 
@@ -49,25 +57,28 @@ describe('PrismaBlogPostRepository (la regla de visibilidad)', () => {
     const { prisma, findMany } = buildPrisma();
 
     await new PrismaBlogPostRepository(prisma).listVisible(
-      9,
+      '018f6f1a-0000-7000-8000-000000000009',
       { page: 1, perPage: 10 },
       now,
     );
 
-    expect(whereOf(findMany)).toEqual({ tenantId: 9, ...visibilidad });
+    expect(whereOf(findMany)).toEqual({
+      tenantId: '018f6f1a-0000-7000-8000-000000000009',
+      ...visibilidad,
+    });
   });
 
   it('el filtro por etiqueta se suma a la visibilidad, no la reemplaza', async () => {
     const { prisma, findMany } = buildPrisma();
 
     await new PrismaBlogPostRepository(prisma).listVisible(
-      9,
+      '018f6f1a-0000-7000-8000-000000000009',
       { page: 1, perPage: 10, tag: 'consejos' },
       now,
     );
 
     expect(whereOf(findMany)).toEqual({
-      tenantId: 9,
+      tenantId: '018f6f1a-0000-7000-8000-000000000009',
       ...visibilidad,
       tags: { has: 'consejos' },
     });
@@ -77,24 +88,28 @@ describe('PrismaBlogPostRepository (la regla de visibilidad)', () => {
     const { prisma, findMany } = buildPrisma();
 
     await new PrismaBlogPostRepository(prisma).listRelatedVisible(
-      9,
-      42,
+      '018f6f1a-0000-7000-8000-000000000009',
+      '018f6f1a-0000-7000-8000-000000000042',
       ['consejos'],
       now,
       3,
     );
 
     const where = whereOf(findMany);
-    expect(where.tenantId).toBe(9);
-    expect(where.id).toEqual({ not: 42 });
+    expect(where.tenantId).toBe('018f6f1a-0000-7000-8000-000000000009');
+    expect(where.id).toEqual({ not: '018f6f1a-0000-7000-8000-000000000042' });
     expect(JSON.stringify(where)).toContain('scheduled');
   });
 
   it('el listado de administración NO filtra por visibilidad: ahí se ven los borradores', async () => {
     const { prisma, findMany } = buildPrisma();
 
-    await new PrismaBlogPostRepository(prisma).findAllByTenant(9);
+    await new PrismaBlogPostRepository(prisma).findAllByTenant(
+      '018f6f1a-0000-7000-8000-000000000009',
+    );
 
-    expect(whereOf(findMany)).toEqual({ tenantId: 9 });
+    expect(whereOf(findMany)).toEqual({
+      tenantId: '018f6f1a-0000-7000-8000-000000000009',
+    });
   });
 });

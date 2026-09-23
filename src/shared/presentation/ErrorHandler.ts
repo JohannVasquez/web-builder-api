@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { NotFoundError } from '../domain/NotFoundError';
 import { BadRequestError } from '../domain/BadRequestError';
+import { ConflictError } from '../domain/ConflictError';
+import { UnprocessableEntityError } from '../domain/UnprocessableEntityError';
 import { PayloadTooLargeError } from '../domain/PayloadTooLargeError';
 import { UnauthorizedError } from '../domain/UnauthorizedError';
 import { ForbiddenError } from '../domain/ForbiddenError';
@@ -32,6 +34,19 @@ export class ErrorHandler {
 
     if (error instanceof BadRequestError) {
       res.status(400).json({ error: 'BadRequest', message: error.message });
+      return;
+    }
+
+    if (error instanceof ConflictError) {
+      if (error.retryAfterSeconds !== null) {
+        res.setHeader('Retry-After', String(error.retryAfterSeconds));
+      }
+      res.status(409).json({ error: 'Conflict', message: error.message });
+      return;
+    }
+
+    if (error instanceof UnprocessableEntityError) {
+      res.status(422).json({ error: 'UnprocessableEntity', message: error.message });
       return;
     }
 

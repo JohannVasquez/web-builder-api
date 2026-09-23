@@ -1,6 +1,6 @@
 import { PrismaBrandRepository } from './PrismaBrandRepository';
 import { BrandSchema } from '../domain/BrandSchema';
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 
 type MockedPrisma = PrismaClient & {
   tenantBrand: { findUnique: jest.Mock; upsert: jest.Mock };
@@ -18,7 +18,7 @@ describe('PrismaBrandRepository', () => {
       prisma.tenantBrand.findUnique.mockResolvedValue(null);
       const repository = new PrismaBrandRepository(prisma);
 
-      const brand = await repository.find(3);
+      const brand = await repository.find('018f6f1a-0000-7000-8000-000000000003');
 
       expect(brand).toEqual(BrandSchema.parse({}));
     });
@@ -34,7 +34,7 @@ describe('PrismaBrandRepository', () => {
       });
       const repository = new PrismaBrandRepository(prisma);
 
-      const brand = await repository.find(3);
+      const brand = await repository.find('018f6f1a-0000-7000-8000-000000000003');
 
       expect(brand).toEqual(BrandSchema.parse({}));
     });
@@ -55,7 +55,9 @@ describe('PrismaBrandRepository', () => {
       );
       const repository = new PrismaBrandRepository(prisma);
 
-      const brand = await repository.update(3, { colorMode: 'dark' });
+      const brand = await repository.update('018f6f1a-0000-7000-8000-000000000003', {
+        colorMode: 'dark',
+      });
 
       expect(brand.palette).toEqual({ primary: '#1d4ed8' });
       expect(brand.colorMode).toBe('dark');
@@ -75,7 +77,9 @@ describe('PrismaBrandRepository', () => {
       );
       const repository = new PrismaBrandRepository(prisma);
 
-      const brand = await repository.update(3, { palette: { primary: '#0f766e' } });
+      const brand = await repository.update('018f6f1a-0000-7000-8000-000000000003', {
+        palette: { primary: '#0f766e' },
+      });
 
       expect(brand.palette).toEqual({ primary: '#0f766e' });
     });

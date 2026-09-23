@@ -1,5 +1,5 @@
 import { ResolveBrandAssetsUseCase } from './ResolveBrandAssetsUseCase';
-import type { StorageProvider } from '../../FileStorage/domain/StorageProvider';
+import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { BrandSchema, type Brand } from '../domain/BrandSchema';
 
 describe('ResolveBrandAssetsUseCase', () => {

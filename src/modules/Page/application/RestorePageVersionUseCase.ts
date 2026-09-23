@@ -5,7 +5,7 @@ import {
 } from '../domain/PageVersionRepository';
 import { snapshotOf } from '../domain/PageSnapshot';
 import type { Page } from '../domain/Page';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 export class RestorePageVersionUseCase {
   constructor(
@@ -14,9 +14,9 @@ export class RestorePageVersionUseCase {
   ) {}
 
   public async execute(
-    tenantId: number,
-    pageId: number,
-    versionId: number,
+    tenantId: string,
+    pageId: string,
+    versionId: string,
     actor: PageVersionActor,
   ): Promise<Page> {
     const snapshot = await this.versionRepository.findSnapshot(

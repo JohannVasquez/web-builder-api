@@ -1,3 +1,4 @@
+import { isUuid } from '@/shared/domain/identifier';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { InvalidateTenantCacheUseCase } from '../application/InvalidateTenantCacheUseCase';
 
@@ -14,8 +15,8 @@ export const createCacheInvalidationMiddleware = (
       return;
     }
 
-    const tenantId = Number(req.params.tenantId);
-    if (!Number.isInteger(tenantId) || tenantId <= 0) {
+    const tenantId = typeof req.params.tenantId === 'string' ? req.params.tenantId : '';
+    if (!isUuid(tenantId)) {
       next();
       return;
     }

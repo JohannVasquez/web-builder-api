@@ -3,7 +3,7 @@ import type { BlogContent } from './BlogPostContentSchema';
 export type BlogPostStatus = 'draft' | 'published' | 'scheduled';
 
 export interface BlogPostPrimitives {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
   readonly title: string;
   readonly excerpt: string;
@@ -18,13 +18,14 @@ export interface BlogPostPrimitives {
   readonly ogImageKey: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly noindex: boolean;
 }
 
 // Sin variante "admin" vs "pública" como Page: acá la diferencia (URLs firmadas,
 // readingMinutes, related) se calcula en la capa application, no en toPrimitives.
 export class BlogPost {
   constructor(
-    public readonly id: number,
+    public readonly id: string,
     public readonly slug: string,
     public readonly title: string,
     public readonly excerpt: string,
@@ -39,6 +40,7 @@ export class BlogPost {
     public readonly ogImageKey: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly noindex: boolean = false,
   ) {}
 
   public toPrimitives(): BlogPostPrimitives {
@@ -58,6 +60,7 @@ export class BlogPost {
       ogImageKey: this.ogImageKey,
       createdAt: this.createdAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
+      noindex: this.noindex,
     };
   }
 }

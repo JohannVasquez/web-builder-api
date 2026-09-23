@@ -39,9 +39,15 @@ const envSchema = z.strictObject({
   // fábrica" que alguien olvide cambiar en producción.
   AUTH_JWT_SECRET: z.string().min(32),
   AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(168),
+  // Base del enlace que se manda por correo para recuperar la contraseña (SPEC 9.1).
+  ADMIN_PANEL_URL: z.string().min(1).default('http://localhost:3000/admin'),
   // Revalidación de la caché del frontend (SPEC 0.2); vacía = apagada.
   WEBAPP_REVALIDATE_URL: z.string().default(''),
   REVALIDATE_SECRET: z.string().default(''),
+  // Dominio de la plataforma: sus subdominios se dan por verificados (SPEC 9.3).
+  PLATFORM_DOMAIN: z.string().min(1).default('localhost'),
+  // A dónde tiene que apuntar el DNS del dominio propio de un cliente.
+  PLATFORM_SITE_TARGET: z.string().min(1).default('sitios.webbuilder.co'),
   // Catálogo de bloques y estilos: vive en el frontend, la API solo lo reexpone (SPEC 10.5).
   WEBAPP_CATALOG_URL: z.string().default(''),
 });
@@ -73,9 +79,12 @@ export class EnvConfig {
       MAX_FILE_SIZE_MB: source.MAX_FILE_SIZE_MB,
       AUTH_JWT_SECRET: source.AUTH_JWT_SECRET,
       AUTH_TOKEN_TTL_HOURS: source.AUTH_TOKEN_TTL_HOURS,
+      ADMIN_PANEL_URL: source.ADMIN_PANEL_URL,
       WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
       REVALIDATE_SECRET: source.REVALIDATE_SECRET,
       WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,
+      PLATFORM_DOMAIN: source.PLATFORM_DOMAIN,
+      PLATFORM_SITE_TARGET: source.PLATFORM_SITE_TARGET,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

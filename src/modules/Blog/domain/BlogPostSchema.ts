@@ -29,6 +29,8 @@ export const BlogPostInputSchema = z.strictObject({
   seoTitle: seoTitleSchema,
   seoDescription: seoDescriptionSchema,
   ogImageKey: imageKeySchema,
+  // Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  noindex: z.boolean().default(false),
 });
 
 export type BlogPostInput = z.infer<typeof BlogPostInputSchema>;
@@ -48,6 +50,7 @@ export const BlogPostUpdateSchema = z.strictObject({
   seoTitle: seoTitleSchema,
   seoDescription: seoDescriptionSchema,
   ogImageKey: imageKeySchema,
+  noindex: z.boolean().optional(),
 });
 
 export type BlogPostUpdateInput = z.infer<typeof BlogPostUpdateSchema>;

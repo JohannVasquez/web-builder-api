@@ -6,8 +6,8 @@ export class UpdatePageUseCase {
   constructor(private readonly pageRepository: PageRepository) {}
 
   public async execute(
-    tenantId: number,
-    id: number,
+    tenantId: string,
+    id: string,
     input: PageUpdateInput,
   ): Promise<Page> {
     return this.pageRepository.update(tenantId, id, input);

@@ -3,8 +3,8 @@ import { SiteContentSource } from '../domain/SiteContentSource';
 import { EMPTY_SITE_CONTENT, type SiteContent } from '../domain/SiteContent';
 import type { CreateTenantInput } from '../domain/TenantSchema';
 import type { Tenant } from '../domain/Tenant';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 export class CreateTenantUseCase {
   constructor(

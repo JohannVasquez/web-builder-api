@@ -1,11 +1,11 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import type { GetBrandUseCase } from '../application/GetBrandUseCase';
 import type { UpdateBrandUseCase } from '../application/UpdateBrandUseCase';
 import { BrandUpdateSchema } from '../domain/BrandSchema';
 import { FONT_PAIRINGS } from '../domain/fontPairings';
+import { idSchema } from '@/shared/domain/identifier';
 
-const TenantIdSchema = z.coerce.number().int().positive();
+const TenantIdSchema = idSchema;
 
 export class AdminBrandController {
   constructor(

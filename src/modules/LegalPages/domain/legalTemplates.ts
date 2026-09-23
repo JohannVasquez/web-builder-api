@@ -1,4 +1,4 @@
-export type LegalPageKind = 'privacidad' | 'terminos';
+export type LegalPageKind = 'privacidad' | 'terminos' | 'compra';
 
 export interface LegalPageTemplate {
   readonly kind: LegalPageKind;
@@ -106,6 +106,59 @@ conocida por los tribunales competentes de Chile.
 Podemos actualizar estos términos. La versión vigente es siempre la publicada
 en esta página.`;
 
+// Base para una tienda en Chile. Nace despublicada: cada tienda la revisa (idealmente con
+// asesoría legal) antes de publicarla, porque plazos y excepciones dependen de lo que vende.
+const PURCHASE = `## Quién vende
+
+{{siteName}} es quien vende los productos de esta tienda. Si tienes dudas sobre tu
+compra, escríbenos a {{contactEmail}} o llámanos al {{contactPhone}}. Dirección:
+{{address}}.
+
+## Precios y disponibilidad
+
+Los precios están expresados en pesos chilenos e incluyen IVA. El precio que pagas
+es el que aparece al confirmar tu compra. Los productos están sujetos a
+disponibilidad: si alguno se agota antes de que confirmemos tu pedido, te lo
+avisaremos y te devolveremos lo pagado por ese producto.
+
+## Cómo se forma el contrato
+
+Tu compra queda confirmada cuando recibes el correo con el número de pedido y se
+registra el pago. Al comprar declaras haber leído y aceptado estos términos.
+
+## Pago
+
+Aceptamos los medios de pago que se muestran al finalizar la compra. Si pagas por
+transferencia, preparamos tu pedido cuando recibimos el pago.
+
+## Despacho y retiro
+
+Los plazos y costos de despacho se informan antes de pagar, según la forma de envío
+que elijas. Si eliges retiro, te avisaremos cuando tu pedido esté listo.
+
+## Derecho a retracto
+
+De acuerdo con la Ley 19.496 sobre Protección de los Derechos de los Consumidores,
+en las compras a distancia puedes retractarte dentro de los 10 días siguientes a la
+recepción del producto, salvo las excepciones que la ley permite (por ejemplo,
+productos perecibles o hechos a tu medida). El producto debe devolverse sin uso y
+con su embalaje original. Te devolveremos lo pagado una vez recibido.
+
+## Garantía legal
+
+Si un producto nuevo presenta una falla, dentro del plazo de garantía legal puedes
+elegir entre su reparación gratuita, su cambio o la devolución de lo pagado.
+
+## Cambios y devoluciones
+
+Para ejercer tu derecho a retracto, tu garantía o solicitar un cambio, escríbenos a
+{{contactEmail}} indicando tu número de pedido.
+
+## Cambios a estos términos
+
+Podemos actualizar estos términos. A cada compra se le aplican los vigentes al
+momento de confirmarla.`;
+
 export const LEGAL_PAGE_TEMPLATES: readonly LegalPageTemplate[] = [
   {
     kind: 'privacidad',
@@ -120,6 +173,13 @@ export const LEGAL_PAGE_TEMPLATES: readonly LegalPageTemplate[] = [
     title: 'Términos y condiciones',
     description: 'Las condiciones de uso de este sitio.',
     body: TERMS,
+  },
+  {
+    kind: 'compra',
+    slug: 'terminos-de-compra',
+    title: 'Términos y condiciones de compra',
+    description: 'Precios, despacho, retracto, garantía y devoluciones de la tienda.',
+    body: PURCHASE,
   },
 ];
 

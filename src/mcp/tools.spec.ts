@@ -34,14 +34,14 @@ describe('herramientas del MCP', () => {
     const api = buildApi();
 
     await find(api, 'create_page').handler({
-      tenantId: 3,
+      tenantId: '018f6f1a-0000-7000-8000-000000000003',
       slug: 'nosotros',
       title: 'Nosotros',
     });
 
     expect(api.request).toHaveBeenCalledWith(
       'POST',
-      '/api/admin/tenants/3/pages',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages',
       expect.objectContaining({ isPublished: false }),
     );
   });
@@ -50,7 +50,7 @@ describe('herramientas del MCP', () => {
     const api = buildApi();
 
     await find(api, 'create_page').handler({
-      tenantId: 3,
+      tenantId: '018f6f1a-0000-7000-8000-000000000003',
       slug: 'x',
       title: 'X',
       isPublished: true,
@@ -58,7 +58,7 @@ describe('herramientas del MCP', () => {
 
     expect(api.request).toHaveBeenCalledWith(
       'POST',
-      '/api/admin/tenants/3/pages',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages',
       expect.objectContaining({ isPublished: true }),
     );
   });
@@ -67,11 +67,20 @@ describe('herramientas del MCP', () => {
     const api = buildApi();
     for (const name of ['delete_page', 'delete_block']) {
       const schema = z.object(find(api, name).inputSchema);
-      expect(schema.safeParse({ tenantId: 1, pageId: 1, sectionId: 1 }).success).toBe(
-        false,
-      );
       expect(
-        schema.safeParse({ tenantId: 1, pageId: 1, sectionId: 1, confirm: true }).success,
+        schema.safeParse({
+          tenantId: '018f6f1a-0000-7000-8000-000000000001',
+          pageId: '018f6f1a-0000-7000-8000-000000000001',
+          sectionId: '018f6f1a-0000-7000-8000-000000000001',
+        }).success,
+      ).toBe(false);
+      expect(
+        schema.safeParse({
+          tenantId: '018f6f1a-0000-7000-8000-000000000001',
+          pageId: '018f6f1a-0000-7000-8000-000000000001',
+          sectionId: '018f6f1a-0000-7000-8000-000000000001',
+          confirm: true,
+        }).success,
       ).toBe(true);
     }
   });
@@ -83,6 +92,7 @@ describe('herramientas del MCP', () => {
       .map((tool) => tool.name);
     expect(withConfirm.sort()).toEqual([
       'delete_block',
+      'delete_coupon',
       'delete_page',
       'delete_post',
       'delete_product',
@@ -92,11 +102,14 @@ describe('herramientas del MCP', () => {
   it('publicar es una acción separada de editar', async () => {
     const api = buildApi();
 
-    await find(api, 'publish_page').handler({ tenantId: 3, pageId: 7 });
+    await find(api, 'publish_page').handler({
+      tenantId: '018f6f1a-0000-7000-8000-000000000003',
+      pageId: '018f6f1a-0000-7000-8000-000000000007',
+    });
 
     expect(api.request).toHaveBeenCalledWith(
       'POST',
-      '/api/admin/tenants/3/pages/7/publish',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000007/publish',
     );
   });
 
@@ -104,14 +117,14 @@ describe('herramientas del MCP', () => {
     const api = buildApi();
 
     await find(api, 'restore_page_version').handler({
-      tenantId: 3,
-      pageId: 7,
-      versionId: 12,
+      tenantId: '018f6f1a-0000-7000-8000-000000000003',
+      pageId: '018f6f1a-0000-7000-8000-000000000007',
+      versionId: '018f6f1a-0000-7000-8000-000000000012',
     });
 
     expect(api.request).toHaveBeenCalledWith(
       'POST',
-      '/api/admin/tenants/3/pages/7/versions/12/restore',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000007/versions/018f6f1a-0000-7000-8000-000000000012/restore',
     );
   });
 
@@ -119,15 +132,15 @@ describe('herramientas del MCP', () => {
     const api = buildApi();
 
     await find(api, 'update_block').handler({
-      tenantId: 3,
-      pageId: 7,
-      sectionId: 12,
+      tenantId: '018f6f1a-0000-7000-8000-000000000003',
+      pageId: '018f6f1a-0000-7000-8000-000000000007',
+      sectionId: '018f6f1a-0000-7000-8000-000000000012',
       props: { title: 'Hola' },
     });
 
     expect(api.request).toHaveBeenCalledWith(
       'PATCH',
-      '/api/admin/tenants/3/pages/7/sections/12',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000007/sections/018f6f1a-0000-7000-8000-000000000012',
       { props: { title: 'Hola' } },
     );
   });
@@ -143,11 +156,17 @@ describe('herramientas del MCP', () => {
   it('avisa si el cliente pedido no está al alcance de la clave', async () => {
     const api = buildApi();
     api.request.mockResolvedValue({
-      tenants: [{ id: 2, slug: 'acme', primaryDomain: null }],
+      tenants: [
+        { id: '018f6f1a-0000-7000-8000-000000000002', slug: 'acme', primaryDomain: null },
+      ],
     });
 
-    await expect(find(api, 'get_preview_url').handler({ tenantId: 9 })).rejects.toThrow(
-      /No existe un cliente con id 9 a tu alcance/,
+    await expect(
+      find(api, 'get_preview_url').handler({
+        tenantId: '018f6f1a-0000-7000-8000-000000000009',
+      }),
+    ).rejects.toThrow(
+      /No existe un cliente con id 018f6f1a-0000-7000-8000-000000000009 a tu alcance/,
     );
   });
 

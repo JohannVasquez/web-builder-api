@@ -1,8 +1,8 @@
 import { DeleteMediaUseCase } from './DeleteMediaUseCase';
 import type { StorageAssetRepository } from '../domain/StorageAssetRepository';
 import type { StorageProvider } from '../domain/StorageProvider';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 
 describe('DeleteMediaUseCase', () => {
   const asset = {
@@ -32,7 +32,11 @@ describe('DeleteMediaUseCase', () => {
     const repository = buildRepository();
     const provider = buildProvider();
 
-    await new DeleteMediaUseCase(repository, provider).execute(9, 'a.png', false);
+    await new DeleteMediaUseCase(repository, provider).execute(
+      '018f6f1a-0000-7000-8000-000000000009',
+      'a.png',
+      false,
+    );
 
     expect(provider.delete).toHaveBeenCalledWith('a.png');
     expect(repository.remove).toHaveBeenCalledWith('a.png');
@@ -45,7 +49,11 @@ describe('DeleteMediaUseCase', () => {
     const provider = buildProvider();
 
     await expect(
-      new DeleteMediaUseCase(repository, provider).execute(9, 'a.png', false),
+      new DeleteMediaUseCase(repository, provider).execute(
+        '018f6f1a-0000-7000-8000-000000000009',
+        'a.png',
+        false,
+      ),
     ).rejects.toThrow(/Página "Inicio"/);
     expect(provider.delete).not.toHaveBeenCalled();
   });
@@ -57,7 +65,7 @@ describe('DeleteMediaUseCase', () => {
     const provider = buildProvider();
 
     const result = await new DeleteMediaUseCase(repository, provider).execute(
-      9,
+      '018f6f1a-0000-7000-8000-000000000009',
       'a.png',
       true,
     );
@@ -71,7 +79,11 @@ describe('DeleteMediaUseCase', () => {
     repository.findKey.mockResolvedValue(null);
 
     await expect(
-      new DeleteMediaUseCase(repository, buildProvider()).execute(9, 'ajena.png', true),
+      new DeleteMediaUseCase(repository, buildProvider()).execute(
+        '018f6f1a-0000-7000-8000-000000000009',
+        'ajena.png',
+        true,
+      ),
     ).rejects.toThrow(NotFoundError);
   });
 
@@ -79,7 +91,11 @@ describe('DeleteMediaUseCase', () => {
     const repository = buildRepository([{ kind: 'page', label: 'Inicio' }]);
 
     await expect(
-      new DeleteMediaUseCase(repository, buildProvider()).execute(9, 'a.png', false),
+      new DeleteMediaUseCase(repository, buildProvider()).execute(
+        '018f6f1a-0000-7000-8000-000000000009',
+        'a.png',
+        false,
+      ),
     ).rejects.toThrow(BadRequestError);
   });
 });

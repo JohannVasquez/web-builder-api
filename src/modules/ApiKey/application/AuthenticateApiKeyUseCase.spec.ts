@@ -1,21 +1,21 @@
 import { AuthenticateApiKeyUseCase } from './AuthenticateApiKeyUseCase';
 import { ApiKey } from '../domain/ApiKey';
 import { ApiKeyRepository } from '../domain/ApiKeyRepository';
-import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
+import { UnauthorizedError } from '@/shared/domain/UnauthorizedError';
 
 describe('AuthenticateApiKeyUseCase', () => {
   const buildApiKey = (
     overrides: { revokedAt?: Date | null; expiresAt?: Date | null } = {},
   ): ApiKey =>
     new ApiKey(
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       'Agente MCP',
       'abcdef',
       'write',
       true,
       [],
       120,
-      1,
+      '018f6f1a-0000-7000-8000-000000000001',
       overrides.expiresAt ?? null,
       null,
       overrides.revokedAt ?? null,
@@ -66,8 +66,9 @@ describe('AuthenticateApiKeyUseCase', () => {
 
     expect(actor).toEqual({
       type: 'apiKey',
-      id: 1,
+      id: '018f6f1a-0000-7000-8000-000000000001',
       name: 'Agente MCP',
+      role: null,
       permission: 'write',
       tenantScope: null,
       rateLimitPerMinute: 120,
@@ -81,7 +82,9 @@ describe('AuthenticateApiKeyUseCase', () => {
 
     await useCase.execute('wb_token');
 
-    expect(repository.touchLastUsed).toHaveBeenCalledWith(1);
+    expect(repository.touchLastUsed).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000001',
+    );
   });
 
   it('still authenticates when touching lastUsedAt fails', async () => {

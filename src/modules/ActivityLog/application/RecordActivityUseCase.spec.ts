@@ -4,14 +4,15 @@ import type { ActivityEntryInput } from '../domain/ActivityEntry';
 
 describe('RecordActivityUseCase', () => {
   const buildEntry = (): ActivityEntryInput => ({
-    tenantId: 3,
+    tenantId: '018f6f1a-0000-7000-8000-000000000003',
     actorType: 'admin',
-    actorId: 1,
+    actorId: '018f6f1a-0000-7000-8000-000000000001',
     actorName: 'Admin',
     action: 'page.update',
     entityType: 'page',
     entityId: '5',
-    summary: 'PATCH /api/admin/tenants/3/pages/5',
+    summary:
+      'PATCH /api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005',
   });
 
   const buildRepository = (): jest.Mocked<ActivityLogRepository> => ({

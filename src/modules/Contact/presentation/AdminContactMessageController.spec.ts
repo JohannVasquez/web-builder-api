@@ -6,14 +6,14 @@ import { ListContactMessagesUseCase } from '../application/ListContactMessagesUs
 import { MarkContactMessageReadUseCase } from '../application/MarkContactMessageReadUseCase';
 import type { ContactMessagePrimitives } from '../domain/ContactMessage';
 import type { ContactMessageRepository } from '../domain/ContactMessageRepository';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('AdminContactMessageController (HTTP)', () => {
   const buildMessage = (
     overrides: Partial<ContactMessagePrimitives> = {},
   ): ContactMessagePrimitives => ({
-    id: 1,
-    tenantId: 3,
+    id: '018f6f1a-0000-7000-8000-000000000001',
+    tenantId: '018f6f1a-0000-7000-8000-000000000003',
     name: 'Johann Vasquez',
     email: 'johann@example.com',
     phone: null,
@@ -51,11 +51,13 @@ describe('AdminContactMessageController (HTTP)', () => {
     const repository = buildRepository();
     const app = buildApp(repository);
 
-    const response = await request(app).get('/api/admin/tenants/3/messages');
+    const response = await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages',
+    );
 
     expect(response.status).toBe(200);
     expect(repository.search).toHaveBeenCalledWith({
-      tenantId: 3,
+      tenantId: '018f6f1a-0000-7000-8000-000000000003',
       unreadOnly: false,
       limit: 50,
       offset: 0,
@@ -68,12 +70,12 @@ describe('AdminContactMessageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app).get(
-      '/api/admin/tenants/3/messages?limit=10&offset=5',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages?limit=10&offset=5',
     );
 
     expect(response.status).toBe(200);
     expect(repository.search).toHaveBeenCalledWith({
-      tenantId: 3,
+      tenantId: '018f6f1a-0000-7000-8000-000000000003',
       unreadOnly: false,
       limit: 10,
       offset: 5,
@@ -85,7 +87,7 @@ describe('AdminContactMessageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app).get(
-      '/api/admin/tenants/3/messages?unreadOnly=true',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages?unreadOnly=true',
     );
 
     expect(response.status).toBe(200);
@@ -102,11 +104,17 @@ describe('AdminContactMessageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .patch('/api/admin/tenants/3/messages/1')
+      .patch(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages/018f6f1a-0000-7000-8000-000000000001',
+      )
       .send({ read: true });
 
     expect(response.status).toBe(200);
-    expect(repository.markRead).toHaveBeenCalledWith(3, 1, true);
+    expect(repository.markRead).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000003',
+      '018f6f1a-0000-7000-8000-000000000001',
+      true,
+    );
     expect((response.body as { message: ContactMessagePrimitives }).message.readAt).toBe(
       '2024-02-01T00:00:00.000Z',
     );
@@ -117,7 +125,9 @@ describe('AdminContactMessageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .patch('/api/admin/tenants/3/messages/1')
+      .patch(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages/018f6f1a-0000-7000-8000-000000000001',
+      )
       .send({ read: true, isSpam: true });
 
     expect(response.status).toBe(400);
@@ -130,7 +140,9 @@ describe('AdminContactMessageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .patch('/api/admin/tenants/3/messages/999')
+      .patch(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages/018f6f1a-0000-7000-8000-000000000999',
+      )
       .send({ read: true });
 
     expect(response.status).toBe(404);
@@ -140,7 +152,9 @@ describe('AdminContactMessageController (HTTP)', () => {
     const repository = buildRepository();
     const app = buildApp(repository);
 
-    const response = await request(app).get('/api/admin/tenants/3/messages/export.csv');
+    const response = await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages/export.csv',
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toContain('text/csv');
@@ -158,7 +172,9 @@ describe('AdminContactMessageController (HTTP)', () => {
     });
     const app = buildApp(repository);
 
-    const response = await request(app).get('/api/admin/tenants/3/messages/export.csv');
+    const response = await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/messages/export.csv',
+    );
 
     const [, row] = response.text.split('\n');
     expect(row).toBe(

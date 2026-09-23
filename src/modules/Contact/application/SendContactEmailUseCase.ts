@@ -1,4 +1,4 @@
-import type { GlobalSettingsRepository } from '../../GlobalSettings/domain/GlobalSettingsRepository';
+import type { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
 import { ContactRequest } from '../domain/ContactRequest';
 import type { ContactMessageRepository } from '../domain/ContactMessageRepository';
 import type { ContactInput } from '../domain/ContactSchema';
@@ -18,7 +18,7 @@ export class SendContactEmailUseCase {
 
   public async execute(
     input: ContactInput,
-    tenantId: number,
+    tenantId: string,
   ): Promise<SendContactResult> {
     const contact = ContactRequest.fromInput(input);
 

@@ -7,8 +7,8 @@ export class ListPageVersionsUseCase {
   constructor(private readonly repository: PageVersionRepository) {}
 
   public async execute(
-    tenantId: number,
-    pageId: number,
+    tenantId: string,
+    pageId: string,
     limit: number,
   ): Promise<PageVersionPrimitives[]> {
     return this.repository.list(tenantId, pageId, limit);

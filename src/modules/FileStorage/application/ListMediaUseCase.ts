@@ -14,7 +14,7 @@ export class ListMediaUseCase {
     private readonly storageProvider: StorageProvider,
   ) {}
 
-  public async execute(tenantId: number, search: string): Promise<MediaAssetWithUrl[]> {
+  public async execute(tenantId: string, search: string): Promise<MediaAssetWithUrl[]> {
     const assets = await this.repository.findByTenant(tenantId, search);
     // El bucket es privado: cada lectura firma su propia URL, igual que al armar una página.
     return Promise.all(

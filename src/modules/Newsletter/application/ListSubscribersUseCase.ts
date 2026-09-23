@@ -5,7 +5,7 @@ export class ListSubscribersUseCase {
   constructor(private readonly repository: NewsletterRepository) {}
 
   public async execute(
-    tenantId: number,
+    tenantId: string,
     limit: number,
     offset: number,
   ): Promise<{ subscribers: NewsletterSubscriber[]; total: number }> {

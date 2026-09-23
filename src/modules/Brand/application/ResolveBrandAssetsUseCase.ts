@@ -1,4 +1,4 @@
-import { StorageProvider } from '../../FileStorage/domain/StorageProvider';
+import { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import type { Brand, BrandAssets } from '../domain/BrandSchema';
 
 export interface ResolvedBrand extends Omit<Brand, 'assets'> {

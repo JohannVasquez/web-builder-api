@@ -14,13 +14,14 @@ import {
   CategoryUpdateSchema,
 } from '../domain/ProductSchema';
 import { ProductNotFoundError } from '../domain/ProductNotFoundError';
+import { idSchema } from '@/shared/domain/identifier';
 
-const tenantParams = z.object({ tenantId: z.coerce.number().int().positive() });
+const tenantParams = z.object({ tenantId: idSchema });
 const productParams = tenantParams.extend({
-  productId: z.coerce.number().int().positive(),
+  productId: idSchema,
 });
 const categoryParams = tenantParams.extend({
-  categoryId: z.coerce.number().int().positive(),
+  categoryId: idSchema,
 });
 
 export class AdminStoreController {

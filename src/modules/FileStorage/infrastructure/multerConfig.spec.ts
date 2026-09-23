@@ -1,7 +1,7 @@
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { createFileUploadMiddleware } from './multerConfig';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('createFileUploadMiddleware', () => {
   const maxFileSizeBytes = 1024;

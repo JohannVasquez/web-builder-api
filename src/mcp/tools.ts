@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ApiClient } from './ApiClient';
+import { idSchema } from '../shared/domain/identifier';
 
 export interface McpTool {
   readonly name: string;
@@ -9,8 +10,8 @@ export interface McpTool {
   readonly handler: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
-const tenantId = z.number().int().positive().describe('Id del cliente (tenant)');
-const pageId = z.number().int().positive().describe('Id de la página');
+const tenantId = idSchema.describe('Id del cliente (tenant)');
+const pageId = idSchema.describe('Id de la página');
 
 // Las acciones destructivas exigen esta confirmación en la MISMA solicitud (Spec 10.4):
 // un agente no puede borrar "de pasada" creyendo que era reversible.
@@ -42,7 +43,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Devuelve todo el sitio de un cliente: páginas con sus bloques, menú de navegación, identidad de marca y datos del negocio. Es lo primero que conviene pedir antes de editar nada.',
       { tenantId },
       async (args) => {
-        const id = args.tenantId as number;
+        const id = args.tenantId as string;
         const [pages, brand] = await Promise.all([
           api.request(`GET`, `/api/admin/tenants/${id}/pages`),
           api.request(`GET`, `/api/admin/tenants/${id}/brand`),
@@ -109,6 +110,13 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           .boolean()
           .optional()
           .describe('Por defecto false: el trabajo de un agente queda en borrador'),
+        visualStyle: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Estilo visual propio de esta página (ver get_catalog para los ids, ej. "claymorphism", "liquid-glass"); null = hereda el del sitio',
+          ),
       },
       (args) => {
         const { tenantId: id, ...body } = args;
@@ -122,13 +130,20 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     tool(
       'update_page',
       'Editar una página',
-      'Cambia el título, la dirección o la descripción de una página. Para publicarla usa publish_page.',
+      'Cambia el título, la dirección, la descripción o el estilo visual de una página. Para que el cambio se vea en el sitio usa publish_page.',
       {
         tenantId,
         pageId,
         slug: z.string().optional(),
         title: z.string().optional(),
         description: z.string().nullable().optional(),
+        visualStyle: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Estilo visual propio de esta página (ver get_catalog para los ids, ej. "claymorphism", "liquid-glass"); null = hereda el del sitio',
+          ),
       },
       (args) => {
         const { tenantId: id, pageId: page, ...body } = args;
@@ -183,7 +198,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'restore_page_version',
       'Restaurar una versión anterior',
       'Devuelve el borrador de la página a una versión anterior. No publica: publicar sigue siendo una acción aparte. Restaurar crea una versión nueva, así que también se puede deshacer.',
-      { tenantId, pageId, versionId: z.number().int().positive() },
+      { tenantId, pageId, versionId: idSchema },
       (args) =>
         api.request(
           'POST',
@@ -244,11 +259,15 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       {
         tenantId,
         pageId,
-        sectionId: z.number().int().positive(),
+        sectionId: idSchema,
         type: z.string().optional(),
         position: z.number().int().min(0).optional(),
         props: z.record(z.string(), z.unknown()).optional(),
         anchor: z.string().nullable().optional(),
+        isHidden: z
+          .boolean()
+          .optional()
+          .describe('Oculto: sigue en el borrador y en el panel, pero no sale al sitio'),
       },
       (args) => {
         const { tenantId: id, pageId: page, sectionId, ...body } = args;
@@ -261,10 +280,22 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'duplicate_block',
+      'Duplicar un bloque',
+      'Copia un bloque justo debajo del original, con el mismo contenido. El ancla no se copia: dos bloques con la misma haría que un enlace del menú apuntara a cualquiera de los dos.',
+      { tenantId, pageId, sectionId: idSchema },
+      (args) =>
+        api.request(
+          'POST',
+          `/api/admin/tenants/${String(args.tenantId)}/pages/${String(args.pageId)}/sections/${String(args.sectionId)}/duplicate`,
+        ),
+    ),
+
+    tool(
       'delete_block',
       'Eliminar un bloque',
       'Borra un bloque de una página. Requiere permiso "full" y confirmación explícita.',
-      { tenantId, pageId, sectionId: z.number().int().positive(), confirm },
+      { tenantId, pageId, sectionId: idSchema, confirm },
       (args) =>
         api.request(
           'DELETE',
@@ -279,9 +310,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       {
         tenantId,
         pageId,
-        sectionIds: z
-          .array(z.number().int().positive())
-          .describe('Ids en el orden final'),
+        sectionIds: z.array(idSchema).describe('Ids en el orden final'),
       },
       (args) =>
         api.request(
@@ -297,7 +326,11 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Crea la política de privacidad o los términos y condiciones a partir de una plantilla, ya rellenada con los datos del negocio. Nace despublicada: un texto legal lo revisa una persona antes de publicarlo.',
       {
         tenantId,
-        kind: z.enum(['privacidad', 'terminos']).describe('Qué documento crear'),
+        kind: z
+          .enum(['privacidad', 'terminos', 'compra'])
+          .describe(
+            'Qué documento crear: "compra" son los términos y condiciones de la tienda',
+          ),
       },
       (args) =>
         api.request('POST', `/api/admin/tenants/${String(args.tenantId)}/legal-pages`, {
@@ -425,7 +458,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Cambia una publicación existente. Lo que no envíes no se toca.',
       {
         tenantId,
-        postId: z.number().int().positive(),
+        postId: idSchema,
         slug: z.string().optional(),
         title: z.string().optional(),
         excerpt: z.string().optional(),
@@ -450,7 +483,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'delete_post',
       'Eliminar una publicación',
       'Borra una publicación del blog. Requiere permiso "full" y confirmación explícita.',
-      { tenantId, postId: z.number().int().positive(), confirm },
+      { tenantId, postId: idSchema, confirm },
       (args) =>
         api.request(
           'DELETE',
@@ -492,7 +525,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           .array(z.object({ name: z.string(), options: z.array(z.string()) }))
           .optional()
           .describe('Ej. [{ name: "Talla", options: ["S","M","L"] }]'),
-        categoryId: z.number().int().positive().nullable().optional(),
+        categoryId: idSchema.nullable().optional(),
         featured: z.boolean().optional().describe('Aparece en "productos destacados"'),
         isActive: z
           .boolean()
@@ -511,7 +544,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Cambia un producto existente. Lo que no envíes no se toca.',
       {
         tenantId,
-        productId: z.number().int().positive(),
+        productId: idSchema,
         name: z.string().optional(),
         description: z.string().optional(),
         priceCents: z.number().int().min(0).optional(),
@@ -519,6 +552,13 @@ export const buildTools = (api: ApiClient): McpTool[] => {
         imageKeys: z.array(z.string()).optional(),
         featured: z.boolean().optional(),
         isActive: z.boolean().optional(),
+        stock: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('Unidades disponibles; null = no se controla stock'),
       },
       (args) => {
         const { tenantId: id, productId, ...body } = args;
@@ -534,11 +574,293 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'delete_product',
       'Eliminar un producto',
       'Borra un producto del catálogo. Requiere permiso "full" y confirmación explícita. Si solo quieres dejar de venderlo, usa update_product con isActive: false.',
-      { tenantId, productId: z.number().int().positive(), confirm },
+      { tenantId, productId: idSchema, confirm },
       (args) =>
         api.request(
           'DELETE',
           `/api/admin/tenants/${String(args.tenantId)}/products/${String(args.productId)}`,
+        ),
+    ),
+
+    tool(
+      'get_navigation',
+      'Ver el menú del sitio',
+      'Devuelve los enlaces del menú de navegación de un cliente, en orden.',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/navigation`),
+    ),
+
+    tool(
+      'set_navigation',
+      'Definir el menú del sitio',
+      'Reemplaza el menú completo: el orden del arreglo es el orden del menú. Un `href` apunta a una página propia ("/nosotros"), al ancla de una sección ("/servicios#precios") o a una URL completa. Manda siempre el menú entero, no solo lo que cambia.',
+      {
+        tenantId,
+        links: z
+          .array(z.object({ label: z.string(), href: z.string() }))
+          .describe(
+            'Ej. [{ label: "Inicio", href: "/" }, { label: "Contacto", href: "/contacto" }]',
+          ),
+      },
+      (args) =>
+        api.request('PUT', `/api/admin/tenants/${String(args.tenantId)}/navigation`, {
+          links: args.links,
+        }),
+    ),
+
+    tool(
+      'set_site_status',
+      'Pausar o reactivar un sitio',
+      'Cambia el estado del sitio de un cliente. "active" lo sirve normal; "paused" y "building" muestran una página de mantención sin borrar nada. Reactivarlo lo devuelve tal cual estaba.',
+      { tenantId, status: z.enum(['active', 'paused', 'building']) },
+      (args) =>
+        api.request('PATCH', `/api/admin/tenants/${String(args.tenantId)}/status`, {
+          status: args.status,
+        }),
+    ),
+
+    tool(
+      'list_domains',
+      'Ver los dominios de un cliente',
+      'Lista los dominios del cliente con si están verificados, cuál es el principal y los registros DNS que hay que crear.',
+      { tenantId },
+      (args) => api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/domains`),
+    ),
+
+    tool(
+      'add_domain',
+      'Agregar un dominio',
+      'Agrega un dominio propio del cliente y devuelve los registros DNS que tiene que crear. Un subdominio de la plataforma queda verificado solo; un dominio propio nace sin verificar y no resuelve tráfico hasta que se verifica.',
+      {
+        tenantId,
+        domain: z.string().describe('Sin protocolo ni puerto, ej. mitienda.cl'),
+      },
+      (args) =>
+        api.request('POST', `/api/admin/tenants/${String(args.tenantId)}/domains`, {
+          domain: args.domain,
+        }),
+    ),
+
+    tool(
+      'verify_domain',
+      'Verificar un dominio',
+      'Consulta el DNS y, si encuentra el registro TXT que corresponde, marca el dominio como verificado. Los cambios de DNS pueden demorar horas en propagarse.',
+      { tenantId, domainId: idSchema },
+      (args) =>
+        api.request(
+          'POST',
+          `/api/admin/tenants/${String(args.tenantId)}/domains/${String(args.domainId)}/verify`,
+        ),
+    ),
+
+    tool(
+      'set_primary_domain',
+      'Marcar el dominio principal',
+      'Define cuál de los dominios del cliente es el canónico, el que se usa para construir las URLs absolutas del sitio. Tiene que estar verificado.',
+      { tenantId, domainId: idSchema },
+      (args) =>
+        api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(args.tenantId)}/domains/${String(args.domainId)}/primary`,
+        ),
+    ),
+
+    tool(
+      'get_store_settings',
+      'Ver la configuración de la tienda',
+      'Muestra si el cliente tiene tienda encendida, sus formas de envío, su medio de pago y si ya cargó sus datos de cobro (nunca devuelve las credenciales).',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/store/settings`),
+    ),
+
+    tool(
+      'update_store_settings',
+      'Configurar la tienda',
+      'Enciende o apaga la tienda y define envíos, impuesto y medio de cobro. Los precios van en pesos enteros. Con paymentProvider "transfer" las credenciales son los datos bancarios que se le muestran al comprador; con "flow", apiKey y secretKey de la cuenta Flow del propio cliente.',
+      {
+        tenantId,
+        isEnabled: z
+          .boolean()
+          .optional()
+          .describe('Apagada, el sitio no muestra nada de tienda'),
+        currency: z.string().length(3).optional(),
+        taxIncluded: z
+          .boolean()
+          .optional()
+          .describe('En Chile lo normal es true: los precios ya traen IVA'),
+        taxRatePercent: z.number().int().min(0).max(100).optional(),
+        shippingOptions: z
+          .array(
+            z.object({
+              code: z.string(),
+              name: z.string(),
+              priceCents: z.number().int().min(0),
+              estimate: z.string().nullable().optional(),
+              requiresAddress: z.boolean().optional(),
+            }),
+          )
+          .optional(),
+        freeShippingThresholdCents: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('Desde cuánto el envío sale gratis'),
+        paymentProvider: z.enum(['none', 'transfer', 'flow']).optional(),
+        paymentCredentials: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe('Datos de la cuenta de cobro del cliente; no se devuelven nunca'),
+        notificationEmail: z
+          .email()
+          .nullable()
+          .optional()
+          .describe('A quién le avisamos cuando entra un pedido'),
+        termsPageSlug: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Dirección de la página con los términos de compra (ej. "terminos-de-compra"; créala con add_legal_page kind "compra"). Publicada, comprar exige aceptarlos. null = no se exigen.',
+          ),
+      },
+      (args) => {
+        const { tenantId: id, ...body } = args;
+        return api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(id)}/store/settings`,
+          body,
+        );
+      },
+    ),
+
+    tool(
+      'list_orders',
+      'Ver los pedidos',
+      'Lista los pedidos de un cliente, del más nuevo al más viejo, con su estado y sus totales.',
+      {
+        tenantId,
+        status: z
+          .enum(['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'])
+          .optional(),
+        page: z.number().int().min(1).optional(),
+        perPage: z.number().int().min(1).max(100).optional(),
+      },
+      (args) => {
+        const { tenantId: id, ...query } = args;
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(query)) {
+          if (typeof value === 'string' || typeof value === 'number') {
+            params.set(key, String(value));
+          }
+        }
+        return api.request(
+          'GET',
+          `/api/admin/tenants/${String(id)}/store/orders?${params.toString()}`,
+        );
+      },
+    ),
+
+    tool(
+      'update_order_status',
+      'Cambiar el estado de un pedido',
+      'Avanza un pedido: pending → paid → preparing → shipped → delivered, y cancelled hasta antes de entregar. Marcarlo pagado descuenta stock, gasta el cupón y manda los correos de confirmación.',
+      {
+        tenantId,
+        orderId: idSchema,
+        status: z.enum([
+          'pending',
+          'paid',
+          'preparing',
+          'shipped',
+          'delivered',
+          'cancelled',
+        ]),
+      },
+      (args) =>
+        api.request(
+          'PATCH',
+          `/api/admin/tenants/${String(args.tenantId)}/store/orders/${String(args.orderId)}/status`,
+          { status: args.status },
+        ),
+    ),
+
+    tool(
+      'sales_report',
+      'Ver el reporte de ventas',
+      'Ventas por día y productos más vendidos en un período. Sin fechas, toma los últimos 30 días. Solo cuenta pedidos pagados.',
+      {
+        tenantId,
+        from: z.string().optional().describe('Fecha ISO, ej. 2026-01-01'),
+        to: z.string().optional(),
+      },
+      (args) => {
+        const params = new URLSearchParams();
+        for (const key of ['from', 'to'] as const) {
+          const value = args[key];
+          if (typeof value === 'string') {
+            params.set(key, value);
+          }
+        }
+        return api.request(
+          'GET',
+          `/api/admin/tenants/${String(args.tenantId)}/store/report?${params.toString()}`,
+        );
+      },
+    ),
+
+    tool(
+      'list_coupons',
+      'Ver los cupones',
+      'Lista los cupones de descuento del cliente, con cuántas veces se usó cada uno.',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/store/coupons`),
+    ),
+
+    tool(
+      'create_coupon',
+      'Crear un cupón',
+      'Crea un cupón de descuento. "percentage" descuenta ese porcentaje del subtotal; "amount" descuenta esos pesos. El código se guarda siempre en mayúsculas.',
+      {
+        tenantId,
+        code: z.string().describe('Ej. VERANO25'),
+        discountType: z.enum(['percentage', 'amount']),
+        value: z.number().int().positive().describe('Porcentaje o pesos, según el tipo'),
+        minimumCents: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('Compra mínima para que sirva'),
+        startsAt: z.string().nullable().optional().describe('Fecha ISO'),
+        endsAt: z.string().nullable().optional().describe('Fecha ISO'),
+        maxUses: z.number().int().positive().nullable().optional(),
+        isActive: z.boolean().optional(),
+      },
+      (args) => {
+        const { tenantId: id, ...body } = args;
+        return api.request(
+          'POST',
+          `/api/admin/tenants/${String(id)}/store/coupons`,
+          body,
+        );
+      },
+    ),
+
+    tool(
+      'delete_coupon',
+      'Eliminar un cupón',
+      'Borra un cupón. Requiere permiso "full" y confirmación explícita. Si solo quieres dejar de ofrecerlo, márcalo inactivo.',
+      { tenantId, couponId: idSchema, confirm },
+      (args) =>
+        api.request(
+          'DELETE',
+          `/api/admin/tenants/${String(args.tenantId)}/store/coupons/${String(args.couponId)}`,
         ),
     ),
 
@@ -548,9 +870,9 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Devuelve el enlace para que una persona revise el sitio antes de publicarlo.',
       { tenantId },
       async (args) => {
-        const id = args.tenantId as number;
+        const id = args.tenantId as string;
         const { tenants } = await api.request<{
-          tenants: { id: number; slug: string; primaryDomain: string | null }[];
+          tenants: { id: string; slug: string; primaryDomain: string | null }[];
         }>('GET', '/api/admin/tenants');
         const tenant = tenants.find((candidate) => candidate.id === id);
         if (tenant === undefined) {
@@ -570,12 +892,12 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Ver el registro de actividad',
       'Quién cambió qué y cuándo, filtrable por cliente y por actor. Útil para revisar lo que dejaste hecho.',
       {
-        tenantId: z.number().int().positive().optional(),
+        tenantId: idSchema.optional(),
         limit: z.number().int().min(1).max(200).optional(),
       },
       (args) => {
         const params = new URLSearchParams();
-        const tenant = args.tenantId as number | undefined;
+        const tenant = args.tenantId as string | undefined;
         const limit = (args.limit as number | undefined) ?? 50;
         if (tenant !== undefined) {
           params.set('tenantId', String(tenant));

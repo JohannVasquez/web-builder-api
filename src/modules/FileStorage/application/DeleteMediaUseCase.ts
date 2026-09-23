@@ -3,8 +3,8 @@ import {
   type AssetUsage,
 } from '../domain/StorageAssetRepository';
 import { StorageProvider } from '../domain/StorageProvider';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 
 export class DeleteMediaUseCase {
   constructor(
@@ -15,7 +15,7 @@ export class DeleteMediaUseCase {
   // `force` es la confirmación de quien ya vio dónde estaba usada la imagen. Sin ella,
   // borrar algo en uso deja huecos en páginas publicadas sin que nadie se entere.
   public async execute(
-    tenantId: number,
+    tenantId: string,
     key: string,
     force: boolean,
   ): Promise<{ usage: readonly AssetUsage[] }> {

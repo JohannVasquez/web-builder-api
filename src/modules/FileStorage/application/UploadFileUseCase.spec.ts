@@ -93,12 +93,15 @@ describe('UploadFileUseCase', () => {
 
     await useCase.execute(
       buildFile({ mimeType: 'image/webp', size: 2048 }),
-      9,
+      '018f6f1a-0000-7000-8000-000000000009',
       'logo.webp',
     );
 
     expect(assetRepository.register).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: 9, originalName: 'logo.webp' }),
+      expect.objectContaining({
+        tenantId: '018f6f1a-0000-7000-8000-000000000009',
+        originalName: 'logo.webp',
+      }),
     );
   });
 

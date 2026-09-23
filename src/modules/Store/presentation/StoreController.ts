@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import type { PublicCatalogUseCase } from '../application/StoreUseCases';
 
 const CatalogQuerySchema = z.object({

@@ -1,11 +1,11 @@
 import { MarkContactMessageReadUseCase } from './MarkContactMessageReadUseCase';
 import type { ContactMessagePrimitives } from '../domain/ContactMessage';
 import type { ContactMessageRepository } from '../domain/ContactMessageRepository';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 describe('MarkContactMessageReadUseCase', () => {
-  const TENANT_ID = 3;
-  const MESSAGE_ID = 10;
+  const TENANT_ID = '018f6f1a-0000-7000-8000-000000000003';
+  const MESSAGE_ID = '018f6f1a-0000-7000-8000-000000000010';
 
   const buildMessage = (readAt: string | null): ContactMessagePrimitives => ({
     id: MESSAGE_ID,

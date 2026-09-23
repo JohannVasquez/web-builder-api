@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../../shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type {
   ActivityEntry,
   ActivityEntryInput,
@@ -69,10 +69,10 @@ export class PrismaActivityLogRepository implements ActivityLogRepository {
   }
 
   private toDomain(record: {
-    id: number;
-    tenantId: number | null;
+    id: string;
+    tenantId: string | null;
     actorType: string;
-    actorId: number | null;
+    actorId: string | null;
     actorName: string;
     action: string;
     entityType: string;

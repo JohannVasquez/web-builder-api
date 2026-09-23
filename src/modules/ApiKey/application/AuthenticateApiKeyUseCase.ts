@@ -1,7 +1,7 @@
 import { ApiKeyRepository } from '../domain/ApiKeyRepository';
 import { hashApiKeyToken } from '../domain/apiKeyToken';
 import type { Actor } from '../domain/Actor';
-import { UnauthorizedError } from '../../../shared/domain/UnauthorizedError';
+import { UnauthorizedError } from '@/shared/domain/UnauthorizedError';
 
 export class AuthenticateApiKeyUseCase {
   constructor(private readonly apiKeyRepository: ApiKeyRepository) {}
@@ -31,6 +31,7 @@ export class AuthenticateApiKeyUseCase {
       type: 'apiKey',
       id: apiKey.id,
       name: apiKey.name,
+      role: null,
       permission: apiKey.permission,
       tenantScope: apiKey.scope(),
       rateLimitPerMinute: apiKey.rateLimitPerMinute,

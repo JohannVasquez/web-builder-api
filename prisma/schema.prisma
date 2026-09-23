@@ -10,24 +10,31 @@ datasource db {
 }
 
 model Tenant {
-  id              Int              @id @default(autoincrement())
-  slug            String           @unique @db.VarChar(100)
-  name            String           @db.VarChar(255)
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-  domains         TenantDomain[]
-  pages           Page[]
-  navigationLinks NavigationLink[]
-  globalSettings  GlobalSetting[]
-  brand           TenantBrand?
-  apiKeyScopes    ApiKeyTenant[]
-  activityLogs    ActivityLog[]
-  contactMessages ContactMessage[]
-  subscribers     NewsletterSubscriber[]
-  storageAssets   StorageAsset[]
-  blogPosts       BlogPost[]
-  products        Product[]
+  id                String                 @id @default(uuid(7)) @db.Uuid
+  slug              String                 @unique @db.VarChar(100)
+  name              String                 @db.VarChar(255)
+  /// `active` sirve el sitio; `paused` y `building` responden mantención.
+  status            String                 @default("active") @db.VarChar(20)
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  domains           TenantDomain[]
+  pages             Page[]
+  navigationLinks   NavigationLink[]
+  globalSettings    GlobalSetting[]
+  brand             TenantBrand?
+  apiKeyScopes      ApiKeyTenant[]
+  activityLogs      ActivityLog[]
+  contactMessages   ContactMessage[]
+  subscribers       NewsletterSubscriber[]
+  storageAssets     StorageAsset[]
+  blogPosts         BlogPost[]
+  products          Product[]
   productCategories ProductCategory[]
+  storeSettings     StoreSettings?
+  coupons           Coupon[]
+  orders            Order[]
+  adminUsers        AdminUserTenant[]
+  idempotencyKeys   IdempotencyKey[]
 
   @@map("tenants")
 }
@@ -43,8 +50,8 @@ model Tenant {
 ///   (registro TXT / CNAME). Un dominio sin verificar existe en la BD pero no
 ///   resuelve tráfico, para que nadie reclame un dominio ajeno.
 model TenantDomain {
-  id         Int       @id @default(autoincrement())
-  tenantId   Int       @map("tenant_id")
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
   domain     String    @unique @db.VarChar(255)
   isPrimary  Boolean   @default(false) @map("is_primary")
   verifiedAt DateTime? @map("verified_at") @db.Timestamptz()
@@ -57,14 +64,23 @@ model TenantDomain {
 }
 
 model Page {
-  id          Int           @id @default(autoincrement())
-  tenantId    Int           @map("tenant_id")
-  slug        String        @db.VarChar(255)
-  title       String        @db.VarChar(255)
-  description String?
-  isPublished Boolean       @default(true) @map("is_published")
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  id               String    @id @default(uuid(7)) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  slug             String    @db.VarChar(255)
+  title            String    @db.VarChar(255)
+  description      String?
+  isPublished      Boolean   @default(true) @map("is_published")
+  /// Título y descripción para buscadores; nulos = se usan `title` y `description`.
+  seoTitle         String?   @map("seo_title") @db.VarChar(255)
+  seoDescription   String?   @map("seo_description")
+  /// `key` del bucket privado para compartir en redes; misma regla que el blog.
+  ogImageKey       String?   @map("og_image_key") @db.VarChar(500)
+  /// Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  noindex          Boolean   @default(false)
+  /// Estilo visual propio de esta página; nulo = hereda el del sitio.
+  visualStyle      String?   @map("visual_style") @db.VarChar(50)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   /// Lo que ve el público. Nulo = nunca se publicó. Las filas de `sections` son el
   /// borrador: editarlas no cambia el sitio hasta que alguien publica.
   publishedContent Json?     @map("published_content")
@@ -80,12 +96,14 @@ model Page {
 }
 
 model PageSection {
-  id       Int     @id @default(autoincrement())
-  pageId   Int     @map("page_id")
+  id       String  @id @default(uuid(7)) @db.Uuid
+  pageId   String  @map("page_id") @db.Uuid
   type     String  @db.VarChar(100)
   position Int
   props    Json    @default("{}")
   anchor   String? @db.VarChar(100)
+  /// Oculto: sigue en el borrador y en el panel, pero no sale al sitio publicado.
+  isHidden Boolean @default(false) @map("is_hidden")
   page     Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@unique([pageId, position])
@@ -96,16 +114,16 @@ model PageSection {
 /// Foto del borrador de una página en un momento dado. Permite deshacer cualquier cambio,
 /// venga de una persona o de un agente.
 model PageVersion {
-  id     Int @id @default(autoincrement())
-  pageId Int @map("page_id")
+  id     String @id @default(uuid(7)) @db.Uuid
+  pageId String @map("page_id") @db.Uuid
 
   /// Contenido completo: título, descripción y secciones con sus props.
   snapshot Json
   /// Qué pasó, en una línea: "Editó el bloque Hero", "Restauró la versión del 3 de marzo".
-  summary String @db.VarChar(255)
+  summary  String @db.VarChar(255)
 
   actorType String  @map("actor_type") @db.VarChar(20)
-  actorId   Int?    @map("actor_id")
+  actorId   String? @map("actor_id") @db.Uuid
   actorName String  @map("actor_name") @db.VarChar(255)
   /// Marca la versión que corresponde a lo que está publicado ahora.
   published Boolean @default(false)
@@ -118,8 +136,8 @@ model PageVersion {
 }
 
 model NavigationLink {
-  id       Int    @id @default(autoincrement())
-  tenantId Int    @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
   label    String @db.VarChar(100)
   href     String @db.VarChar(255)
   position Int
@@ -136,17 +154,17 @@ model NavigationLink {
 /// URL — las URLs firmadas (presigned) se generan al vuelo en cada lectura,
 /// así que nunca quedan expuestas ni expiran mientras están "guardadas".
 model StorageAsset {
-  id       Int    @id @default(autoincrement())
+  id       String @id @default(uuid(7)) @db.Uuid
   key      String @unique @db.VarChar(500)
   mimeType String @map("mime_type") @db.VarChar(100)
   size     Int
 
   /// Nulo en los archivos subidos antes de que la biblioteca fuera por cliente.
-  tenantId Int? @map("tenant_id")
+  tenantId     String? @map("tenant_id") @db.Uuid
   /// Nombre con el que se subió, para poder buscarlo en el panel.
   originalName String? @map("original_name") @db.VarChar(255)
   /// Texto alternativo; sin él la imagen es invisible para un lector de pantalla.
-  alt String? @db.VarChar(500)
+  alt          String? @db.VarChar(500)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -160,31 +178,53 @@ model StorageAsset {
 /// todos sus clientes desde un mismo login, no un portal self-service para
 /// que cada cliente entre a su propio sitio.
 model AdminUser {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique @db.VarChar(255)
-  passwordHash String   @map("password_hash") @db.VarChar(255)
-  name         String   @db.VarChar(255)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-  apiKeys      ApiKey[]
+  id           String    @id @default(uuid(7)) @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  name         String    @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  /// `owner` gestiona usuarios y claves; `editor`, el contenido de todos los clientes;
+  /// `client`, solo el de los suyos (ver `tenants`).
+  role         String    @default("owner") @db.VarChar(20)
+  /// Un usuario desactivado no entra y sus tokens dejan de valer.
+  disabledAt   DateTime? @map("disabled_at") @db.Timestamptz()
+
+  apiKeys        ApiKey[]
+  passwordResets PasswordReset[]
+  tenants        AdminUserTenant[]
 
   @@map("admin_users")
 }
 
+// Qué clientes alcanza una persona con rol `client`. Para `owner` y `editor` no hay filas:
+// su alcance son todos los clientes.
+model AdminUserTenant {
+  adminUserId String    @map("admin_user_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([adminUserId, tenantId])
+  @@index([tenantId])
+  @@map("admin_user_tenants")
+}
+
 /// Identidad de marca y estilo visual del tenant. Todo opcional: sin fila, valores por defecto.
 model TenantBrand {
-  id       Int @id @default(autoincrement())
-  tenantId Int @unique @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @unique @map("tenant_id") @db.Uuid
 
   /// Colores base en hex; los tonos derivados se calculan al renderizar, no se guardan.
-  palette Json @default("{}")
+  palette    Json @default("{}")
   /// `{ pairing, scale }`: id de una combinación curada y escala del texto.
   typography Json @default("{}")
   /// `keys` del bucket privado, nunca URLs: se firman al vuelo.
-  assets Json @default("{}")
+  assets     Json @default("{}")
 
   /// `light` | `dark` | `system`.
-  colorMode String @default("system") @map("color_mode") @db.VarChar(20)
+  colorMode   String @default("system") @map("color_mode") @db.VarChar(20)
   /// Id del estilo visual (Épica 2); `classic` es el aspecto actual.
   visualStyle String @default("classic") @map("visual_style") @db.VarChar(50)
 
@@ -196,8 +236,8 @@ model TenantBrand {
 }
 
 model GlobalSetting {
-  id       Int    @id @default(autoincrement())
-  tenantId Int    @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
   key      String @db.VarChar(100)
   value    String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -209,22 +249,22 @@ model GlobalSetting {
 
 /// Clave de acceso para agentes de IA y herramientas externas. Solo se guarda el hash.
 model ApiKey {
-  id   Int    @id @default(autoincrement())
+  id   String @id @default(uuid(7)) @db.Uuid
   name String @db.VarChar(255)
 
   /// Parte visible de la clave, para identificarla en el listado sin poder usarla.
-  prefix String @unique @db.VarChar(24)
+  prefix  String @unique @db.VarChar(24)
   /// SHA-256 de la clave completa. La clave en claro se muestra una sola vez, al crearla.
   keyHash String @map("key_hash") @db.VarChar(64)
 
   /// `read` | `write` | `full`. Solo `full` publica y elimina.
-  permission String @db.VarChar(20)
+  permission         String  @db.VarChar(20)
   /// Falso = la clave solo alcanza los tenants listados en `tenants`.
-  scopeAllTenants Boolean @default(true) @map("scope_all_tenants")
+  scopeAllTenants    Boolean @default(true) @map("scope_all_tenants")
   /// Techo de peticiones por minuto, para que un agente en bucle no tumbe la API.
-  rateLimitPerMinute Int @default(120) @map("rate_limit_per_minute")
+  rateLimitPerMinute Int     @default(120) @map("rate_limit_per_minute")
 
-  createdById Int       @map("created_by_id")
+  createdById String    @map("created_by_id") @db.Uuid
   expiresAt   DateTime? @map("expires_at") @db.Timestamptz()
   lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz()
   revokedAt   DateTime? @map("revoked_at") @db.Timestamptz()
@@ -240,8 +280,8 @@ model ApiKey {
 
 /// Alcance de una clave limitada a ciertos clientes.
 model ApiKeyTenant {
-  apiKeyId Int    @map("api_key_id")
-  tenantId Int    @map("tenant_id")
+  apiKeyId String @map("api_key_id") @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
   apiKey   ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -252,14 +292,14 @@ model ApiKeyTenant {
 
 /// Quién cambió qué y cuándo. Persona o agente: el actor se identifica igual en ambos casos.
 model ActivityLog {
-  id Int @id @default(autoincrement())
+  id String @id @default(uuid(7)) @db.Uuid
 
   /// Nulo en acciones que no son de un cliente concreto (crear un cliente, gestionar claves).
-  tenantId Int? @map("tenant_id")
+  tenantId String? @map("tenant_id") @db.Uuid
 
   /// `admin` | `apiKey`.
   actorType String  @map("actor_type") @db.VarChar(20)
-  actorId   Int?    @map("actor_id")
+  actorId   String? @map("actor_id") @db.Uuid
   /// Nombre legible congelado al momento del hecho: borrar la clave no borra su rastro.
   actorName String  @map("actor_name") @db.VarChar(255)
 
@@ -285,8 +325,8 @@ model ActivityLog {
 /// Mensaje del formulario de contacto. Se guarda ANTES de intentar el correo: si el SMTP
 /// falla, el negocio igual no pierde el contacto.
 model ContactMessage {
-  id       Int    @id @default(autoincrement())
-  tenantId Int    @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
 
   name    String  @db.VarChar(100)
   email   String  @db.VarChar(255)
@@ -294,9 +334,9 @@ model ContactMessage {
   message String
 
   /// Nulo mientras no se intentó enviar; con fecha si el correo salió.
-  emailedAt DateTime? @map("emailed_at") @db.Timestamptz()
+  emailedAt  DateTime? @map("emailed_at") @db.Timestamptz()
   /// Motivo del último fallo de envío, para poder reintentar a mano.
-  emailError String? @map("email_error")
+  emailError String?   @map("email_error")
 
   readAt    DateTime? @map("read_at") @db.Timestamptz()
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
@@ -309,8 +349,8 @@ model ContactMessage {
 /// Entrada del blog. `status` es `draft` | `published` | `scheduled`; una `scheduled` se
 /// vuelve visible sola cuando `publishedAt` llega, resuelto en la consulta del repositorio.
 model BlogPost {
-  id       Int    @id @default(autoincrement())
-  tenantId Int    @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
   slug     String @db.VarChar(255)
   title    String @db.VarChar(255)
   excerpt  String
@@ -318,8 +358,8 @@ model BlogPost {
   /// `key` del bucket privado, nunca una URL: se firma al vuelo en cada lectura.
   coverImageKey String? @map("cover_image_key") @db.VarChar(500)
   /// Bloques de contenido enriquecido, validados por `BlogContentSchema` (zod).
-  content    Json   @default("[]")
-  authorName String @map("author_name") @db.VarChar(255)
+  content       Json    @default("[]")
+  authorName    String  @map("author_name") @db.VarChar(255)
 
   status      String    @default("draft") @db.VarChar(20)
   publishedAt DateTime? @map("published_at") @db.Timestamptz()
@@ -328,7 +368,9 @@ model BlogPost {
   seoTitle       String? @map("seo_title") @db.VarChar(255)
   seoDescription String? @map("seo_description")
   /// `key` del bucket privado para compartir en redes; misma regla que `coverImageKey`.
-  ogImageKey String? @map("og_image_key") @db.VarChar(500)
+  ogImageKey     String? @map("og_image_key") @db.VarChar(500)
+  /// Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  noindex        Boolean @default(false)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
@@ -341,8 +383,8 @@ model BlogPost {
 
 /// Correo suscrito a novedades desde el bloque de suscripción.
 model NewsletterSubscriber {
-  id       Int    @id @default(autoincrement())
-  tenantId Int    @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
   email    String @db.VarChar(255)
 
   /// Nulo si la persona se dio de baja; la fila se conserva para no volver a escribirle.
@@ -358,8 +400,8 @@ model NewsletterSubscriber {
 
 /// Categoría del catálogo de un cliente.
 model ProductCategory {
-  id       Int    @id @default(autoincrement())
-  tenantId Int    @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
   slug     String @db.VarChar(255)
   name     String @db.VarChar(255)
   position Int    @default(0)
@@ -375,27 +417,36 @@ model ProductCategory {
 
 /// Producto del catálogo. La etapa 1 vende por WhatsApp: no hay carrito ni pagos todavía.
 model Product {
-  id       Int    @id @default(autoincrement())
-  tenantId Int    @map("tenant_id")
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
   slug     String @db.VarChar(255)
   name     String @db.VarChar(255)
 
   description String
   /// `keys` del bucket privado, nunca URLs: se firman al vuelo en cada lectura.
-  imageKeys String[] @default([]) @map("image_keys")
+  imageKeys   String[] @default([]) @map("image_keys")
 
   /// Dinero en enteros, nunca en coma flotante: el error aparece tarde y en la factura.
-  priceCents     Int     @map("price_cents")
-  salePriceCents Int?    @map("sale_price_cents")
-  currency       String  @default("CLP") @db.VarChar(3)
+  priceCents     Int    @map("price_cents")
+  salePriceCents Int?   @map("sale_price_cents")
+  currency       String @default("CLP") @db.VarChar(3)
 
-  categoryId Int? @map("category_id")
+  categoryId String? @map("category_id") @db.Uuid
   /// `[{ name: "Talla", options: ["S","M","L"] }]`.
-  variants Json @default("[]")
+  variants   Json    @default("[]")
 
   isActive Boolean @default(true) @map("is_active")
   featured Boolean @default(false)
   position Int     @default(0)
+
+  /// `null` = no se controla stock. 0 = agotado.
+  stock Int? @map("stock")
+
+  /// Título y descripción para buscadores; nulos = se usan `name` y `description`.
+  seoTitle       String? @map("seo_title") @db.VarChar(255)
+  seoDescription String? @map("seo_description")
+  /// Activo pero fuera del índice: se puede comprar por el enlace, el buscador no lo lista.
+  noindex        Boolean @default(false)
 
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
@@ -406,4 +457,170 @@ model Product {
   @@index([tenantId, isActive])
   @@index([tenantId, featured])
   @@map("products")
+}
+
+/// Enlace de un solo uso para recuperar la contraseña. Se guarda el hash, nunca el token.
+model PasswordReset {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  adminUserId String    @map("admin_user_id") @db.Uuid
+  tokenHash   String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz()
+  usedAt      DateTime? @map("used_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@map("password_resets")
+}
+
+// Configuración de la tienda de un cliente. Sin fila, el cliente no tiene tienda: nada
+// relacionado con productos ni pedidos se muestra en su sitio (SPEC 8.4).
+model StoreSettings {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @unique @map("tenant_id") @db.Uuid
+
+  isEnabled Boolean @default(false) @map("is_enabled")
+  currency  String  @default("CLP") @db.VarChar(3)
+
+  /// En Chile los precios se muestran con IVA incluido; el desglose es informativo.
+  taxIncluded    Boolean @default(true) @map("tax_included")
+  taxRatePercent Int     @default(19) @map("tax_rate_percent")
+
+  /// `[{ code, name, priceCents, estimate, requiresAddress }]`.
+  shippingOptions            Json @default("[]") @map("shipping_options")
+  freeShippingThresholdCents Int? @map("free_shipping_threshold_cents")
+
+  /// `none` = solo pedido por WhatsApp (etapa 1).
+  paymentProvider    String  @default("none") @map("payment_provider") @db.VarChar(20)
+  /// Credenciales de la cuenta de cobro del propio cliente. Nunca sale de la API.
+  paymentCredentials Json    @default("{}") @map("payment_credentials")
+  notificationEmail  String? @map("notification_email") @db.VarChar(255)
+  /// Página con los términos de compra. Si existe y está publicada, comprar exige aceptarlos.
+  termsPageSlug      String? @map("terms_page_slug") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("store_settings")
+}
+
+model Coupon {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  code     String @db.VarChar(40)
+
+  /// `percentage` descuenta `value`% del subtotal; `amount` descuenta `value` pesos.
+  discountType String @map("discount_type") @db.VarChar(20)
+  value        Int
+
+  minimumCents Int?      @map("minimum_cents")
+  startsAt     DateTime? @map("starts_at") @db.Timestamptz()
+  endsAt       DateTime? @map("ends_at") @db.Timestamptz()
+  maxUses      Int?      @map("max_uses")
+  usedCount    Int       @default(0) @map("used_count")
+  isActive     Boolean   @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("coupons")
+}
+
+model Order {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  /// Número que ve el comprador, correlativo por cliente: "0001", "0002".
+  number   String @db.VarChar(20)
+
+  status String @default("pending") @db.VarChar(20)
+
+  customerName  String @map("customer_name") @db.VarChar(160)
+  customerEmail String @map("customer_email") @db.VarChar(255)
+  customerPhone String @map("customer_phone") @db.VarChar(40)
+
+  /// `shipping` o `pickup`.
+  deliveryMethod String  @map("delivery_method") @db.VarChar(20)
+  addressLine    String? @map("address_line") @db.VarChar(255)
+  addressCity    String? @map("address_city") @db.VarChar(120)
+  addressRegion  String? @map("address_region") @db.VarChar(120)
+  addressNotes   String? @map("address_notes")
+
+  shippingCode  String? @map("shipping_code") @db.VarChar(40)
+  shippingName  String? @map("shipping_name") @db.VarChar(120)
+  shippingCents Int     @default(0) @map("shipping_cents")
+
+  subtotalCents Int     @map("subtotal_cents")
+  discountCents Int     @default(0) @map("discount_cents")
+  totalCents    Int     @map("total_cents")
+  taxCents      Int     @default(0) @map("tax_cents")
+  currency      String  @default("CLP") @db.VarChar(3)
+  couponCode    String? @map("coupon_code") @db.VarChar(40)
+
+  /// Constancia de que el comprador aceptó los términos de compra: cuándo y qué versión
+  /// (la fecha de publicación de la página de términos vigente en ese momento).
+  termsAcceptedAt DateTime? @map("terms_accepted_at") @db.Timestamptz()
+  termsVersion    String?   @map("terms_version") @db.VarChar(40)
+
+  paymentProvider  String?   @map("payment_provider") @db.VarChar(20)
+  paymentReference String?   @map("payment_reference") @db.VarChar(255)
+  paidAt           DateTime? @map("paid_at") @db.Timestamptz()
+
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     OrderItem[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id      String @id @default(uuid(7)) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+
+  /// `null` si el producto se borró después: el pedido conserva lo que se compró.
+  productId String? @map("product_id") @db.Uuid
+  name      String  @db.VarChar(255)
+  /// `{ "Talla": "M", "Color": "Azul" }`.
+  variant   Json    @default("{}")
+
+  unitPriceCents Int @map("unit_price_cents")
+  quantity       Int
+  totalCents     Int @map("total_cents")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// Una compra repetida con la misma clave (doble clic, reintento de red) devuelve el resultado
+// de la primera en vez de crear otro pedido. Por cliente: la clave de uno no choca con otro.
+model IdempotencyKey {
+  id          String @id @default(uuid(7)) @db.Uuid
+  tenantId    String @map("tenant_id") @db.Uuid
+  key         String @db.VarChar(255)
+  // Operación a la que pertenece, para que la misma clave no se cruce entre endpoints.
+  scope       String @db.VarChar(60)
+  // sha256 del cuerpo: la misma clave con otro cuerpo es un error del cliente, no un reintento.
+  requestHash String @map("request_hash") @db.VarChar(64)
+
+  // `processing` mientras corre la primera; `completed` con la respuesta ya guardada.
+  status         String @default("processing") @db.VarChar(20)
+  responseStatus Int?   @map("response_status")
+  responseBody   Json?  @map("response_body")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
 }

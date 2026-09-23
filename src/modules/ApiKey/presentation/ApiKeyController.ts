@@ -1,14 +1,14 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import type { CreateApiKeyUseCase } from '../application/CreateApiKeyUseCase';
 import type { ListApiKeysUseCase } from '../application/ListApiKeysUseCase';
 import type { RevokeApiKeyUseCase } from '../application/RevokeApiKeyUseCase';
 import type { RegenerateApiKeyUseCase } from '../application/RegenerateApiKeyUseCase';
 import { CreateApiKeySchema } from '../domain/ApiKeySchema';
 import { getRequestActor } from './actorMiddleware';
-import { ForbiddenError } from '../../../shared/domain/ForbiddenError';
+import { ForbiddenError } from '@/shared/domain/ForbiddenError';
+import { idSchema } from '@/shared/domain/identifier';
 
-const ApiKeyIdSchema = z.coerce.number().int().positive();
+const ApiKeyIdSchema = idSchema;
 
 export class ApiKeyController {
   constructor(
@@ -49,7 +49,7 @@ export class ApiKeyController {
   };
 
   // Una clave no puede crear ni revocar claves: sería una escalada de privilegios silenciosa.
-  private requirePerson(res: Response): { id: number } {
+  private requirePerson(res: Response): { id: string } {
     const actor = getRequestActor(res);
     if (actor.type !== 'admin') {
       throw new ForbiddenError(

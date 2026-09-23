@@ -1,8 +1,8 @@
-import { PageRepository } from '../../Page/domain/PageRepository';
-import { GlobalSettingsRepository } from '../../GlobalSettings/domain/GlobalSettingsRepository';
+import { PageRepository } from '@/modules/Page/domain/PageRepository';
+import { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
 import { fillPlaceholders, findLegalTemplate } from '../domain/legalTemplates';
-import type { Page } from '../../Page/domain/Page';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import type { Page } from '@/modules/Page/domain/Page';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 export class CreateLegalPageUseCase {
   constructor(
@@ -10,11 +10,11 @@ export class CreateLegalPageUseCase {
     private readonly globalSettingsRepository: GlobalSettingsRepository,
   ) {}
 
-  public async execute(tenantId: number, kind: string): Promise<Page> {
+  public async execute(tenantId: string, kind: string): Promise<Page> {
     const template = findLegalTemplate(kind);
     if (template === undefined) {
       throw new NotFoundError(
-        `No existe una plantilla legal "${kind}". Las disponibles son "privacidad" y "terminos".`,
+        `No existe una plantilla legal "${kind}". Las disponibles son "privacidad", "terminos" y "compra".`,
       );
     }
 
@@ -32,6 +32,7 @@ export class CreateLegalPageUseCase {
       description: template.description,
       // Nace despublicada: un texto legal lo revisa una persona antes de publicarlo.
       isPublished: false,
+      noindex: false,
     });
 
     if (page.id === undefined) {
@@ -46,6 +47,7 @@ export class CreateLegalPageUseCase {
         content: fillPlaceholders(template.body, values),
         contentWidth: 'narrow',
       },
+      isHidden: false,
       anchor: null,
     });
   }

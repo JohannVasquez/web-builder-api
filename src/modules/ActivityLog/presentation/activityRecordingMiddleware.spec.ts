@@ -1,15 +1,16 @@
 import express, { type Express, type RequestHandler } from 'express';
 import request from 'supertest';
 import { createActivityRecordingMiddleware } from './activityRecordingMiddleware';
-import { setRequestActor } from '../../ApiKey/presentation/actorMiddleware';
+import { setRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
 import type { RecordActivityUseCase } from '../application/RecordActivityUseCase';
-import type { Actor } from '../../ApiKey/domain/Actor';
+import type { Actor } from '@/modules/ApiKey/domain/Actor';
 
 describe('createActivityRecordingMiddleware', () => {
   const adminActor: Actor = {
     type: 'admin',
-    id: 1,
+    id: '018f6f1a-0000-7000-8000-000000000001',
     name: 'Admin',
+    role: 'owner',
     permission: 'full',
     tenantScope: null,
     rateLimitPerMinute: null,
@@ -17,8 +18,9 @@ describe('createActivityRecordingMiddleware', () => {
 
   const apiKeyActor: Actor = {
     type: 'apiKey',
-    id: 7,
+    id: '018f6f1a-0000-7000-8000-000000000007',
     name: 'Agente MCP',
+    role: null,
     permission: 'full',
     tenantScope: null,
     rateLimitPerMinute: 120,
@@ -61,13 +63,15 @@ describe('createActivityRecordingMiddleware', () => {
       200,
     );
 
-    await request(app).patch('/api/admin/tenants/3/pages/1');
+    await request(app).patch(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000001',
+    );
 
     expect(useCase.execute).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId: 3,
+        tenantId: '018f6f1a-0000-7000-8000-000000000003',
         actorType: 'admin',
-        actorId: 1,
+        actorId: '018f6f1a-0000-7000-8000-000000000001',
         actorName: 'Admin',
         action: 'page.update',
         entityType: 'page',
@@ -84,7 +88,9 @@ describe('createActivityRecordingMiddleware', () => {
       201,
     );
 
-    await request(app).post('/api/admin/tenants/3/pages/1/sections');
+    await request(app).post(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000001/sections',
+    );
 
     expect(useCase.execute).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'section.create', entityType: 'section' }),
@@ -100,7 +106,9 @@ describe('createActivityRecordingMiddleware', () => {
       200,
     );
 
-    await request(app).delete('/api/admin/tenants/3/pages/1');
+    await request(app).delete(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000001',
+    );
 
     expect(useCase.execute).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'page.delete', entityType: 'page' }),
@@ -116,7 +124,9 @@ describe('createActivityRecordingMiddleware', () => {
       422,
     );
 
-    await request(app).patch('/api/admin/tenants/3/pages/1');
+    await request(app).patch(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000001',
+    );
 
     expect(useCase.execute).not.toHaveBeenCalled();
   });
@@ -130,7 +140,9 @@ describe('createActivityRecordingMiddleware', () => {
       200,
     );
 
-    await request(app).get('/api/admin/tenants/3/pages/1');
+    await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000001',
+    );
 
     expect(useCase.execute).not.toHaveBeenCalled();
   });
@@ -144,7 +156,9 @@ describe('createActivityRecordingMiddleware', () => {
       200,
     );
 
-    await request(app).patch('/api/admin/tenants/3/pages/1');
+    await request(app).patch(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000001',
+    );
 
     expect(useCase.execute).toHaveBeenCalledWith(
       expect.objectContaining({ actorType: 'apiKey', actorName: 'Agente MCP' }),
@@ -155,7 +169,7 @@ describe('createActivityRecordingMiddleware', () => {
     const useCase = buildUseCase();
     const app = buildApp(useCase, adminActor, '/api/admin/api-keys/:apiKeyId', 200);
 
-    await request(app).delete('/api/admin/api-keys/1');
+    await request(app).delete('/api/admin/api-keys/018f6f1a-0000-7000-8000-000000000001');
 
     expect(useCase.execute).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: null }),

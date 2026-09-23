@@ -1,4 +1,4 @@
-import { PayloadTooLargeError } from '../../../shared/domain/PayloadTooLargeError';
+import { PayloadTooLargeError } from '@/shared/domain/PayloadTooLargeError';
 
 export class FileTooLargeError extends PayloadTooLargeError {
   constructor(maxFileSizeMb: number) {

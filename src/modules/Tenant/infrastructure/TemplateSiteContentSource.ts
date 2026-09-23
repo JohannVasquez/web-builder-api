@@ -1,7 +1,10 @@
 import type { SiteContent } from '../domain/SiteContent';
 import type { SiteContentSource } from '../domain/SiteContentSource';
-import { SITE_TEMPLATES, findSiteTemplate } from '../../Template/domain/registry';
-import { toSummary, type SiteTemplateSummary } from '../../Template/domain/SiteTemplate';
+import { SITE_TEMPLATES, findSiteTemplate } from '@/modules/Template/domain/registry';
+import {
+  toSummary,
+  type SiteTemplateSummary,
+} from '@/modules/Template/domain/SiteTemplate';
 
 // Adaptador entre los kits por rubro y el contenido genérico que sabe escribir Tenant.
 export class TemplateSiteContentSource implements SiteContentSource {

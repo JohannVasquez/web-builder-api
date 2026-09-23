@@ -1,8 +1,8 @@
-import type { PrismaClient } from '../../src/shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type { Seeder } from './Seeder';
 
 export interface GlobalSettingsSeedParams {
-  readonly tenantId: number;
+  readonly tenantId: string;
   readonly settings: Readonly<Record<string, string>>;
 }
 

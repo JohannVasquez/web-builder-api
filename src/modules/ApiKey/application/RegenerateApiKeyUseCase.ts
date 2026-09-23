@@ -1,13 +1,13 @@
 import { ApiKeyRepository } from '../domain/ApiKeyRepository';
 import { generateApiKeyToken } from '../domain/apiKeyToken';
 import type { CreatedApiKey } from './CreateApiKeyUseCase';
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 // Revoca la anterior y entrega una nueva con la misma configuración (Spec 10.1).
 export class RegenerateApiKeyUseCase {
   constructor(private readonly apiKeyRepository: ApiKeyRepository) {}
 
-  public async execute(id: number): Promise<CreatedApiKey> {
+  public async execute(id: string): Promise<CreatedApiKey> {
     const existing = await this.apiKeyRepository.findById(id);
     if (existing === null) {
       throw new NotFoundError(`No existe una clave de acceso con id ${id}.`);

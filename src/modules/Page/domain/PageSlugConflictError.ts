@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 
 export class PageSlugConflictError extends BadRequestError {
   constructor(public readonly slug: string) {

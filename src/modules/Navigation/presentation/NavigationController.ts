@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import type { GetNavigationUseCase } from '../application/GetNavigationUseCase';
 
 export class NavigationController {

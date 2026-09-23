@@ -233,8 +233,15 @@ contacto, sin arreglar nada.
 - `GET/PATCH /api/admin/tenants/:tenantId/messages` y
   `GET .../messages/export.csv` para leerlos, marcarlos y exportarlos.
 
-Para el paso a paso de dar de alta un cliente, ver
-[docs/dar-de-alta-un-cliente.md](docs/dar-de-alta-un-cliente.md).
+## Guías
+
+| Guía | De qué trata |
+| --- | --- |
+| [Dar de alta un cliente](docs/dar-de-alta-un-cliente.md) | El paso a paso completo, de cero a sitio publicado |
+| [Armar una página](docs/armar-una-pagina.md) | Bloques, borrador y publicado, versiones y el menú |
+| [Dominios y estado del sitio](docs/dominios-y-estado-del-sitio.md) | Conectar el dominio propio de un cliente y pausar un sitio |
+| [Gestionar el equipo del panel](docs/gestionar-el-equipo-del-panel.md) | Roles, invitaciones y recuperación de contraseña |
+| [Vender en línea](docs/vender-en-linea.md) | Tienda, carrito, cobro, cupones, pedidos y reportes |
 
 ## Claves de acceso y agentes de IA
 

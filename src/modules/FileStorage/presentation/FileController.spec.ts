@@ -8,7 +8,7 @@ import { DeleteFileUseCase } from '../application/DeleteFileUseCase';
 import { FileStorageConfig } from '../domain/FileStorageConfig';
 import type { StorageAssetRepository } from '../domain/StorageAssetRepository';
 import type { FileData, StorageProvider } from '../domain/StorageProvider';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('FileController (HTTP)', () => {
   const maxFileSizeBytes = 1024;
@@ -60,7 +60,7 @@ describe('FileController (HTTP)', () => {
     const response = await request(app)
       .post('/api/files')
       .attach('file', Buffer.from('fake-png'), {
-        filename: '../../etc/passwd.png',
+        filename: '@/modules/etc/passwd.png',
         contentType: 'image/png',
       });
 

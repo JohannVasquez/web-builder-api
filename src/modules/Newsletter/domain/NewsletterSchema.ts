@@ -9,7 +9,7 @@ export const SubscribeSchema = z.strictObject({
 export type SubscribeInput = z.infer<typeof SubscribeSchema>;
 
 export interface NewsletterSubscriber {
-  readonly id: number;
+  readonly id: string;
   readonly email: string;
   readonly unsubscribedAt: string | null;
   readonly createdAt: string;
