@@ -10,31 +10,32 @@ datasource db {
 }
 
 model Tenant {
-  id                String                 @id @default(uuid(7)) @db.Uuid
-  slug              String                 @unique @db.VarChar(100)
-  name              String                 @db.VarChar(255)
+  id                 String                 @id @default(uuid(7)) @db.Uuid
+  slug               String                 @unique @db.VarChar(100)
+  name               String                 @db.VarChar(255)
   /// `active` sirve el sitio; `paused` y `building` responden mantención.
-  status            String                 @default("active") @db.VarChar(20)
-  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt         DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-  domains           TenantDomain[]
-  pages             Page[]
-  navigationLinks   NavigationLink[]
-  globalSettings    GlobalSetting[]
-  brand             TenantBrand?
-  apiKeyScopes      ApiKeyTenant[]
-  activityLogs      ActivityLog[]
-  contactMessages   ContactMessage[]
-  subscribers       NewsletterSubscriber[]
-  storageAssets     StorageAsset[]
-  blogPosts         BlogPost[]
-  products          Product[]
-  productCategories ProductCategory[]
-  storeSettings     StoreSettings?
-  coupons           Coupon[]
-  orders            Order[]
-  adminUsers        AdminUserTenant[]
-  idempotencyKeys   IdempotencyKey[]
+  status             String                 @default("active") @db.VarChar(20)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  domains            TenantDomain[]
+  pages              Page[]
+  navigationLinks    NavigationLink[]
+  globalSettings     GlobalSetting[]
+  brand              TenantBrand?
+  apiKeyScopes       ApiKeyTenant[]
+  activityLogs       ActivityLog[]
+  contactMessages    ContactMessage[]
+  subscribers        NewsletterSubscriber[]
+  storageAssets      StorageAsset[]
+  blogPosts          BlogPost[]
+  products           Product[]
+  productCategories  ProductCategory[]
+  storeSettings      StoreSettings?
+  coupons            Coupon[]
+  orders             Order[]
+  adminUsers         AdminUserTenant[]
+  idempotencyKeys    IdempotencyKey[]
+  dataRightsRequests DataRightsRequest[]
 
   @@map("tenants")
 }
@@ -70,6 +71,13 @@ model Page {
   title            String    @db.VarChar(255)
   description      String?
   isPublished      Boolean   @default(true) @map("is_published")
+  /// Título y descripción para buscadores; nulos = se usan `title` y `description`.
+  seoTitle         String?   @map("seo_title") @db.VarChar(255)
+  seoDescription   String?   @map("seo_description")
+  /// `key` del bucket privado para compartir en redes; misma regla que el blog.
+  ogImageKey       String?   @map("og_image_key") @db.VarChar(500)
+  /// Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  noindex          Boolean   @default(false)
   /// Estilo visual propio de esta página; nulo = hereda el del sitio.
   visualStyle      String?   @map("visual_style") @db.VarChar(50)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
@@ -362,6 +370,8 @@ model BlogPost {
   seoDescription String? @map("seo_description")
   /// `key` del bucket privado para compartir en redes; misma regla que `coverImageKey`.
   ogImageKey     String? @map("og_image_key") @db.VarChar(500)
+  /// Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  noindex        Boolean @default(false)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
@@ -433,6 +443,12 @@ model Product {
   /// `null` = no se controla stock. 0 = agotado.
   stock Int? @map("stock")
 
+  /// Título y descripción para buscadores; nulos = se usan `name` y `description`.
+  seoTitle       String? @map("seo_title") @db.VarChar(255)
+  seoDescription String? @map("seo_description")
+  /// Activo pero fuera del índice: se puede comprar por el enlace, el buscador no lo lista.
+  noindex        Boolean @default(false)
+
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -483,6 +499,15 @@ model StoreSettings {
   /// Página con los términos de compra. Si existe y está publicada, comprar exige aceptarlos.
   termsPageSlug      String? @map("terms_page_slug") @db.VarChar(255)
 
+  /// Identificación del proveedor que exige el Reglamento de Comercio Electrónico. Sin estos
+  /// datos completos la tienda no se puede encender (ver `sellerIsComplete`).
+  legalName     String? @map("legal_name") @db.VarChar(255)
+  /// RUT normalizado: sin puntos, con guion, K en mayúscula.
+  taxId         String? @map("tax_id") @db.VarChar(20)
+  sellerAddress String? @map("seller_address") @db.VarChar(255)
+  sellerEmail   String? @map("seller_email") @db.VarChar(255)
+  sellerPhone   String? @map("seller_phone") @db.VarChar(40)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -523,9 +548,17 @@ model Order {
 
   status String @default("pending") @db.VarChar(20)
 
-  customerName  String @map("customer_name") @db.VarChar(160)
-  customerEmail String @map("customer_email") @db.VarChar(255)
-  customerPhone String @map("customer_phone") @db.VarChar(40)
+  customerName  String  @map("customer_name") @db.VarChar(160)
+  customerEmail String  @map("customer_email") @db.VarChar(255)
+  customerPhone String  @map("customer_phone") @db.VarChar(40)
+  /// RUT del comprador: obligatorio solo si pide factura, necesario para el documento
+  /// tributario. Normalizado igual que el del vendedor.
+  customerTaxId String? @map("customer_tax_id") @db.VarChar(20)
+
+  /// Quién vendió, tal como estaba al confirmar la compra. Es una copia y no una referencia
+  /// a propósito: si el cliente cambia su razón social mañana, el pedido de hoy tiene que
+  /// seguir diciendo con quién se contrató.
+  seller Json? @map("seller")
 
   /// `shipping` o `pickup`.
   deliveryMethod String  @map("delivery_method") @db.VarChar(20)
@@ -549,6 +582,11 @@ model Order {
   /// (la fecha de publicación de la página de términos vigente en ese momento).
   termsAcceptedAt DateTime? @map("terms_accepted_at") @db.Timestamptz()
   termsVersion    String?   @map("terms_version") @db.VarChar(40)
+
+  /// Constancia del correo de confirmación, que la Ley 19.496 exige mandar. Mismo criterio
+  /// que `ContactMessage`: con fecha si salió, con motivo si falló, para poder reintentar.
+  confirmationEmailedAt  DateTime? @map("confirmation_emailed_at") @db.Timestamptz()
+  confirmationEmailError String?   @map("confirmation_email_error")
 
   paymentProvider  String?   @map("payment_provider") @db.VarChar(20)
   paymentReference String?   @map("payment_reference") @db.VarChar(255)
@@ -608,4 +646,35 @@ model IdempotencyKey {
   @@unique([tenantId, scope, key])
   @@index([expiresAt])
   @@map("idempotency_keys")
+}
+
+/// Solicitud de un titular para ejercer sus derechos sobre sus datos (Ley 21.719). Se guarda
+/// para poder acreditar que se respondió, y dentro de plazo: la ley da un mes y la carga de
+/// la prueba es del responsable.
+model DataRightsRequest {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// `acceso` | `rectificacion` | `cancelacion` | `oposicion` | `portabilidad`.
+  right   String @db.VarChar(20)
+  email   String @db.VarChar(255)
+  /// Qué pide corregir, en una rectificación.
+  details String @default("")
+
+  /// `pendiente` | `verificada` | `resuelta` | `rechazada`.
+  status String @default("pendiente") @db.VarChar(20)
+
+  /// Hash del token que se manda por correo, nunca el token: quien lea la base no puede
+  /// verificarse haciéndose pasar por el titular.
+  verificationTokenHash String    @map("verification_token_hash") @db.VarChar(64)
+  verificationExpiresAt DateTime  @map("verification_expires_at") @db.Timestamptz()
+  verifiedAt            DateTime? @map("verified_at") @db.Timestamptz()
+  resolvedAt            DateTime? @map("resolved_at") @db.Timestamptz()
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([verificationTokenHash])
+  @@map("data_rights_requests")
 }

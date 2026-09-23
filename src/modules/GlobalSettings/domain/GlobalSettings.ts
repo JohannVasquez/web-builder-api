@@ -19,6 +19,13 @@ const SETTING_KEYS = [
   'googleTagManagerId',
   'cookieBanner',
   'openingHours',
+  // Código que Search Console pide pegar en el `<head>` para verificar el dominio. Es
+  // público por definición: sale en el marcado de cada página.
+  'googleSiteVerification',
+  'bingSiteVerification',
+  // 'true' saca del índice el sitio entero mientras se construye. Es una cadena como el
+  // resto de las claves; quien la lee decide cómo interpretarla.
+  'siteUnderConstruction',
 ] as const;
 
 type SettingKey = (typeof SETTING_KEYS)[number];

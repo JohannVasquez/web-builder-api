@@ -67,6 +67,17 @@ export class ResolveImageUrlsUseCase {
     return this.resolveValue(value);
   }
 
+  /**
+   * Una `key` suelta, fuera de un `props`: la imagen para compartir de una página. Misma
+   * regla que dentro de `props` — lo que ya es una URL absoluta se deja pasar.
+   */
+  public async signKey(key: string | null): Promise<string | null> {
+    if (key === null) {
+      return null;
+    }
+    return this.resolveImageKey(key);
+  }
+
   private async resolveImageKey(value: string): Promise<string> {
     if (value === '' || ABSOLUTE_URL_PATTERN.test(value)) {
       return value;

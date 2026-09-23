@@ -24,6 +24,12 @@ export interface ProductView {
   readonly whatsappOrderUrl: string | null;
   readonly stock: number | null;
   readonly isSoldOut: boolean;
+  // Nulos = el sitio usa `name` y `description`.
+  readonly seoTitle: string | null;
+  readonly seoDescription: string | null;
+  readonly noindex: boolean;
+  // Lo consume el sitemap para el `lastmod`.
+  readonly updatedAt: string | null;
 }
 
 export type SignKeys = (keys: readonly string[]) => Promise<string[]>;
@@ -62,6 +68,10 @@ export const toProductView = async (
   categoryId: product.categoryId,
   stock: product.stock,
   isSoldOut: product.isSoldOut(),
+  seoTitle: product.seoTitle,
+  seoDescription: product.seoDescription,
+  noindex: product.noindex,
+  updatedAt: product.updatedAt?.toISOString() ?? null,
   whatsappOrderUrl: buildWhatsAppOrderUrl({
     whatsappNumber: context.whatsappNumber,
     productName: product.name,

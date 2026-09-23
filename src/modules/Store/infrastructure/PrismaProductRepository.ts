@@ -30,6 +30,10 @@ interface ProductRecord {
   readonly featured: boolean;
   readonly position: number;
   readonly stock: number | null;
+  readonly seoTitle?: string | null;
+  readonly seoDescription?: string | null;
+  readonly noindex?: boolean;
+  readonly updatedAt?: Date | null;
 }
 
 const asJsonColumn = (value: unknown): object => value as object;
@@ -238,6 +242,10 @@ export class PrismaProductRepository implements ProductRepository {
       record.featured,
       record.position,
       record.stock,
+      record.seoTitle ?? null,
+      record.seoDescription ?? null,
+      record.noindex ?? false,
+      record.updatedAt ?? null,
     );
   }
 }

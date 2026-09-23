@@ -60,6 +60,11 @@ import {
   createAdminNewsletterRouter,
   createNewsletterRouter,
 } from './modules/Newsletter/presentation/newsletterRouter';
+import {
+  createAdminDataRightsRouter,
+  createDataRightsRouter,
+} from './modules/DataRights/presentation/dataRightsRouter';
+import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
 import { createMediaProxyRouter } from './modules/FileStorage/presentation/mediaProxyRouter';
 import type { MediaProxyController } from './modules/FileStorage/presentation/MediaProxyController';
 import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
@@ -89,6 +94,7 @@ export interface AppControllers {
   readonly adminContactMessageController: AdminContactMessageController;
   readonly legalPageController: LegalPageController;
   readonly newsletterController: NewsletterController;
+  readonly dataRightsController: DataRightsController;
   readonly mediaController: MediaController;
   readonly mediaProxyController: MediaProxyController;
   readonly blogController: BlogController;
@@ -191,6 +197,12 @@ export const buildApp = (
     createNewsletterRouter(controllers.newsletterController),
   );
   app.use(
+    '/api/solicitudes-datos',
+    tenantResolver,
+    siteAvailability,
+    createDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
     '/api/media',
     tenantResolver,
     siteAvailability,
@@ -286,6 +298,11 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/media',
     ...adminGuards,
     createMediaRouter(controllers.mediaController, fileUploadMiddleware),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/solicitudes-datos',
+    ...adminGuards,
+    createAdminDataRightsRouter(controllers.dataRightsController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/subscribers',

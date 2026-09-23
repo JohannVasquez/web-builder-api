@@ -9,6 +9,7 @@ import {
   type OrderStatus,
 } from '../domain/Order';
 import type { OrderQuery, OrderRepository, SalesReport } from '../domain/OrderRepository';
+import { SellerIdentitySchema, type SellerIdentity } from '../domain/StoreSettings';
 import { DEFAULT_TIME_ZONE, localDayKey } from '../domain/localDay';
 
 interface OrderItemRecord {
@@ -27,6 +28,7 @@ interface OrderRecord {
   readonly customerName: string;
   readonly customerEmail: string;
   readonly customerPhone: string;
+  readonly customerTaxId?: string | null;
   readonly deliveryMethod: string;
   readonly addressLine: string | null;
   readonly addressCity: string | null;
@@ -47,10 +49,18 @@ interface OrderRecord {
   readonly createdAt: Date;
   readonly termsAcceptedAt: Date | null;
   readonly termsVersion: string | null;
+  readonly seller?: unknown;
   readonly items: readonly OrderItemRecord[];
 }
 
 const asJsonColumn = (value: unknown): object => value as object;
+
+// La copia del vendedor se guarda como JSON suelto: si viniera rota, el pedido se sigue
+// leyendo sin ella en vez de caerse entero.
+const toSeller = (value: unknown): SellerIdentity | null => {
+  const parsed = SellerIdentitySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+};
 
 const toVariant = (value: unknown): Record<string, string> => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -71,6 +81,17 @@ const toStatus = (value: string): OrderStatus =>
 export class PrismaOrderRepository implements OrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  public async markConfirmationEmailed(
+    orderId: string,
+    emailedAt: Date | null,
+    error: string | null,
+  ): Promise<void> {
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { confirmationEmailedAt: emailedAt, confirmationEmailError: error },
+    });
+  }
+
   public async create(tenantId: string, order: NewOrder): Promise<Order> {
     // Todo dentro de una transacción: dos compras a la vez no pueden quedarse con el
     // mismo número de pedido.
@@ -89,6 +110,7 @@ export class PrismaOrderRepository implements OrderRepository {
           customerName: order.customer.name,
           customerEmail: order.customer.email,
           customerPhone: order.customer.phone,
+          customerTaxId: order.customer.taxId ?? null,
           deliveryMethod: order.delivery.method,
           addressLine: order.delivery.addressLine,
           addressCity: order.delivery.addressCity,
@@ -106,6 +128,7 @@ export class PrismaOrderRepository implements OrderRepository {
           paymentProvider: order.paymentProvider,
           termsAcceptedAt: order.termsAcceptedAt,
           termsVersion: order.termsVersion,
+          seller: order.seller === null ? undefined : asJsonColumn(order.seller),
           items: {
             create: order.lines.map((line) => ({
               productId: line.productId,
@@ -346,6 +369,7 @@ export class PrismaOrderRepository implements OrderRepository {
         name: record.customerName,
         email: record.customerEmail,
         phone: record.customerPhone,
+        taxId: record.customerTaxId ?? null,
       },
       {
         method: record.deliveryMethod === 'pickup' ? 'pickup' : 'shipping',
@@ -370,6 +394,7 @@ export class PrismaOrderRepository implements OrderRepository {
       record.createdAt,
       record.termsAcceptedAt,
       record.termsVersion,
+      toSeller(record.seller),
     );
   }
 }

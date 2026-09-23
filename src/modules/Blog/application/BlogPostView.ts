@@ -13,6 +13,10 @@ export interface BlogPostSummaryView {
   readonly publishedAt: string | null;
   readonly tags: readonly string[];
   readonly readingMinutes: number;
+  // Alimenta el `dateModified` del dato estructurado y el `lastmod` del sitemap.
+  readonly updatedAt: string;
+  // Publicada pero fuera del índice: el enlace funciona, el buscador no la lista.
+  readonly noindex: boolean;
 }
 
 export interface BlogPostDetailView extends BlogPostSummaryView {
@@ -37,6 +41,8 @@ export const toSummaryView = async (
   authorName: post.authorName,
   publishedAt: post.publishedAt?.toISOString() ?? null,
   tags: post.tags,
+  updatedAt: post.updatedAt.toISOString(),
+  noindex: post.noindex,
   // Se recalcula en cada lectura en vez de guardarse: cambiar el texto y dejar el tiempo
   // viejo es la forma más fácil de que quede mal para siempre.
   readingMinutes: calculateReadingMinutes(post.content),

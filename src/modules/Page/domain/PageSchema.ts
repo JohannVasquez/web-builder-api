@@ -15,12 +15,21 @@ const visualStyleSchema = z
   .nullable()
   .optional();
 
+const seoTitleSchema = z.string().max(255).nullable().optional();
+const seoDescriptionSchema = z.string().max(2000).nullable().optional();
+// Misma forma que la `key` de portada del blog: ruta dentro del bucket, nunca una URL.
+const ogImageKeySchema = z.string().max(500).nullable().optional();
+
 export const PageInputSchema = z.strictObject({
   slug: slugSchema,
   title: titleSchema,
   description: descriptionSchema,
   isPublished: z.boolean().default(true),
   visualStyle: visualStyleSchema,
+  seoTitle: seoTitleSchema,
+  seoDescription: seoDescriptionSchema,
+  ogImageKey: ogImageKeySchema,
+  noindex: z.boolean().default(false),
 });
 
 export type PageInput = z.infer<typeof PageInputSchema>;
@@ -37,6 +46,10 @@ export const PageUpdateSchema = z.strictObject({
   description: descriptionSchema,
   isPublished: z.boolean().optional(),
   visualStyle: visualStyleSchema,
+  seoTitle: seoTitleSchema,
+  seoDescription: seoDescriptionSchema,
+  ogImageKey: ogImageKeySchema,
+  noindex: z.boolean().optional(),
 });
 
 export type PageUpdateInput = z.infer<typeof PageUpdateSchema>;

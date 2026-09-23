@@ -23,6 +23,16 @@ export interface SalesReport {
 
 // Clase abstracta usada como token de inyección de dependencias (diod).
 export abstract class OrderRepository {
+  /**
+   * Deja constancia del correo de confirmación: con fecha si salió, con motivo si falló. Sin
+   * esto, un correo perdido no se distingue de uno entregado y nadie puede reintentarlo.
+   */
+  public abstract markConfirmationEmailed(
+    orderId: string,
+    emailedAt: Date | null,
+    error: string | null,
+  ): Promise<void>;
+
   public abstract create(tenantId: string, order: NewOrder): Promise<Order>;
   public abstract findById(tenantId: string, id: string): Promise<Order | null>;
   public abstract findByNumber(tenantId: string, number: string): Promise<Order | null>;
