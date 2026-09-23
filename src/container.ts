@@ -13,6 +13,8 @@ import { VerifyDataRightsRequestUseCase } from './modules/DataRights/application
 import { ListDataRightsRequestsUseCase } from './modules/DataRights/application/ListDataRightsRequestsUseCase';
 import { ResolveDataRightsRequestUseCase } from './modules/DataRights/application/ResolveDataRightsRequestUseCase';
 import { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { ResolveMediaUseCase } from './modules/FileStorage/application/ResolveMediaUseCase';
+import { MediaProxyController } from './modules/FileStorage/presentation/MediaProxyController';
 import { ConsumerClaimRepository } from './modules/ConsumerClaims/domain/ConsumerClaimRepository';
 import { PrismaConsumerClaimRepository } from './modules/ConsumerClaims/infrastructure/PrismaConsumerClaimRepository';
 import { SubmitConsumerClaimUseCase } from './modules/ConsumerClaims/application/SubmitConsumerClaimUseCase';
@@ -402,6 +404,11 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(PageController)
     .withDependencies([GetPageBySlugUseCase, ListPublishedPagesUseCase]);
+  // Dirección estable para las imágenes del bucket, que `next/image` necesita.
+  builder
+    .registerAndUse(ResolveMediaUseCase)
+    .withDependencies([StorageAssetRepository, StorageProvider]);
+  builder.registerAndUse(MediaProxyController).withDependencies([ResolveMediaUseCase]);
   // Redirecciones: las registran los casos de uso que renombran contenido, así que van antes.
   builder
     .register(RedirectRepository)
@@ -900,6 +907,7 @@ export class Container {
         redirectController: this.services.get(RedirectController),
         consentController: this.services.get(ConsentController),
         mediaController: this.services.get(MediaController),
+        mediaProxyController: this.services.get(MediaProxyController),
         blogController: this.services.get(BlogController),
         adminBlogController: this.services.get(AdminBlogController),
         storeController: this.services.get(StoreController),

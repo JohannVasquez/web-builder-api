@@ -66,6 +66,8 @@ import {
   createDataRightsRouter,
 } from './modules/DataRights/presentation/dataRightsRouter';
 import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { createMediaProxyRouter } from './modules/FileStorage/presentation/mediaProxyRouter';
+import type { MediaProxyController } from './modules/FileStorage/presentation/MediaProxyController';
 import {
   createAdminConsumerClaimRouter,
   createConsumerClaimRouter,
@@ -110,6 +112,7 @@ export interface AppControllers {
   readonly redirectController: RedirectController;
   readonly consentController: ConsentController;
   readonly mediaController: MediaController;
+  readonly mediaProxyController: MediaProxyController;
   readonly blogController: BlogController;
   readonly adminBlogController: AdminBlogController;
   readonly storeController: StoreController;
@@ -219,6 +222,12 @@ export const buildApp = (
     tenantResolver,
     siteAvailability,
     createDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
+    '/api/media',
+    tenantResolver,
+    siteAvailability,
+    createMediaProxyRouter(controllers.mediaProxyController),
   );
   app.use(
     '/api/reclamos',
