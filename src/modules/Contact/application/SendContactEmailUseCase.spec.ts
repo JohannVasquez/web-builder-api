@@ -36,9 +36,10 @@ describe('SendContactEmailUseCase', () => {
 
   const buildSettingsRepository = (
     contactEmail: string,
+    siteName: string = '',
   ): jest.Mocked<GlobalSettingsRepository> => ({
     upsert: jest.fn(),
-    find: jest.fn().mockResolvedValue(GlobalSettings.fromRecord({ contactEmail })),
+    find: jest.fn().mockResolvedValue(GlobalSettings.fromRecord({ contactEmail, siteName })),
   });
 
   const buildContactMessageRepository = (): jest.Mocked<ContactMessageRepository> => ({
@@ -50,7 +51,7 @@ describe('SendContactEmailUseCase', () => {
 
   it('dispatches an email with the contact data to the tenant mailbox', async () => {
     const emailService = buildEmailService();
-    const settingsRepository = buildSettingsRepository('ventas@electroandes.cl');
+    const settingsRepository = buildSettingsRepository('ventas@electroandes.cl', 'Electro Andes');
     const contactMessageRepository = buildContactMessageRepository();
     const useCase = new SendContactEmailUseCase(
       emailService,
@@ -62,10 +63,11 @@ describe('SendContactEmailUseCase', () => {
 
     expect(settingsRepository.find).toHaveBeenCalledWith(TENANT_ID);
     expect(emailService.sendContactEmail).toHaveBeenCalledTimes(1);
-    const [contact, recipient] = emailService.sendContactEmail.mock.calls[0] ?? [];
+    const [contact, recipient, siteName] = emailService.sendContactEmail.mock.calls[0] ?? [];
     expect(contact).toBeInstanceOf(ContactRequest);
     expect(contact?.email).toBe('johann@example.com');
     expect(recipient).toBe('ventas@electroandes.cl');
+    expect(siteName).toBe('Electro Andes');
   });
 
   it('stores the message before attempting to send the email', async () => {

@@ -34,18 +34,22 @@ export class SmtpEmailService implements EmailService {
   public async sendContactEmail(
     contact: ContactRequest,
     recipient?: string,
+    siteName?: string,
   ): Promise<void> {
+    // Si no hay siteName, usamos un valor genérico para que no quede roto
+    const site = siteName && siteName.trim() !== '' ? siteName : 'Sitio Web';
     await this.transporter.sendMail({
       from: this.config.from,
       to: recipient ?? this.config.to,
       replyTo: contact.email,
-      subject: `Nuevo mensaje de contacto de ${contact.name}`,
-      text: this.buildBody(contact),
+      subject: `Nuevo mensaje de contacto en ${site} de ${contact.name}`,
+      text: this.buildBody(contact, site),
     });
   }
 
-  private buildBody(contact: ContactRequest): string {
+  private buildBody(contact: ContactRequest, siteName: string): string {
     return [
+      `Mensaje recibido desde: ${siteName}`,
       `Nombre: ${contact.name}`,
       `Email: ${contact.email}`,
       `Teléfono: ${contact.phone ?? 'No informado'}`,

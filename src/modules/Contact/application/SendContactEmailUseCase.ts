@@ -36,7 +36,8 @@ export class SendContactEmailUseCase {
     }
 
     try {
-      await this.emailService.sendContactEmail(contact, recipient);
+      const siteName = settings.get('siteName');
+      await this.emailService.sendContactEmail(contact, recipient, siteName);
       await this.contactMessageRepository.markEmailed(stored.id, null);
       return { stored: true, emailed: true };
     } catch (error) {
