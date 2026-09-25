@@ -91,6 +91,7 @@ vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 | GET    | `/api/admin/me`                              | Confirma la sesión vigente        |
 | GET    | `/api/admin/tenants`                         | Lista los clientes                |
 | CRUD   | `/api/admin/tenants/:tenantId/pages`         | Páginas y secciones del cliente   |
+| GET    | `/api/admin/tenants/:tenantId/quality-review`| Revisa la calidad antes de entregar |
 | POST/DEL | `/api/admin/tenants/:tenantId/preview-links` | Genera o anula un enlace de revisión |
 >>>>>>> feat/enlace-de-revision
 
@@ -316,7 +317,7 @@ claude mcp add web-builder \
 Herramientas disponibles: `list_tenants`, `get_site`, `get_catalog`,
 `create_page`, `update_page`, `publish_page`, `delete_page`, `add_block`,
 `update_block`, `delete_block`, `reorder_blocks`, `get_brand`, `update_brand`,
-`get_preview_url`, `list_activity`.
+`get_preview_url`, `list_activity`, `review_site_quality`.
 
 Dos reglas que el servidor impone por diseño:
 

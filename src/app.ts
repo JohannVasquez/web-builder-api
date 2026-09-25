@@ -91,6 +91,8 @@ import { createActivityLogRouter } from './modules/ActivityLog/presentation/acti
 import type { AdminBrandController } from './modules/Brand/presentation/AdminBrandController';
 import { createAdminBrandRouter } from './modules/Brand/presentation/adminBrandRouter';
 import { ErrorHandler } from './shared/presentation/ErrorHandler';
+import type { AdminSiteQualityReviewController } from './modules/SiteQualityReview/presentation/AdminSiteQualityReviewController';
+import { createAdminSiteQualityReviewRouter } from './modules/SiteQualityReview/presentation/adminSiteQualityReviewRouter';
 
 export interface AppControllers {
   readonly pageController: PageController;
@@ -125,6 +127,7 @@ export interface AppControllers {
   readonly adminOrderController: AdminOrderController;
   readonly adminGlobalSettingsController: AdminGlobalSettingsController;
   readonly adminPreviewLinkController: AdminPreviewLinkController;
+  readonly adminSiteQualityReviewController: AdminSiteQualityReviewController;
 }
 
 export const buildApp = (
@@ -407,6 +410,12 @@ export const buildApp = (
     '/api/admin/font-pairings',
     actorMiddleware,
     controllers.adminBrandController.listFontPairings,
+  );
+  
+  app.use(
+    '/api/admin/tenants/:tenantId/quality-review',
+    ...adminGuards,
+    createAdminSiteQualityReviewRouter(controllers.adminSiteQualityReviewController),
   );
 
   app.use(errorHandler.handle);

@@ -167,6 +167,9 @@ describe('buildApp (rutas protegidas)', () => {
         listVersions: ok(200),
         restoreVersion: ok(200),
       },
+      adminSiteQualityReviewController: {
+        review: ok(200),
+      },
     } as unknown as AppControllers;
   };
 

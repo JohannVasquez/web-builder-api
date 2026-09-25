@@ -1005,5 +1005,17 @@ export const buildTools = (api: ApiClient): McpTool[] => {
         return api.request('GET', `/api/admin/activity?${params.toString()}`);
       },
     ),
+
+    tool(
+      'review_site_quality',
+      'Revisar calidad del sitio antes de entregar',
+      'Ejecuta una revisión automática de calidad sobre el sitio (textos de ejemplo sin cambiar, imágenes sin texto alternativo, enlaces rotos, páginas sin SEO, datos de negocio faltantes, política de privacidad no publicada). Devuelve una lista de observaciones con su gravedad y cómo solucionarlas. Útil correrla antes de dar por terminado un proyecto.',
+      { tenantId },
+      (args) =>
+        api.request(
+          'GET',
+          `/api/admin/tenants/${String(args.tenantId)}/quality-review`,
+        ),
+    ),
   ];
 };

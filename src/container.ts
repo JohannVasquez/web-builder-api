@@ -230,6 +230,8 @@ import { GetBrandUseCase } from './modules/Brand/application/GetBrandUseCase';
 import { UpdateBrandUseCase } from './modules/Brand/application/UpdateBrandUseCase';
 import { ResolveBrandAssetsUseCase } from './modules/Brand/application/ResolveBrandAssetsUseCase';
 import { AdminBrandController } from './modules/Brand/presentation/AdminBrandController';
+import { ReviewSiteQualityUseCase } from './modules/SiteQualityReview/application/ReviewSiteQualityUseCase';
+import { AdminSiteQualityReviewController } from './modules/SiteQualityReview/presentation/AdminSiteQualityReviewController';
 import { buildApp } from './app';
 
 /**
@@ -911,6 +913,17 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     GeneratePreviewLinkUseCase,
     RevokePreviewLinkUseCase,
   ]);
+  builder
+    .registerAndUse(ReviewSiteQualityUseCase)
+    .withDependencies([
+      PageRepository,
+      GlobalSettingsRepository,
+      NavigationRepository,
+      StorageAssetRepository,
+    ]);
+  builder.registerAndUse(AdminSiteQualityReviewController).withDependencies([
+    ReviewSiteQualityUseCase,
+  ]);
 
   return builder.build();
 };
@@ -956,6 +969,7 @@ export class Container {
         checkoutController: this.services.get(CheckoutController),
         adminOrderController: this.services.get(AdminOrderController),
         adminPreviewLinkController: this.services.get(AdminPreviewLinkController),
+        adminSiteQualityReviewController: this.services.get(AdminSiteQualityReviewController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
