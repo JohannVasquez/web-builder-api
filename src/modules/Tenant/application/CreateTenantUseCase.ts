@@ -5,19 +5,31 @@ import type { CreateTenantInput } from '../domain/TenantSchema';
 import type { Tenant } from '../domain/Tenant';
 import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { PlatformDomainConfig } from './ManageTenantUseCase';
 
 export class CreateTenantUseCase {
   constructor(
     private readonly tenantRepository: TenantRepository,
     private readonly siteContentSource: SiteContentSource,
+    private readonly platform: PlatformDomainConfig,
   ) {}
 
   public async execute(input: CreateTenantInput): Promise<Tenant> {
     const content = await this.resolveContent(input);
+    
+    // Si no hay dominio configurado saltamos este paso en vez de fallar; lo ponemos al final para que los dominios propios tengan prioridad como principal.
+    const domains = [...input.domains];
+    if (this.platform.baseDomain !== '') {
+      const platformSubdomain = `${input.slug}.${this.platform.baseDomain}`;
+      if (!domains.includes(platformSubdomain)) {
+        domains.push(platformSubdomain);
+      }
+    }
+
     return this.tenantRepository.createWithContent(
       input.slug,
       input.name,
-      input.domains,
+      domains,
       content,
     );
   }

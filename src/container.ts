@@ -311,7 +311,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.register(SiteContentSource).use(TemplateSiteContentSource).withDependencies([]);
   builder
     .registerAndUse(CreateTenantUseCase)
-    .withDependencies([TenantRepository, SiteContentSource]);
+    .withDependencies([TenantRepository, SiteContentSource, PlatformDomainConfig]);
   builder.registerAndUse(ListSiteTemplatesUseCase).withDependencies([SiteContentSource]);
   builder
     .register(PlatformDomainConfig)

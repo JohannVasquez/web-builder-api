@@ -9,6 +9,7 @@ import { PrismaNavigationRepository } from '@/modules/Navigation/infrastructure/
 import { PrismaStorageAssetRepository } from '@/modules/FileStorage/infrastructure/PrismaStorageAssetRepository';
 import { ReviewSiteQualityUseCase } from '@/modules/SiteQualityReview/application/ReviewSiteQualityUseCase';
 import { CreateTenantUseCase } from '@/modules/Tenant/application/CreateTenantUseCase';
+import { PlatformDomainConfig } from '@/modules/Tenant/application/ManageTenantUseCase';
 import 'dotenv/config';
 
 describe('Demo Sites Integration', () => {
@@ -29,10 +30,14 @@ describe('Demo Sites Integration', () => {
     const storageRepo = new PrismaStorageAssetRepository(prisma);
 
     reviewUseCase = new ReviewSiteQualityUseCase(pageRepo, settingsRepo, navRepo, storageRepo);
-    createTenantUseCase = new CreateTenantUseCase(tenantRepository, {
-      fromTemplate: jest.fn(),
-      listTemplates: jest.fn(),
-    });
+    createTenantUseCase = new CreateTenantUseCase(
+      tenantRepository,
+      {
+        fromTemplate: jest.fn(),
+        listTemplates: jest.fn(),
+      },
+      new PlatformDomainConfig('platform.test', 'target.test')
+    );
   });
 
   afterAll(async () => {

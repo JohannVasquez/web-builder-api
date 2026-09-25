@@ -5,6 +5,7 @@ import type { SiteContentSource } from '../domain/SiteContentSource';
 import type { TenantRepository } from '../domain/TenantRepository';
 import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { PlatformDomainConfig } from './ManageTenantUseCase';
 
 describe('CreateTenantUseCase', () => {
   const content = (isPublished: boolean): SiteContent => ({
@@ -36,23 +37,26 @@ describe('CreateTenantUseCase', () => {
     listTemplates: jest.fn().mockResolvedValue([]),
   });
 
+  const buildPlatform = (baseDomain = 'misuperplataforma.com'): PlatformDomainConfig =>
+    new PlatformDomainConfig(baseDomain, 'target.com');
+
   const input = {
     slug: 'nuevo',
     name: 'Nuevo',
-    domains: ['nuevo.cl'],
+    domains: [],
     templateId: undefined,
     duplicateFromTenantId: undefined,
   };
 
-  it('crea un cliente vacío cuando no se pide plantilla ni duplicado', async () => {
+  it('crea un cliente vacío con su dominio de plataforma cuando no se pide plantilla ni duplicado', async () => {
     const repository = buildRepository();
 
-    await new CreateTenantUseCase(repository, buildSource()).execute(input);
+    await new CreateTenantUseCase(repository, buildSource(), buildPlatform()).execute(input);
 
     expect(repository.createWithContent).toHaveBeenCalledWith(
       'nuevo',
       'Nuevo',
-      ['nuevo.cl'],
+      ['nuevo.misuperplataforma.com'],
       {
         settings: {},
         navigation: [],
@@ -62,11 +66,45 @@ describe('CreateTenantUseCase', () => {
     );
   });
 
+  it('si no hay dominio de plataforma configurado, la creación sigue funcionando', async () => {
+    const repository = buildRepository();
+
+    await new CreateTenantUseCase(repository, buildSource(), buildPlatform('')).execute(input);
+
+    expect(repository.createWithContent).toHaveBeenCalledWith(
+      'nuevo',
+      'Nuevo',
+      [],
+      {
+        settings: {},
+        navigation: [],
+        brand: {},
+        pages: [],
+      },
+    );
+  });
+
+  it('pone el dominio de plataforma al final si el cliente ya trae uno propio', async () => {
+    const repository = buildRepository();
+
+    await new CreateTenantUseCase(repository, buildSource(), buildPlatform()).execute({
+      ...input,
+      domains: ['midominio.cl'],
+    });
+
+    expect(repository.createWithContent).toHaveBeenCalledWith(
+      'nuevo',
+      'Nuevo',
+      ['midominio.cl', 'nuevo.misuperplataforma.com'],
+      expect.anything(),
+    );
+  });
+
   it('siembra el sitio desde el kit por rubro pedido', async () => {
     const repository = buildRepository();
     const source = buildSource();
 
-    await new CreateTenantUseCase(repository, source).execute({
+    await new CreateTenantUseCase(repository, source, buildPlatform()).execute({
       ...input,
       templateId: 'pasteleria',
     });
@@ -75,7 +113,7 @@ describe('CreateTenantUseCase', () => {
     expect(repository.createWithContent).toHaveBeenCalledWith(
       'nuevo',
       'Nuevo',
-      ['nuevo.cl'],
+      ['nuevo.misuperplataforma.com'],
       expect.objectContaining({ settings: { siteName: 'Kit' } }),
     );
   });
@@ -85,7 +123,7 @@ describe('CreateTenantUseCase', () => {
     source.fromTemplate.mockResolvedValue(null);
 
     await expect(
-      new CreateTenantUseCase(buildRepository(), source).execute({
+      new CreateTenantUseCase(buildRepository(), source, buildPlatform()).execute({
         ...input,
         templateId: 'no-existe',
       }),
@@ -95,7 +133,7 @@ describe('CreateTenantUseCase', () => {
   it('copia el sitio de otro cliente cuando se pide duplicar', async () => {
     const repository = buildRepository();
 
-    await new CreateTenantUseCase(repository, buildSource()).execute({
+    await new CreateTenantUseCase(repository, buildSource(), buildPlatform()).execute({
       ...input,
       duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000009',
     });
@@ -108,7 +146,7 @@ describe('CreateTenantUseCase', () => {
   it('la copia nace despublicada: publicarla tiene que ser una decisión', async () => {
     const repository = buildRepository();
 
-    await new CreateTenantUseCase(repository, buildSource()).execute({
+    await new CreateTenantUseCase(repository, buildSource(), buildPlatform()).execute({
       ...input,
       duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000009',
     });
@@ -122,7 +160,7 @@ describe('CreateTenantUseCase', () => {
     repository.readContent.mockResolvedValue(null);
 
     await expect(
-      new CreateTenantUseCase(repository, buildSource()).execute({
+      new CreateTenantUseCase(repository, buildSource(), buildPlatform()).execute({
         ...input,
         duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000404',
       }),
@@ -131,7 +169,7 @@ describe('CreateTenantUseCase', () => {
 
   it('rechaza pedir plantilla y duplicado a la vez', async () => {
     await expect(
-      new CreateTenantUseCase(buildRepository(), buildSource()).execute({
+      new CreateTenantUseCase(buildRepository(), buildSource(), buildPlatform()).execute({
         ...input,
         templateId: 'pasteleria',
         duplicateFromTenantId: '018f6f1a-0000-7000-8000-000000000009',
@@ -179,7 +217,9 @@ describe('CreateTenantUseCase (lo publicado)', () => {
       listTemplates: jest.fn(),
     } as unknown as jest.Mocked<SiteContentSource>;
 
-    await new CreateTenantUseCase(repository, source).execute({
+    const platform = new PlatformDomainConfig('misuperplataforma.com', 'target.com');
+
+    await new CreateTenantUseCase(repository, source, platform).execute({
       slug: 'nuevo',
       name: 'Nuevo',
       domains: [],

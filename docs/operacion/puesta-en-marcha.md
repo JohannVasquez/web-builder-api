@@ -40,10 +40,11 @@ El repositorio no guarda contraseñas de producción. Jamás uses el `.env.examp
 
 ## 4. Dominios de clientes
 
-Los clientes conectan sus propios dominios a la plataforma.
+Los clientes reciben un subdominio gratuito al registrarse, y pueden conectar sus propios dominios a la plataforma después.
 
-1. Define la variable `PLATFORM_SITE_TARGET` (ej. `sitios.webbuilder.co`). Esto le indica al cliente adónde tiene que apuntar sus DNS (CNAME o A).
-2. Configura tu proxy de borde (ej. Caddy con On-Demand TLS) para emitir certificados SSL al vuelo cuando alguien entra por el dominio del cliente.
+1. Define la variable `PLATFORM_DOMAIN` (ej. `webbuilder.co`). La plataforma asignará automáticamente un subdominio (`<slug>.webbuilder.co`) ya verificado a cada cliente nuevo. Si se deja en blanco, la creación sigue funcionando pero los sitios nacerán sin dirección.
+2. Define la variable `PLATFORM_SITE_TARGET` (ej. `sitios.webbuilder.co`). Esto le indica al cliente adónde tiene que apuntar sus DNS (CNAME o A) cuando conecte un dominio propio.
+3. Configura tu proxy de borde (ej. Caddy con On-Demand TLS) para emitir certificados SSL al vuelo cuando alguien entra por el dominio del cliente.
 
 ## 5. Publicar sin dejar los sitios caídos
 

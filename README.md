@@ -59,6 +59,7 @@ para cualquier visitante.
 `POST /api/admin/tenants` crea un cliente. Puede nacer vacío, desde un kit por
 rubro (`templateId`) o copiando el sitio de otro cliente
 (`duplicateFromTenantId`). Las dos últimas opciones son excluyentes.
+Al crearse, recibe automáticamente su dirección dentro del dominio de la plataforma (ej. `slug.plataforma.com`), si está configurado, para que funcione de inmediato sin intervención manual.
 
 Los kits viven en `src/modules/Template/domain/kits/`, uno por archivo, y se
 registran con una línea en `registry.ts`. Traen páginas, bloques, textos de
