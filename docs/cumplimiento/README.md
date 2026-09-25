@@ -7,13 +7,14 @@
 > semanas reconstruir y que aquí ya está.
 
 La Ley 21.719 exige tener por escrito tres cosas que no se pueden improvisar el día de una
-fiscalización:
+fiscalización. Además, aquí guardamos los términos que regulan la relación con el cliente:
 
-| Documento                                                            | Qué exige la ley  | Estado                     |
-| -------------------------------------------------------------------- | ----------------- | -------------------------- |
-| [Registro de actividades de tratamiento](registro-de-tratamiento.md) | Art. 15 ter       | Borrador completo          |
-| [Contrato de encargo (DPA)](dpa-encargo-de-tratamiento.md)           | Art. 15 bis       | Borrador, requiere abogado |
-| [Procedimiento de brechas](procedimiento-de-brechas.md)              | Art. 14 quinquies | Borrador completo          |
+| Documento                                                            | Qué exige la ley / Propósito | Estado                     |
+| -------------------------------------------------------------------- | ---------------------------- | -------------------------- |
+| [Registro de actividades de tratamiento](registro-de-tratamiento.md) | Art. 15 ter                  | Borrador completo          |
+| [Contrato de encargo (DPA)](dpa-encargo-de-tratamiento.md)           | Art. 15 bis                  | Borrador, requiere abogado |
+| [Procedimiento de brechas](procedimiento-de-brechas.md)              | Art. 14 quinquies            | Borrador completo          |
+| [Términos de servicio](terminos-de-servicio.md)                      | Condiciones del servicio     | Borrador, requiere abogado |
 
 ## Por qué la plataforma es _encargada_ y no _responsable_
 
