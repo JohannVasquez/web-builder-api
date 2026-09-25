@@ -290,4 +290,24 @@ describe('herramientas del MCP', () => {
       })).rejects.toThrow(/no tiene permiso/);
     });
   });
+
+  describe('sincronización con la documentación', () => {
+    it('todas las herramientas exportadas están documentadas en docs/herramientas-agentes.md', async () => {
+      const docsPath = process.cwd() + '/docs/herramientas-agentes.md';
+      // Usamos el módulo original para leer la documentación real
+      const actualModule = jest.requireActual<{ readFile: (path: string, encoding: string) => Promise<string> }>('node:fs/promises');
+      const docContent = await actualModule.readFile(docsPath, 'utf-8');
+      
+      const exportedTools = tools(buildApi());
+      
+      for (const tool of exportedTools) {
+        // Buscamos menciones de la herramienta en el markdown, idealmente como código en línea `tool_name` o listadas
+        const regex = new RegExp(`\\b${tool.name}\\b`);
+        expect({ name: tool.name, documented: regex.test(docContent) }).toEqual({
+          name: tool.name,
+          documented: true
+        });
+      }
+    });
+  });
 });

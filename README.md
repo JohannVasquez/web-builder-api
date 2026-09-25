@@ -17,46 +17,7 @@ formulario de contacto vía SMTP.
 
 ## Arquitectura
 
-Screaming Architecture por módulos de negocio, con Clean Architecture intramódulo:
-
-```
-src/
-├── modules/
-│   ├── Page/            # Motor de renderizado dinámico
-│   │   ├── domain/          # Entidades, errores e interfaces de repositorio
-│   │   ├── application/     # GetPageBySlugUseCase (+ .spec.ts)
-│   │   ├── infrastructure/  # PrismaPageRepository
-│   │   └── presentation/    # Controller + router
-│   ├── GlobalSettings/  # Variables globales de marca
-│   ├── Navigation/      # Menú del sitio (páginas y/o anclas de secciones)
-│   └── Contact/         # Formulario de contacto + SMTP
-├── shared/              # Kernel compartido (config, DB, error handler)
-├── app.ts               # Ensamblado de Express
-├── container.ts         # Raíz de composición (inyección de dependencias)
-└── server.ts            # Punto de entrada
-```
-
-Las dependencias entre capas están protegidas por `eslint-plugin-boundaries`:
-`domain` no conoce a nadie, `application` solo conoce a `domain`, e
-`infrastructure`/`presentation` nunca se importan entre sí.
-
-## Inyección de dependencias (diod)
-
-`domain` define los contratos como **clases abstractas** (`PageRepository`,
-`GlobalSettingsRepository`, `EmailService`) — TypeScript borra las `interface` en
-runtime, así que diod necesita un token real para resolver dependencias. Las clases
-de `application`/`presentation`/`infrastructure` reciben esos contratos por
-constructor, sin conocer la implementación concreta.
-
-`src/container.ts` es la única raíz de composición: usa el `ContainerBuilder` de diod
-para asociar cada abstracción con su implementación de Prisma/SMTP y arma el grafo de
-dependencias con **wiring explícito** (`withDependencies([...])`) en vez de autowiring
-por decoradores. Se eligió así porque el autowiring de diod depende de
-`emitDecoratorMetadata`, que requiere chequeo de tipos de todo el `Program` para
-resolver clases importadas de otros archivos — algo que un transpilador de un solo
-archivo como esbuild (usado por `tsx` en `pnpm dev`) no puede garantizar. El wiring
-explícito es una función de primera clase de diod, sin esa fragilidad, y se comporta
-igual en `pnpm dev`, `pnpm test` y `pnpm build`.
+Consulta la [Guía de Arquitectura](docs/arquitectura.md) para detalles sobre las capas, dependencias y la inyección con `diod`.
 
 ## Endpoints
 
@@ -244,6 +205,11 @@ contacto, sin arreglar nada.
 
 | Guía                                                                   | De qué trata                                               |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [Guía para Agentes (Punto de entrada)](AGENTS.md)                       | Qué leer y qué no leer al modificar este código            |
+| [Arquitectura](docs/arquitectura.md)                                    | Capas, módulos, dependencias e inyección                   |
+| [Convenciones](docs/convenciones.md)                                    | Nomenclatura, comentarios y reglas de código               |
+| [Herramientas MCP](docs/herramientas-agentes.md)                        | Lista y uso de herramientas para agentes IA                |
+| [Cómo agregar funciones](docs/como-agregar-nuevas-funciones.md)         | Paso a paso para extender el proyecto                      |
 | [Dar de alta un cliente](docs/dar-de-alta-un-cliente.md)               | El paso a paso completo, de cero a sitio publicado         |
 | [Datos del negocio](docs/datos-del-negocio.md)                         | Información global, contacto, horarios y analítica         |
 | [Armar una página](docs/armar-una-pagina.md)                           | Bloques, borrador y publicado, versiones y el menú         |
@@ -253,81 +219,7 @@ contacto, sin arreglar nada.
 
 ## Claves de acceso y agentes de IA
 
-El panel y los agentes entran por **las mismas rutas** `/api/admin/**`. Es lo
-único que garantiza que un agente no pueda hacer algo que el panel no valida,
-ni al revés. Un solo middleware (`createActorMiddleware`) resuelve el actor:
-
-- `Authorization: Bearer <jwt>` → una persona del panel.
-- `Authorization: Bearer wb_...` o `X-Api-Key: wb_...` → una clave de agente.
-
-El prefijo `wb_` es lo que distingue una de otra sin consultar la base.
-
-### Permisos y alcance
-
-| Permiso | Puede                                      |
-| ------- | ------------------------------------------ |
-| `read`  | Solo leer                                  |
-| `write` | Leer y editar contenido (POST, PATCH, PUT) |
-| `full`  | Además publicar y eliminar (DELETE)        |
-
-`requireMethodPermission` deriva el permiso necesario del método HTTP, y
-`requireTenantScope` bloquea con 403 cualquier `:tenantId` fuera del alcance de
-la clave. Una clave revocada o vencida responde 401 con el motivo concreto.
-
-De la clave solo se guarda el `sha256`; el token completo se muestra una vez, al
-crearla. Una clave nunca puede gestionar claves: sería una escalada silenciosa.
-
-### Registro de actividad
-
-`createActivityRecordingMiddleware` registra cada escritura con el actor (persona
-o nombre de la clave), el cliente, la acción y el cuerpo enviado. Va en un
-middleware, como la invalidación de caché, para que toda ruta admin nueva quede
-cubierta sin que nadie tenga que acordarse. Escribir en el registro nunca hace
-fallar la operación de negocio.
-
-Consulta: `GET /api/admin/activity?tenantId=&actorType=&from=&to=&limit=&offset=`
-
-### Servidor MCP
-
-`src/mcp/` expone la plataforma como servidor MCP por stdio. Habla con esta
-misma API por HTTP, así que sirve igual contra local o contra producción: lo
-único que cambia es `WEB_BUILDER_API_URL`.
-
-Para conectarlo a Claude Code:
-
-```bash
-# 1. Crea una clave desde el panel (o con curl, con tu sesión de admin):
-curl -X POST http://localhost:4000/api/admin/api-keys \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"Claude Code","permission":"write"}'
-
-# 2. Registra el servidor MCP (la clave se muestra UNA sola vez):
-claude mcp add web-builder \
-  --env WEB_BUILDER_API_URL=http://localhost:4000 \
-  --env WEB_BUILDER_API_KEY=wb_... \
-  -- pnpm --dir /ruta/a/web-builder-api mcp
-```
-
-Herramientas disponibles: `list_tenants`, `get_site`, `get_catalog`,
-`create_page`, `update_page`, `publish_page`, `delete_page`, `add_block`,
-`update_block`, `delete_block`, `reorder_blocks`, `get_brand`, `update_brand`,
-`get_preview_url`, `list_activity`, `review_site_quality`.
-
-Dos reglas que el servidor impone por diseño:
-
-- **Todo nace en borrador.** `create_page` manda `isPublished: false` salvo que
-  se pida lo contrario; publicar es una herramienta aparte que exige `full`.
-- **Lo destructivo exige confirmación en la misma llamada.** `delete_page` y
-  `delete_block` piden `confirm: true`, para que un agente no borre "de paso".
-
-Para la creación de contenido, la herramienta `upload_media` permite al agente subir imágenes a la biblioteca generándolas localmente y enviándolas mediante multipart desde su disco. Hay un ejemplo detallado de esto en `docs/armar-una-pagina.md`.
-
-Un error de validación vuelve al agente como la lista de campos mal y por qué,
-no como un 400 opaco: es lo que le permite corregir y reintentar solo.
-
-`get_catalog` se sirve desde el frontend (`WEBAPP_CATALOG_URL`), donde viven los
-componentes. Así agregar un bloque o un estilo lo publica solo para los agentes,
-sin tocar el MCP.
+Consulta la [Guía de Herramientas para Agentes](docs/herramientas-agentes.md) para detalles sobre el servidor MCP, permisos, reglas de uso y la lista de herramientas disponibles.
 
 ## Identidad de marca (módulo Brand)
 
