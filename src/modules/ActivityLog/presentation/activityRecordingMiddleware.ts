@@ -21,11 +21,13 @@ const describe = (
           ? 'navigation'
           : path.includes('/api-keys')
             ? 'apiKey'
-            : path.includes('/tenants')
-              ? 'tenant'
-              : path.includes('/solicitudes-datos')
-                ? 'dataRightsRequest'
-                : 'resource';
+            : path.includes('/subscriptions')
+              ? 'subscription'
+              : path.includes('/tenants')
+                ? 'tenant'
+                : path.includes('/solicitudes-datos')
+                  ? 'dataRightsRequest'
+                  : 'resource';
   return { action: `${entity}.${verb}`, entityType: entity };
 };
 

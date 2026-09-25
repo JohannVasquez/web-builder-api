@@ -1017,5 +1017,31 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           `/api/admin/tenants/${String(args.tenantId)}/quality-review`,
         ),
     ),
+
+    tool(
+      'get_subscription_status',
+      'Consultar estado de cobro de un cliente',
+      'Revisa si un cliente está al día con la mensualidad de la agencia, si está por vencer o si está atrasado. El estado se calcula solo a partir de su fecha de inicio y los pagos recibidos.',
+      { tenantId },
+      (args) => api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/subscription`),
+    ),
+
+    tool(
+      'register_subscription_payment',
+      'Registrar un pago recibido',
+      'Anota que el cliente pagó la mensualidad. Exige permiso `full` porque toca dinero. El estado del cliente (al día, atrasado) se actualizará solo. El monto va en números enteros (pesos).',
+      {
+        tenantId,
+        amountCents: z.number().int().positive().describe('Monto pagado, en enteros (pesos)'),
+        paidAt: z.string().datetime().describe('Fecha en que se recibió la plata (ISO 8601)'),
+        paymentMethod: z.string().min(1).max(50).describe('Medio de pago (ej. transferencia, tarjeta, efectivo)'),
+      },
+      (args) =>
+        api.request('POST', `/api/admin/tenants/${String(args.tenantId)}/subscription/payments`, {
+          amountCents: args.amountCents,
+          paidAt: args.paidAt,
+          paymentMethod: args.paymentMethod,
+        }),
+    ),
   ];
 };

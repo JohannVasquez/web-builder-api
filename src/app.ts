@@ -93,6 +93,8 @@ import { createAdminBrandRouter } from './modules/Brand/presentation/adminBrandR
 import { ErrorHandler } from './shared/presentation/ErrorHandler';
 import type { AdminSiteQualityReviewController } from './modules/SiteQualityReview/presentation/AdminSiteQualityReviewController';
 import { createAdminSiteQualityReviewRouter } from './modules/SiteQualityReview/presentation/adminSiteQualityReviewRouter';
+import type { AdminSubscriptionController } from './modules/Subscription/presentation/AdminSubscriptionController';
+import { createAdminSubscriptionRouter, createAdminSubscriptionOverviewRouter } from './modules/Subscription/presentation/adminSubscriptionRouter';
 
 export interface AppControllers {
   readonly pageController: PageController;
@@ -128,6 +130,7 @@ export interface AppControllers {
   readonly adminGlobalSettingsController: AdminGlobalSettingsController;
   readonly adminPreviewLinkController: AdminPreviewLinkController;
   readonly adminSiteQualityReviewController: AdminSiteQualityReviewController;
+  readonly adminSubscriptionController: AdminSubscriptionController;
 }
 
 export const buildApp = (
@@ -416,6 +419,20 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/quality-review',
     ...adminGuards,
     createAdminSiteQualityReviewRouter(controllers.adminSiteQualityReviewController),
+  );
+
+  app.use(
+    '/api/admin/subscriptions',
+    actorMiddleware,
+    requireStaff,
+    activityRecording,
+    createAdminSubscriptionOverviewRouter(controllers.adminSubscriptionController),
+  );
+
+  app.use(
+    '/api/admin/tenants/:tenantId/subscription',
+    ...adminGuards,
+    createAdminSubscriptionRouter(controllers.adminSubscriptionController),
   );
 
   app.use(errorHandler.handle);

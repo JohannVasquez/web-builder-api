@@ -40,6 +40,7 @@ model Tenant {
   redirects          Redirect[]
   consents           ConsentRecord[]
   previewLinks       PreviewLink[]
+  subscription       Subscription?
 
   @@map("tenants")
 }
@@ -784,4 +785,42 @@ model PreviewLink {
 
   @@index([tenantId, expiresAt])
   @@map("preview_links")
+}
+
+/// Suscripción de la agencia cobrada al cliente por tener el sitio.
+model Subscription {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @unique @map("tenant_id") @db.Uuid
+  planName   String   @map("plan_name") @db.VarChar(100)
+  priceCents Int      @map("price_cents")
+  startsAt   DateTime @map("starts_at") @db.Timestamptz()
+  /// Día del mes en que se cobra (1 a 31).
+  billingDay Int      @map("billing_day")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments SubscriptionPayment[]
+
+  @@map("subscriptions")
+}
+
+/// Pago de una suscripción de agencia.
+model SubscriptionPayment {
+  id             String @id @default(uuid(7)) @db.Uuid
+  subscriptionId String @map("subscription_id") @db.Uuid
+
+  amountCents   Int      @map("amount_cents")
+  /// Fecha en que se recibió el pago.
+  paidAt        DateTime @map("paid_at") @db.Timestamptz()
+  /// Medio por el cual se pagó (ej. transferencia, tarjeta).
+  paymentMethod String   @map("payment_method") @db.VarChar(50)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, paidAt])
+  @@map("subscription_payments")
 }

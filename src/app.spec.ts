@@ -167,6 +167,7 @@ describe('buildApp (rutas protegidas)', () => {
         listVersions: ok(200),
         restoreVersion: ok(200),
       },
+      adminSubscriptionController: { statusAction: ok(200), updateAction: ok(200), registerPaymentAction: ok(200), overviewAction: ok(200), exportAction: ok(200) },
       adminSiteQualityReviewController: {
         review: ok(200),
       },

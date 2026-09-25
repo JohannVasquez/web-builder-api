@@ -74,26 +74,20 @@ Todo lo que escribe va detrás de `Authorization: Bearer <token>` (el token lo
 emite `POST /api/admin/auth/login`). Sin cabecera, o con un token inválido o
 vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 
-<<<<<<< HEAD
-| Método  | Ruta                                    | Descripción                       |
-| ------- | --------------------------------------- | --------------------------------- |
-| POST    | `/api/files`                            | Sube un archivo al bucket privado |
-| DELETE  | `/api/files/:key`                       | Borra un archivo del bucket       |
-| GET     | `/api/admin/me`                         | Confirma la sesión vigente        |
-| GET     | `/api/admin/tenants`                    | Lista los clientes                |
-| CRUD    | `/api/admin/tenants/:tenantId/pages`    | Páginas y secciones del cliente   |
-| GET/PUT | `/api/admin/tenants/:tenantId/settings` | Datos del negocio y medición      |
-=======
-| Método | Ruta                                         | Descripción                       |
-| ------ | -------------------------------------------- | --------------------------------- |
-| POST   | `/api/files`                                 | Sube un archivo al bucket privado |
-| DELETE | `/api/files/:key`                            | Borra un archivo del bucket       |
-| GET    | `/api/admin/me`                              | Confirma la sesión vigente        |
-| GET    | `/api/admin/tenants`                         | Lista los clientes                |
-| CRUD   | `/api/admin/tenants/:tenantId/pages`         | Páginas y secciones del cliente   |
+| Método  | Ruta                                         | Descripción                       |
+| ------- | -------------------------------------------- | --------------------------------- |
+| POST    | `/api/files`                                 | Sube un archivo al bucket privado |
+| DELETE  | `/api/files/:key`                            | Borra un archivo del bucket       |
+| GET     | `/api/admin/me`                              | Confirma la sesión vigente        |
+| GET     | `/api/admin/tenants`                         | Lista los clientes                |
+| GET     | `/api/admin/subscriptions`                   | Vista global de cobros y MRR      |
+| GET     | `/api/admin/subscriptions/export`            | Exportar cobros en CSV            |
+| CRUD    | `/api/admin/tenants/:tenantId/pages`         | Páginas y secciones del cliente   |
+| GET/PUT | `/api/admin/tenants/:tenantId/settings`      | Datos del negocio y medición      |
+| GET/PUT | `/api/admin/tenants/:tenantId/subscription`  | Consulta y cambia plan de cliente |
+| POST    | `/api/admin/tenants/:tenantId/subscription/payments` | Registra pago recibido (exige full)|
 | GET    | `/api/admin/tenants/:tenantId/quality-review`| Revisa la calidad antes de entregar |
 | POST/DEL | `/api/admin/tenants/:tenantId/preview-links` | Genera o anula un enlace de revisión |
->>>>>>> feat/enlace-de-revision
 
 Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose

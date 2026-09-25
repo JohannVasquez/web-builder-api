@@ -232,6 +232,14 @@ import { ResolveBrandAssetsUseCase } from './modules/Brand/application/ResolveBr
 import { AdminBrandController } from './modules/Brand/presentation/AdminBrandController';
 import { ReviewSiteQualityUseCase } from './modules/SiteQualityReview/application/ReviewSiteQualityUseCase';
 import { AdminSiteQualityReviewController } from './modules/SiteQualityReview/presentation/AdminSiteQualityReviewController';
+
+import { PrismaSubscriptionRepository } from './modules/Subscription/infrastructure/PrismaSubscriptionRepository';
+import { GetSubscriptionsOverviewUseCase } from './modules/Subscription/application/GetSubscriptionsOverviewUseCase';
+import { GetSubscriptionStatusUseCase } from './modules/Subscription/application/GetSubscriptionStatusUseCase';
+import { RegisterSubscriptionPaymentUseCase } from './modules/Subscription/application/RegisterSubscriptionPaymentUseCase';
+import { UpdateSubscriptionUseCase } from './modules/Subscription/application/UpdateSubscriptionUseCase';
+import { ExportBillingCsvUseCase } from './modules/Subscription/application/ExportBillingCsvUseCase';
+import { AdminSubscriptionController } from './modules/Subscription/presentation/AdminSubscriptionController';
 import { buildApp } from './app';
 
 /**
@@ -925,6 +933,20 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     ReviewSiteQualityUseCase,
   ]);
 
+  builder.registerAndUse(PrismaSubscriptionRepository).withDependencies([PrismaClient]);
+  builder.registerAndUse(GetSubscriptionsOverviewUseCase).withDependencies([PrismaSubscriptionRepository]);
+  builder.registerAndUse(GetSubscriptionStatusUseCase).withDependencies([PrismaSubscriptionRepository]);
+  builder.registerAndUse(RegisterSubscriptionPaymentUseCase).withDependencies([PrismaSubscriptionRepository]);
+  builder.registerAndUse(UpdateSubscriptionUseCase).withDependencies([PrismaSubscriptionRepository]);
+  builder.registerAndUse(ExportBillingCsvUseCase).withDependencies([PrismaSubscriptionRepository]);
+  
+  builder.registerAndUse(AdminSubscriptionController).withDependencies([
+    GetSubscriptionsOverviewUseCase,
+    GetSubscriptionStatusUseCase,
+    RegisterSubscriptionPaymentUseCase,
+    UpdateSubscriptionUseCase,
+    ExportBillingCsvUseCase,
+  ]);
   return builder.build();
 };
 
@@ -970,6 +992,7 @@ export class Container {
         adminOrderController: this.services.get(AdminOrderController),
         adminPreviewLinkController: this.services.get(AdminPreviewLinkController),
         adminSiteQualityReviewController: this.services.get(AdminSiteQualityReviewController),
+        adminSubscriptionController: this.services.get(AdminSubscriptionController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
