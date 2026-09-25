@@ -130,7 +130,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     tool(
       'update_page',
       'Editar una página',
-      'Cambia el título, la dirección, la descripción o el estilo visual de una página. Para que el cambio se vea en el sitio usa publish_page.',
+      'Cambia el título, la dirección, la descripción, el estilo visual o los datos para buscadores de una página. Para que el cambio se vea en el sitio usa publish_page.',
       {
         tenantId,
         pageId,
@@ -143,6 +143,31 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           .optional()
           .describe(
             'Estilo visual propio de esta página (ver get_catalog para los ids, ej. "claymorphism", "liquid-glass"); null = hereda el del sitio',
+          ),
+        seoTitle: z
+          .string()
+          .nullable()
+          .optional()
+          .describe('Título que se muestra en buscadores; null = se deduce del título'),
+        seoDescription: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Descripción que aparece bajo el título en buscadores; null = se deduce de la descripción',
+          ),
+        ogImageKey: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Imagen que se usa al compartir el enlace: la `key` de la biblioteca del cliente, nunca una URL (las firmadas vencen)',
+          ),
+        noindex: z
+          .boolean()
+          .optional()
+          .describe(
+            'true saca la página del índice: el enlace funciona, el buscador no la lista',
           ),
       },
       (args) => {
@@ -924,17 +949,23 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       { tenantId },
       async (args) => {
         const id = args.tenantId as string;
-        
+
         const [tenantRes, linkRes] = await Promise.all([
-          api.request<{ tenants: { id: string; slug: string; primaryDomain: string | null }[] }>('GET', '/api/admin/tenants'),
-          api.request<{ id: string; token: string; expiresAt: string }>('POST', `/api/admin/tenants/${String(id)}/preview-links`, {})
+          api.request<{
+            tenants: { id: string; slug: string; primaryDomain: string | null }[];
+          }>('GET', '/api/admin/tenants'),
+          api.request<{ id: string; token: string; expiresAt: string }>(
+            'POST',
+            `/api/admin/tenants/${String(id)}/preview-links`,
+            {},
+          ),
         ]);
-        
+
         const tenant = tenantRes.tenants.find((candidate) => candidate.id === id);
         if (tenant === undefined) {
           throw new Error(`No existe un cliente con id ${String(id)} a tu alcance.`);
         }
-        
+
         // Sin dominio propio no hay dirección que armar: el dominio de la plataforma todavía
         // no está decidido (ver #98) e inventarlo aquí devolvería un enlace roto en silencio.
         const reviewUrl =
@@ -950,7 +981,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           note:
             reviewUrl === null
               ? 'Este cliente todavía no tiene dominio propio: usa `previewToken` sobre el dominio donde esté servido el sitio. Expira solo, no pide cuenta y lo oculta de los buscadores.'
-              : 'El enlace permite revisar el borrador actual y expira automáticamente. No requiere cuenta y oculta el sitio a buscadores.'
+              : 'El enlace permite revisar el borrador actual y expira automáticamente. No requiere cuenta y oculta el sitio a buscadores.',
         };
       },
     ),
