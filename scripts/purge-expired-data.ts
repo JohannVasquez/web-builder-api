@@ -16,6 +16,7 @@ import { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { EnvConfig } from '@/shared/config/EnvConfig';
 import { PurgeExpiredDataUseCase } from '@/modules/DataRetention/application/PurgeExpiredDataUseCase';
 import { PrismaRetentionRepository } from '@/modules/DataRetention/infrastructure/PrismaRetentionRepository';
+import { PrismaActivityLogRepository } from '@/modules/ActivityLog/infrastructure/PrismaActivityLogRepository';
 
 const optionalDays = (value: string): number | undefined =>
   value === '' ? undefined : Number(value);
@@ -33,13 +34,19 @@ const run = async (): Promise<void> => {
 
     const result = await useCase.execute();
 
-    console.log(
-      JSON.stringify({
-        at: new Date().toISOString(),
-        proceso: 'retencion-datos',
-        ...result,
-      }),
-    );
+    const activityLog = new PrismaActivityLogRepository(prisma);
+    await activityLog.record({
+      tenantId: null,
+      actorType: 'admin',
+      actorId: null,
+      actorName: 'Cron (Sistema)',
+      action: 'dataRetention.purge',
+      entityType: 'system',
+      entityId: null,
+      summary: 'Purga de datos vencidos en todos los clientes',
+      after: result,
+    });
+    // Se registra en ActivityLog (con tenantId nulo) para que quede traza global y auditable del recuento.
   } finally {
     await prisma.$disconnect();
   }

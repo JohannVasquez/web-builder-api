@@ -50,7 +50,7 @@ describe('plantillas legales', () => {
   });
 
   it('cada plantilla usa solo marcadores que el caso de uso sabe rellenar', () => {
-    const known = new Set(['siteName', 'address', 'contactEmail', 'contactPhone']);
+    const known = new Set(['siteName', 'address', 'contactEmail', 'contactPhone', 'legalName', 'taxId']);
     for (const template of LEGAL_PAGE_TEMPLATES) {
       for (const match of template.body.matchAll(/\{\{(\w+)\}\}/g)) {
         expect(known.has(match[1] ?? '')).toBe(true);

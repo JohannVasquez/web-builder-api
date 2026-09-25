@@ -1,3 +1,4 @@
+import type { StoreSettingsRepository } from '../../Store/domain/StoreSettingsRepository';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { AdminPageController } from './AdminPageController';
@@ -81,8 +82,8 @@ describe('AdminPageController (HTTP)', () => {
       new ListPagesUseCase(repository),
       new GetPageByIdUseCase(repository),
       new CreatePageUseCase(repository),
-      new UpdatePageUseCase(repository, noSlugChanges),
-      new DeletePageUseCase(repository),
+      new UpdatePageUseCase(repository, noSlugChanges, { find: async () => { await Promise.resolve(); return { isEnabled: false, termsPageSlug: null }; } } as unknown as StoreSettingsRepository),
+      new DeletePageUseCase(repository, { find: async () => { await Promise.resolve(); return { isEnabled: false, termsPageSlug: null }; } } as unknown as StoreSettingsRepository),
       new AddSectionUseCase(repository),
       new UpdateSectionUseCase(repository),
       new DuplicateSectionUseCase(repository),

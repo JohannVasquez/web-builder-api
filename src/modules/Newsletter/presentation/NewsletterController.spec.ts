@@ -1,3 +1,4 @@
+import type { ConsentRepository } from '@/modules/Consent/domain/ConsentRepository';
 import { createServer, type Server } from 'node:http';
 import express, { type Express } from 'express';
 import request from 'supertest';
@@ -38,7 +39,7 @@ describe('NewsletterController (HTTP)', () => {
     tenantId = '018f6f1a-0000-7000-8000-000000000001',
   ): Express => {
     const controller = new NewsletterController(
-      new SubscribeToNewsletterUseCase(repository),
+      new SubscribeToNewsletterUseCase(repository, { record: jest.fn() } as unknown as ConsentRepository),
       new ListSubscribersUseCase(repository),
       new UnsubscribeFromNewsletterUseCase(repository),
       rateLimiter,
