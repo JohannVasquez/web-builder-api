@@ -35,6 +35,7 @@ const envSchema = z.strictObject({
   STORAGE_ACCESS_KEY: z.string().default(''),
   STORAGE_SECRET_KEY: z.string().default(''),
   MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(5),
+  IMAGE_MAX_WIDTH: z.coerce.number().int().positive().default(2000),
   // Sin default: un secreto de firma JWT no debería tener un valor "de
   // fábrica" que alguien olvide cambiar en producción.
   AUTH_JWT_SECRET: z.string().min(32),
@@ -92,6 +93,7 @@ export class EnvConfig {
       STORAGE_ACCESS_KEY: source.STORAGE_ACCESS_KEY,
       STORAGE_SECRET_KEY: source.STORAGE_SECRET_KEY,
       MAX_FILE_SIZE_MB: source.MAX_FILE_SIZE_MB,
+      IMAGE_MAX_WIDTH: source.IMAGE_MAX_WIDTH,
       AUTH_JWT_SECRET: source.AUTH_JWT_SECRET,
       AUTH_TOKEN_TTL_HOURS: source.AUTH_TOKEN_TTL_HOURS,
       ADMIN_PANEL_URL: source.ADMIN_PANEL_URL,

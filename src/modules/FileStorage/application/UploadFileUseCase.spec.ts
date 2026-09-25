@@ -9,8 +9,18 @@ import type { FileData, StorageProvider } from '../domain/StorageProvider';
 const UUID_KEY_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/;
 
+jest.mock('sharp', () => {
+  return (): unknown => ({
+    resize: (): unknown => ({
+      webp: (): unknown => ({
+        toBuffer: (): Promise<Buffer> => Promise.resolve(Buffer.from('optimized')),
+      }),
+    }),
+  });
+});
+
 describe('UploadFileUseCase', () => {
-  const config = new FileStorageConfig(5 * 1024 * 1024);
+  const config = new FileStorageConfig(5 * 1024 * 1024, 2000);
 
   const buildStorageProvider = (): jest.Mocked<StorageProvider> => ({
     upload: jest
@@ -44,7 +54,8 @@ describe('UploadFileUseCase', () => {
     const storageProvider = buildStorageProvider();
     const assetRepository = buildAssetRepository();
     const useCase = new UploadFileUseCase(storageProvider, assetRepository, config);
-    const file = buildFile();
+    // Para que no lo optimice y se comporte como un archivo crudo, pasamos un PDF
+    const file = buildFile({ mimeType: 'application/pdf' });
 
     const stored = await useCase.execute(file);
 
@@ -52,17 +63,34 @@ describe('UploadFileUseCase', () => {
     const [uploadedFile, key] = storageProvider.upload.mock.calls[0] ?? [];
     expect(uploadedFile).toBe(file);
     expect(key).toMatch(UUID_KEY_PATTERN);
-    expect(key).toMatch(/\.png$/);
+    expect(key).toMatch(/\.pdf$/);
     expect(storageProvider.getPresignedUrl).toHaveBeenCalledWith(stored.key);
     expect(stored).toBeInstanceOf(StoredFile);
     expect(stored).toEqual(
       new StoredFile(
         stored.key,
         `http://cdn.test/assets/${stored.key}?signed=1`,
-        'image/png',
+        'application/pdf',
         1024,
       ),
     );
+  });
+
+  it('optimiza imágenes con sharp convirtiéndolas a webp', async () => {
+    const storageProvider = buildStorageProvider();
+    const assetRepository = buildAssetRepository();
+    const useCase = new UploadFileUseCase(storageProvider, assetRepository, config);
+    const file = buildFile({ mimeType: 'image/jpeg', size: 1024 });
+
+    const stored = await useCase.execute(file);
+
+    expect(storageProvider.upload).toHaveBeenCalledTimes(1);
+    const [uploadedFile, key] = storageProvider.upload.mock.calls[0] ?? [];
+    expect(uploadedFile).not.toBe(file);
+    expect(uploadedFile.mimeType).toBe('image/webp');
+    expect(uploadedFile.buffer.toString()).toBe('optimized');
+    expect(key).toMatch(/\.webp$/);
+    expect(stored.mimeType).toBe('image/webp');
   });
 
   it('registers the uploaded key in the storage asset repository', async () => {
@@ -71,12 +99,12 @@ describe('UploadFileUseCase', () => {
     const useCase = new UploadFileUseCase(storageProvider, assetRepository, config);
 
     const stored = await useCase.execute(
-      buildFile({ mimeType: 'image/webp', size: 2048 }),
+      buildFile({ mimeType: 'application/pdf', size: 2048 }),
     );
 
     expect(assetRepository.register).toHaveBeenCalledWith({
       key: stored.key,
-      mimeType: 'image/webp',
+      mimeType: 'application/pdf',
       size: 2048,
       tenantId: null,
       originalName: null,
@@ -92,15 +120,15 @@ describe('UploadFileUseCase', () => {
     );
 
     await useCase.execute(
-      buildFile({ mimeType: 'image/webp', size: 2048 }),
+      buildFile({ mimeType: 'application/pdf', size: 2048 }),
       '018f6f1a-0000-7000-8000-000000000009',
-      'logo.webp',
+      'doc.pdf',
     );
 
     expect(assetRepository.register).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: '018f6f1a-0000-7000-8000-000000000009',
-        originalName: 'logo.webp',
+        originalName: 'doc.pdf',
       }),
     );
   });
@@ -127,8 +155,8 @@ describe('UploadFileUseCase', () => {
       config,
     );
 
-    const first = await useCase.execute(buildFile());
-    const second = await useCase.execute(buildFile());
+    const first = await useCase.execute(buildFile({ mimeType: 'application/pdf' }));
+    const second = await useCase.execute(buildFile({ mimeType: 'application/pdf' }));
 
     expect(first.key).not.toBe(second.key);
   });
@@ -150,11 +178,23 @@ describe('UploadFileUseCase', () => {
     const assetRepository = buildAssetRepository();
     const useCase = new UploadFileUseCase(storageProvider, assetRepository, config);
 
+    // Usamos PDF para que no entre al branch de optimización de imagen
     await expect(
-      useCase.execute(buildFile({ size: config.maxFileSizeBytes + 1 })),
+      useCase.execute(buildFile({ mimeType: 'application/pdf', size: config.maxFileSizeBytes + 1 })),
     ).rejects.toBeInstanceOf(FileTooLargeError);
     expect(storageProvider.upload).not.toHaveBeenCalled();
     expect(assetRepository.register).not.toHaveBeenCalled();
+  });
+
+  it('rejects image files above the hard memory limit before optimizing', async () => {
+    const storageProvider = buildStorageProvider();
+    const assetRepository = buildAssetRepository();
+    const useCase = new UploadFileUseCase(storageProvider, assetRepository, config);
+
+    await expect(
+      useCase.execute(buildFile({ mimeType: 'image/jpeg', size: 50 * 1024 * 1024 + 1 })),
+    ).rejects.toBeInstanceOf(FileTooLargeError);
+    expect(storageProvider.upload).not.toHaveBeenCalled();
   });
 
   it('propagates errors from the storage provider', async () => {
@@ -166,6 +206,6 @@ describe('UploadFileUseCase', () => {
       config,
     );
 
-    await expect(useCase.execute(buildFile())).rejects.toThrow('bucket down');
+    await expect(useCase.execute(buildFile({ mimeType: 'application/pdf' }))).rejects.toThrow('bucket down');
   });
 });

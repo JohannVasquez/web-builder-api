@@ -5,6 +5,7 @@ import type {
   StorageAssetPrimitives,
   StorageAssetRepository,
 } from '../domain/StorageAssetRepository';
+import { containsExactKey } from '../domain/containsExactKey';
 
 interface AssetRecord {
   readonly key: string;
@@ -85,30 +86,43 @@ export class PrismaStorageAssetRepository implements StorageAssetRepository {
   }
 
   // Busca la `key` en el JSON de los bloques, en la marca y en los ajustes del cliente.
-  // Es una búsqueda textual a propósito: la key es un UUID, así que un falso positivo es
-  // prácticamente imposible, y recorrer cada schema de bloque sería frágil y más lento.
+  // Prisma hace una búsqueda textual rápida (`string_contains`), y luego filtramos en
+  // memoria para asegurar que la key es el valor exacto de la propiedad (el mismo
+  // criterio que usa ResolveImageUrlsUseCase para firmar).
   public async findUsage(tenantId: string, key: string): Promise<AssetUsage[]> {
-    const [pages, brand, settings] = await Promise.all([
+    const [rawPages, brand, rawSettings] = await Promise.all([
       this.prisma.page.findMany({
         where: { tenantId, sections: { some: { props: { string_contains: key } } } },
-        select: { title: true, slug: true },
+        select: { title: true, slug: true, sections: { select: { props: true } } },
       }),
       this.prisma.tenantBrand.findFirst({
         where: { tenantId, assets: { string_contains: key } },
-        select: { id: true },
+        select: { id: true, assets: true },
       }),
       this.prisma.globalSetting.findMany({
         where: { tenantId, value: { contains: key } },
-        select: { key: true },
+        select: { key: true, value: true },
       }),
     ]);
+
+    const pages = rawPages.filter((page) =>
+      page.sections.some((section) => containsExactKey(section.props, key)),
+    );
+    const hasBrand = brand !== null && containsExactKey(brand.assets, key);
+    const settings = rawSettings.filter((setting) => {
+      try {
+        return containsExactKey(JSON.parse(setting.value), key);
+      } catch {
+        return setting.value === key;
+      }
+    });
 
     return [
       ...pages.map((page) => ({
         kind: 'page' as const,
         label: `Página "${page.title}" (/${page.slug})`,
       })),
-      ...(brand === null
+      ...(!hasBrand
         ? []
         : [{ kind: 'brand' as const, label: 'Identidad de marca del cliente' }]),
       ...settings.map((setting) => ({
