@@ -22,9 +22,9 @@ El proceso general es:
 
 Por cada cliente que aprueba, debemos mantener un registro auditable. 
 
-> PENDIENTE: Definir el lugar exacto de almacenamiento de los respaldos de firma. ¿Será una carpeta en Google Drive/Notion por cliente, un sistema CRM externo, o se subirá como archivo al modelo del `Tenant` en la base de datos de la plataforma?
+Este registro ya está implementado en la API mediante el módulo `SignedDocuments`. Las firmas se guardan como hechos inmutables en la base de datos (ver tabla de rutas en [README.md](../../README.md)).
 
-Independiente de la herramienta elegida, el registro debe guardar estrictamente:
+Independiente de la herramienta de firma elegida por ventas, la API guarda estrictamente:
 - **Identidad del firmante:** Quién firmó en representación del cliente (nombre y RUT/DNI).
 - **Fecha y hora:** Marca de tiempo exacta de la aceptación.
 - **Versión de los documentos:** Un identificador claro (ej. `TOS-v1.2` y `DPA-v1.0`) o el hash del documento firmado.

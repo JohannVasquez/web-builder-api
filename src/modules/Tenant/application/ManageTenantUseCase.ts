@@ -4,6 +4,7 @@ import type { DomainVerifier } from '../domain/DomainVerifier';
 import type { Tenant, TenantStatus } from '../domain/Tenant';
 import { verificationHostFor, type TenantDomainRecord } from '../domain/TenantDomain';
 import { TenantRepository } from '../domain/TenantRepository';
+import { SignedDocumentRepository } from '@/modules/SignedDocuments/domain/SignedDocumentRepository';
 
 export interface DomainInstructions {
   readonly domain: string;
@@ -35,10 +36,14 @@ export class ManageTenantUseCase {
     private readonly tenantRepository: TenantRepository,
     private readonly verifier: DomainVerifier,
     private readonly platform: PlatformDomainConfig,
+    private readonly signedDocumentRepository: SignedDocumentRepository,
   ) {}
 
   public async setStatus(tenantId: string, status: TenantStatus): Promise<Tenant> {
     await this.requireTenant(tenantId);
+    if (status === 'active') {
+      await this.requireSignaturesForCustomDomain(tenantId);
+    }
     return this.tenantRepository.setStatus(tenantId, status);
   }
 
@@ -84,6 +89,20 @@ export class ManageTenantUseCase {
         `Todavía no vemos el registro TXT en ${verificationHostFor(target.domain)}. Los cambios de DNS pueden demorar unas horas en propagarse.`,
       );
     }
+
+    const tenant = await this.requireTenant(tenantId);
+    if (tenant.status === 'active') {
+      const signatures = await this.signedDocumentRepository.findByTenant(tenantId);
+      const hasContract = signatures.some((s) => s.document === 'contrato-de-servicio');
+      const hasData = signatures.some((s) => s.document === 'contrato-de-datos');
+      // No validamos en dominios de la plataforma (Issue #106) para no romper demostraciones.
+      if (!hasContract || !hasData) {
+        throw new BadRequestError(
+          `Para publicar en un dominio propio falta firmar: ${!hasContract ? 'contrato-de-servicio' : ''} ${!hasData ? 'contrato-de-datos' : ''}`,
+        );
+      }
+    }
+
     return this.tenantRepository.markDomainVerified(tenantId, domainId);
   }
 
@@ -118,5 +137,22 @@ export class ManageTenantUseCase {
       throw new NotFoundError('Ese cliente no existe.');
     }
     return tenant;
+  }
+
+  private async requireSignaturesForCustomDomain(tenantId: string): Promise<void> {
+    const domains = await this.tenantRepository.listDomains(tenantId);
+    const hasCustomDomain = domains.some((d) => !this.platform.owns(d.domain));
+    if (!hasCustomDomain) return;
+
+    const signatures = await this.signedDocumentRepository.findByTenant(tenantId);
+    const hasContract = signatures.some((s) => s.document === 'contrato-de-servicio');
+    const hasData = signatures.some((s) => s.document === 'contrato-de-datos');
+    
+    // Validamos solo dominios propios para no afectar la operación y demostraciones actuales (Issue #106)
+    if (!hasContract || !hasData) {
+      throw new BadRequestError(
+        `Falta firmar para publicar en dominio propio: ${!hasContract ? 'contrato-de-servicio' : ''} ${!hasData ? 'contrato-de-datos' : ''}`,
+      );
+    }
   }
 }

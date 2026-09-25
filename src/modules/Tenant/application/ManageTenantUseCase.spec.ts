@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
 import type { DomainVerifier } from '../domain/DomainVerifier';
@@ -55,8 +59,13 @@ describe('ManageTenantUseCase', () => {
         ),
     }) as unknown as jest.Mocked<TenantRepository>;
 
+  const signedRepo = (signatures: unknown[] = []): unknown => ({
+    findByTenant: jest.fn().mockResolvedValue(signatures),
+  });
+
+
   it('pausa un cliente sin tocar su contenido', async () => {
-    const useCase = new ManageTenantUseCase(repository(), verifier(true), platform);
+    const useCase = new ManageTenantUseCase(repository(), verifier(true), platform, signedRepo() as any);
 
     const paused = await useCase.setStatus(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -71,7 +80,7 @@ describe('ManageTenantUseCase', () => {
     const empty = {
       findById: jest.fn().mockResolvedValue(null),
     } as unknown as jest.Mocked<TenantRepository>;
-    const useCase = new ManageTenantUseCase(empty, verifier(true), platform);
+    const useCase = new ManageTenantUseCase(empty, verifier(true), platform, signedRepo() as any);
 
     await expect(
       useCase.setStatus('018f6f1a-0000-7000-8000-000000000099', 'paused'),
@@ -80,7 +89,7 @@ describe('ManageTenantUseCase', () => {
 
   it('da por verificado un subdominio de la propia plataforma', async () => {
     const repo = repository();
-    const useCase = new ManageTenantUseCase(repo, verifier(false), platform);
+    const useCase = new ManageTenantUseCase(repo, verifier(false), platform, signedRepo() as any);
 
     const created = await useCase.addDomain(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -97,7 +106,7 @@ describe('ManageTenantUseCase', () => {
 
   it('deja sin verificar un dominio propio del cliente', async () => {
     const repo = repository();
-    const useCase = new ManageTenantUseCase(repo, verifier(false), platform);
+    const useCase = new ManageTenantUseCase(repo, verifier(false), platform, signedRepo() as any);
 
     const created = await useCase.addDomain(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -123,6 +132,7 @@ describe('ManageTenantUseCase', () => {
       repository([pending]),
       verifier(false),
       platform,
+      signedRepo() as any
     );
 
     await expect(
@@ -142,7 +152,8 @@ describe('ManageTenantUseCase', () => {
     );
     const check = verifier(true);
     const repo = repository([pending]);
-    const useCase = new ManageTenantUseCase(repo, check, platform);
+    const signedRepoDocs = signedRepo([{ document: 'contrato-de-servicio' }, { document: 'contrato-de-datos' }]) as any;
+    const useCase = new ManageTenantUseCase(repo, check, platform, signedRepoDocs);
 
     const verified = await useCase.verifyDomain(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -161,7 +172,7 @@ describe('ManageTenantUseCase', () => {
       new Date(),
     );
     const check = verifier(false);
-    const useCase = new ManageTenantUseCase(repository([done]), check, platform);
+    const useCase = new ManageTenantUseCase(repository([done]), check, platform, signedRepo() as any);
 
     await useCase.verifyDomain(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -172,7 +183,7 @@ describe('ManageTenantUseCase', () => {
   });
 
   it('entrega instrucciones de DNS con CNAME para un subdominio y A para un dominio raíz', () => {
-    const useCase = new ManageTenantUseCase(repository(), verifier(true), platform);
+    const useCase = new ManageTenantUseCase(repository(), verifier(true), platform, signedRepo() as any);
 
     const apex = useCase.instructionsFor(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -202,5 +213,35 @@ describe('ManageTenantUseCase', () => {
     expect(apex.records[1].type).toBe('A');
     expect(sub.records[1].type).toBe('CNAME');
     expect(sub.records[1].value).toBe('sitios.webbuilder.co');
+  });
+
+  it('impide publicar en dominio propio si no tiene documentos firmados', async () => {
+    const customDomain = new TenantDomainRecord(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'pasteleria.cl',
+      false,
+      new Date(), // verified
+    );
+    const repo = repository([customDomain]);
+    const useCase = new ManageTenantUseCase(repo, verifier(true), platform, signedRepo([]) as any);
+
+    await expect(
+      useCase.setStatus('018f6f1a-0000-7000-8000-000000000007', 'active'),
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('deja publicar en dominio propio si tiene los documentos firmados', async () => {
+    const customDomain = new TenantDomainRecord(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'pasteleria.cl',
+      false,
+      new Date(), // verified
+    );
+    const repo = repository([customDomain]);
+    const docs = [{ document: 'contrato-de-servicio' }, { document: 'contrato-de-datos' }];
+    const useCase = new ManageTenantUseCase(repo, verifier(true), platform, signedRepo(docs) as any);
+
+    const active = await useCase.setStatus('018f6f1a-0000-7000-8000-000000000007', 'active');
+    expect(active.status).toBe('active');
   });
 });

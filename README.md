@@ -41,6 +41,10 @@ vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 | DELETE  | `/api/files/:key`                            | Borra un archivo del bucket       |
 | GET     | `/api/admin/me`                              | Confirma la sesión vigente        |
 | GET     | `/api/admin/tenants`                         | Lista los clientes                |
+| POST    | `/api/admin/signed-documents`                | Registra firma de contrato (exige full) |
+| GET     | `/api/admin/signed-documents/tenant/:id`     | Lista documentos firmados por un cliente |
+| GET     | `/api/admin/signed-documents/outdated`       | Clientes en versión anterior de un contrato |
+
 | GET     | `/api/admin/subscriptions`                   | Vista global de cobros y MRR      |
 | GET     | `/api/admin/subscriptions/export`            | Exportar cobros en CSV            |
 | CRUD    | `/api/admin/tenants/:tenantId/pages`         | Páginas y secciones del cliente   |

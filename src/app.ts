@@ -1,3 +1,7 @@
+import type { AdminSignedDocumentController } from "./modules/SignedDocuments/presentation/AdminSignedDocumentController";
+import { createAdminSignedDocumentRouter } from "./modules/SignedDocuments/presentation/adminSignedDocumentRouter";
+
+
 import express, { type Express, type RequestHandler } from 'express';
 import cors from 'cors';
 import { buildOriginMatcher } from './shared/presentation/corsOrigins';
@@ -131,6 +135,7 @@ export interface AppControllers {
   readonly adminPreviewLinkController: AdminPreviewLinkController;
   readonly adminSiteQualityReviewController: AdminSiteQualityReviewController;
   readonly adminSubscriptionController: AdminSubscriptionController;
+  readonly adminSignedDocumentController: AdminSignedDocumentController;
 }
 
 export const buildApp = (
@@ -439,6 +444,12 @@ export const buildApp = (
     '/api/admin/tenants/:tenantId/subscription',
     ...adminGuards,
     createAdminSubscriptionRouter(controllers.adminSubscriptionController),
+  );
+
+  app.use(
+    '/api/admin/signed-documents',
+    ...adminGuards,
+    createAdminSignedDocumentRouter(controllers.adminSignedDocumentController)
   );
 
   app.use(errorHandler.handle);

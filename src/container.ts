@@ -2,6 +2,12 @@ import type { Express } from 'express';
 import { ContainerBuilder, type Container as ServiceContainer } from 'diod';
 import type { EnvConfig } from './shared/config/EnvConfig';
 import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
+import { SignedDocumentRepository } from "./modules/SignedDocuments/domain/SignedDocumentRepository";
+import { PrismaSignedDocumentRepository } from "./modules/SignedDocuments/infrastructure/PrismaSignedDocumentRepository";
+import { RegisterSignatureUseCase } from "./modules/SignedDocuments/application/RegisterSignatureUseCase";
+import { QuerySignaturesUseCase } from "./modules/SignedDocuments/application/QuerySignaturesUseCase";
+import { AdminSignedDocumentController } from "./modules/SignedDocuments/presentation/AdminSignedDocumentController";
+
 import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
 import { DataRightsRepository } from './modules/DataRights/domain/DataRightsRepository';
@@ -329,7 +335,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .asSingleton();
   builder
     .registerAndUse(ManageTenantUseCase)
-    .withDependencies([TenantRepository, DomainVerifier, PlatformDomainConfig]);
+    .withDependencies([TenantRepository, DomainVerifier, PlatformDomainConfig, SignedDocumentRepository]);
   builder
     .registerAndUse(AdminTenantController)
     .withDependencies([
@@ -947,6 +953,11 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     UpdateSubscriptionUseCase,
     ExportBillingCsvUseCase,
   ]);
+  builder.register(SignedDocumentRepository).use(PrismaSignedDocumentRepository).withDependencies([PrismaClient]);
+  builder.registerAndUse(RegisterSignatureUseCase).withDependencies([SignedDocumentRepository, TenantRepository, RecordActivityUseCase]);
+  builder.registerAndUse(QuerySignaturesUseCase).withDependencies([SignedDocumentRepository, TenantRepository]);
+  builder.registerAndUse(AdminSignedDocumentController).withDependencies([RegisterSignatureUseCase, QuerySignaturesUseCase]);
+
   return builder.build();
 };
 
@@ -993,6 +1004,8 @@ export class Container {
         adminPreviewLinkController: this.services.get(AdminPreviewLinkController),
         adminSiteQualityReviewController: this.services.get(AdminSiteQualityReviewController),
         adminSubscriptionController: this.services.get(AdminSubscriptionController),
+        adminSignedDocumentController: this.services.get(AdminSignedDocumentController),
+
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),

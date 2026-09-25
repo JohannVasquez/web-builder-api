@@ -39,6 +39,7 @@ model Tenant {
   consumerClaims     ConsumerClaim[]
   redirects          Redirect[]
   consents           ConsentRecord[]
+  signedDocuments    SignedDocument[]
   previewLinks       PreviewLink[]
   subscription       Subscription?
 
@@ -770,18 +771,18 @@ model ConsumerClaim {
 /// Enlace de revisión compartible para que el cliente vea el sitio en borrador antes de publicar.
 /// Se guarda el hash del token, nunca el token en claro, por seguridad.
 model PreviewLink {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  tenantId  String    @map("tenant_id") @db.Uuid
-  
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
   /// SHA-256 del token aleatorio entregado al usuario.
-  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
-  
+  tokenHash String @unique @map("token_hash") @db.VarChar(64)
+
   expiresAt DateTime  @map("expires_at") @db.Timestamptz()
   /// Fecha en la que el enlace fue anulado manualmente. Nulo si sigue vigente (salvo que expire).
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz()
-  
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, expiresAt])
   @@map("preview_links")
@@ -823,4 +824,26 @@ model SubscriptionPayment {
 
   @@index([subscriptionId, paidAt])
   @@map("subscription_payments")
+}
+
+/// Registro de firma de documentos contractuales (servicio, datos, etc.).
+/// Es INMUTABLE: cada firma es un hecho aislado. Si se firma una nueva versión,
+/// se inserta un nuevo registro.
+model SignedDocument {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// El tipo de documento firmado, e.g. "contrato-de-servicio"
+  document String @db.VarChar(100)
+  /// La versión que se firmó, e.g. "v1.0"
+  version  String @db.VarChar(40)
+  /// Quién lo firmó en representación del cliente (RUT, nombre o email)
+  signedBy String @map("signed_by") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, document])
+  @@index([document, version])
+  @@map("signed_documents")
 }
