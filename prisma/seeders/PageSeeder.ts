@@ -16,6 +16,8 @@ export interface PageSeed {
   readonly slug: string;
   readonly title: string;
   readonly description: string;
+  readonly seoTitle?: string;
+  readonly seoDescription?: string;
   readonly sections: readonly SectionSeed[];
 }
 
@@ -59,6 +61,8 @@ export class PageSeeder implements Seeder<PageSeedParams> {
         update: {
           title: page.title,
           description: page.description,
+          seoTitle: page.seoTitle ?? null,
+          seoDescription: page.seoDescription ?? null,
           publishedContent: asJsonColumn(publishedContent),
           publishedAt: new Date(),
           sections: { deleteMany: {}, create: sectionRows },
@@ -68,6 +72,8 @@ export class PageSeeder implements Seeder<PageSeedParams> {
           slug: page.slug,
           title: page.title,
           description: page.description,
+          seoTitle: page.seoTitle ?? null,
+          seoDescription: page.seoDescription ?? null,
           publishedContent: asJsonColumn(publishedContent),
           publishedAt: new Date(),
           sections: { create: sectionRows },

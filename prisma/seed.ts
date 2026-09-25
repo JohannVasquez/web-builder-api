@@ -9,6 +9,7 @@ import { PageSeeder } from './seeders/PageSeeder';
 import { AdminUserSeeder } from './seeders/AdminUserSeeder';
 import { BrandSeeder } from './seeders/BrandSeeder';
 import { TENANT_TEMPLATES } from './seeders/templates';
+import { DEMO_TEMPLATES } from './seeders/demo-templates';
 
 const connectionString = process.env.DATABASE_URL;
 if (connectionString === undefined) {
@@ -46,7 +47,7 @@ const seed = async (): Promise<void> => {
   const pageSeeder = new PageSeeder(prisma);
   const brandSeeder = new BrandSeeder(prisma);
 
-  for (const template of TENANT_TEMPLATES) {
+  for (const template of [...TENANT_TEMPLATES, ...DEMO_TEMPLATES]) {
     const tenant = await tenantSeeder.execute(template.tenant);
     await globalSettingsSeeder.execute({
       tenantId: tenant.id,
