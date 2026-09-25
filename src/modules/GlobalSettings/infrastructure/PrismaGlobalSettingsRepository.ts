@@ -13,4 +13,19 @@ export class PrismaGlobalSettingsRepository implements GlobalSettingsRepository 
     }
     return GlobalSettings.fromRecord(record);
   }
+
+  public async upsert(tenantId: string, payload: Record<string, string>): Promise<void> {
+    const upserts = Object.entries(payload).map(([key, value]) => {
+      return this.prisma.globalSetting.upsert({
+        where: {
+          tenantId_key: { tenantId, key },
+        },
+        update: { value },
+        create: { tenantId, key, value },
+      });
+    });
+    if (upserts.length > 0) {
+      await this.prisma.$transaction(upserts);
+    }
+  }
 }

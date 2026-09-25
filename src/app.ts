@@ -5,6 +5,8 @@ import type { PageController } from './modules/Page/presentation/PageController'
 import { createPageRouter } from './modules/Page/presentation/pageRouter';
 import type { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
 import { createGlobalSettingsRouter } from './modules/GlobalSettings/presentation/globalSettingsRouter';
+import type { AdminGlobalSettingsController } from './modules/GlobalSettings/presentation/AdminGlobalSettingsController';
+import { createAdminGlobalSettingsRouter } from './modules/GlobalSettings/presentation/adminGlobalSettingsRouter';
 import type { NavigationController } from './modules/Navigation/presentation/NavigationController';
 import type { AdminNavigationController } from './modules/Navigation/presentation/AdminNavigationController';
 import { createAdminNavigationRouter } from './modules/Navigation/presentation/adminNavigationRouter';
@@ -119,6 +121,7 @@ export interface AppControllers {
   readonly adminStoreController: AdminStoreController;
   readonly checkoutController: CheckoutController;
   readonly adminOrderController: AdminOrderController;
+  readonly adminGlobalSettingsController: AdminGlobalSettingsController;
 }
 
 export const buildApp = (
@@ -381,6 +384,12 @@ export const buildApp = (
     ...adminGuards,
     cacheInvalidation,
     createAdminBrandRouter(controllers.adminBrandController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/settings',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminGlobalSettingsRouter(controllers.adminGlobalSettingsController),
   );
   app.get(
     '/api/admin/font-pairings',

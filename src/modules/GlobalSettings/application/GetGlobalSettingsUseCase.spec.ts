@@ -9,6 +9,7 @@ describe('GetGlobalSettingsUseCase', () => {
       whatsappNumber: '56912345678',
     });
     const repository: jest.Mocked<GlobalSettingsRepository> = {
+      upsert: jest.fn(),
       find: jest.fn().mockResolvedValue(settings),
     };
     const useCase = new GetGlobalSettingsUseCase(repository);

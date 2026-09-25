@@ -37,6 +37,7 @@ describe('SendContactEmailUseCase', () => {
   const buildSettingsRepository = (
     contactEmail: string,
   ): jest.Mocked<GlobalSettingsRepository> => ({
+    upsert: jest.fn(),
     find: jest.fn().mockResolvedValue(GlobalSettings.fromRecord({ contactEmail })),
   });
 

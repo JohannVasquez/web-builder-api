@@ -55,7 +55,9 @@ import { RestorePageVersionUseCase } from './modules/Page/application/RestorePag
 import { GlobalSettingsRepository } from './modules/GlobalSettings/domain/GlobalSettingsRepository';
 import { PrismaGlobalSettingsRepository } from './modules/GlobalSettings/infrastructure/PrismaGlobalSettingsRepository';
 import { GetGlobalSettingsUseCase } from './modules/GlobalSettings/application/GetGlobalSettingsUseCase';
+import { UpdateGlobalSettingsUseCase } from './modules/GlobalSettings/application/UpdateGlobalSettingsUseCase';
 import { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
+import { AdminGlobalSettingsController } from './modules/GlobalSettings/presentation/AdminGlobalSettingsController';
 import { NavigationRepository } from './modules/Navigation/domain/NavigationRepository';
 import { PrismaNavigationRepository } from './modules/Navigation/infrastructure/PrismaNavigationRepository';
 import { GetNavigationUseCase } from './modules/Navigation/application/GetNavigationUseCase';
@@ -488,12 +490,18 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(GetGlobalSettingsUseCase)
     .withDependencies([GlobalSettingsRepository]);
   builder
+    .registerAndUse(UpdateGlobalSettingsUseCase)
+    .withDependencies([GlobalSettingsRepository]);
+  builder
     .registerAndUse(GlobalSettingsController)
     .withDependencies([
       GetGlobalSettingsUseCase,
       GetBrandUseCase,
       ResolveBrandAssetsUseCase,
     ]);
+  builder
+    .registerAndUse(AdminGlobalSettingsController)
+    .withDependencies([GetGlobalSettingsUseCase, UpdateGlobalSettingsUseCase]);
 
   // Navigation
   builder
@@ -886,6 +894,7 @@ export class Container {
       {
         pageController: this.services.get(PageController),
         globalSettingsController: this.services.get(GlobalSettingsController),
+        adminGlobalSettingsController: this.services.get(AdminGlobalSettingsController),
         navigationController: this.services.get(NavigationController),
         adminNavigationController: this.services.get(AdminNavigationController),
         contactController: this.services.get(ContactController),

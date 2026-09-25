@@ -74,13 +74,14 @@ Todo lo que escribe va detrás de `Authorization: Bearer <token>` (el token lo
 emite `POST /api/admin/auth/login`). Sin cabecera, o con un token inválido o
 vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 
-| Método | Ruta                                 | Descripción                       |
-| ------ | ------------------------------------ | --------------------------------- |
-| POST   | `/api/files`                         | Sube un archivo al bucket privado |
-| DELETE | `/api/files/:key`                    | Borra un archivo del bucket       |
-| GET    | `/api/admin/me`                      | Confirma la sesión vigente        |
-| GET    | `/api/admin/tenants`                 | Lista los clientes                |
-| CRUD   | `/api/admin/tenants/:tenantId/pages` | Páginas y secciones del cliente   |
+| Método  | Ruta                                    | Descripción                       |
+| ------- | --------------------------------------- | --------------------------------- |
+| POST    | `/api/files`                            | Sube un archivo al bucket privado |
+| DELETE  | `/api/files/:key`                       | Borra un archivo del bucket       |
+| GET     | `/api/admin/me`                         | Confirma la sesión vigente        |
+| GET     | `/api/admin/tenants`                    | Lista los clientes                |
+| CRUD    | `/api/admin/tenants/:tenantId/pages`    | Páginas y secciones del cliente   |
+| GET/PUT | `/api/admin/tenants/:tenantId/settings` | Datos del negocio y medición      |
 
 Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose
@@ -235,13 +236,14 @@ contacto, sin arreglar nada.
 
 ## Guías
 
-| Guía | De qué trata |
-| --- | --- |
-| [Dar de alta un cliente](docs/dar-de-alta-un-cliente.md) | El paso a paso completo, de cero a sitio publicado |
-| [Armar una página](docs/armar-una-pagina.md) | Bloques, borrador y publicado, versiones y el menú |
-| [Dominios y estado del sitio](docs/dominios-y-estado-del-sitio.md) | Conectar el dominio propio de un cliente y pausar un sitio |
-| [Gestionar el equipo del panel](docs/gestionar-el-equipo-del-panel.md) | Roles, invitaciones y recuperación de contraseña |
-| [Vender en línea](docs/vender-en-linea.md) | Tienda, carrito, cobro, cupones, pedidos y reportes |
+| Guía                                                                   | De qué trata                                               |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [Dar de alta un cliente](docs/dar-de-alta-un-cliente.md)               | El paso a paso completo, de cero a sitio publicado         |
+| [Datos del negocio](docs/datos-del-negocio.md)                         | Información global, contacto, horarios y analítica         |
+| [Armar una página](docs/armar-una-pagina.md)                           | Bloques, borrador y publicado, versiones y el menú         |
+| [Dominios y estado del sitio](docs/dominios-y-estado-del-sitio.md)     | Conectar el dominio propio de un cliente y pausar un sitio |
+| [Gestionar el equipo del panel](docs/gestionar-el-equipo-del-panel.md) | Roles, invitaciones y recuperación de contraseña           |
+| [Vender en línea](docs/vender-en-linea.md)                             | Tienda, carrito, cobro, cupones, pedidos y reportes        |
 
 ## Claves de acceso y agentes de IA
 

@@ -339,6 +339,59 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     ),
 
     tool(
+      'get_settings',
+      'Ver los datos del negocio y medición',
+      'Devuelve el nombre del sitio, contacto, redes sociales, horarios y códigos de analítica.',
+      { tenantId },
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/settings`),
+    ),
+
+    tool(
+      'update_settings',
+      'Editar los datos del negocio y medición',
+      'Actualiza parcialmente la configuración global (contacto, redes, medición). Lo que no envíes no se toca.',
+      {
+        tenantId,
+        siteName: z.string().optional(),
+        tagline: z.string().optional(),
+        contactEmail: z.string().optional().describe('Admite varios separados por coma'),
+        contactPhone: z.string().optional(),
+        whatsappNumber: z
+          .string()
+          .optional()
+          .describe('Se guardará solo con dígitos, código de país incluido'),
+        address: z.string().optional(),
+        instagramUrl: z.string().optional(),
+        facebookUrl: z.string().optional(),
+        tiktokUrl: z.string().optional(),
+        linkedinUrl: z.string().optional(),
+        youtubeUrl: z.string().optional(),
+        xUrl: z.string().optional(),
+        customLinkUrl: z.string().optional(),
+        customLinkLabel: z.string().optional(),
+        googleAnalyticsId: z.string().optional().describe('Empieza con G-'),
+        metaPixelId: z.string().optional().describe('Solo números'),
+        googleTagManagerId: z.string().optional().describe('Empieza con GTM-'),
+        cookieBanner: z.string().optional().describe('true o false o cadena vacía'),
+        openingHours: z
+          .string()
+          .optional()
+          .describe('Horarios en JSON serializado (monday, tuesday...)'),
+        googleSiteVerification: z.string().optional(),
+        bingSiteVerification: z.string().optional(),
+        siteUnderConstruction: z
+          .string()
+          .optional()
+          .describe('true o false o cadena vacía'),
+      },
+      (args) => {
+        const { tenantId: id, ...body } = args;
+        return api.request('PUT', `/api/admin/tenants/${String(id)}/settings`, body);
+      },
+    ),
+
+    tool(
       'get_brand',
       'Ver la identidad de marca de un cliente',
       'Devuelve paleta, tipografía, logos, modo claro/oscuro y estilo visual.',

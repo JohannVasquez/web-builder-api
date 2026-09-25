@@ -141,6 +141,7 @@ describe('buildApp (rutas protegidas)', () => {
         markRead: ok(200),
         exportCsv: ok(200),
       },
+      adminGlobalSettingsController: { get: ok(200), update: ok(200) },
       adminBrandController: {
         get: ok(200),
         update: ok(200),

@@ -53,6 +53,7 @@ describe('ContactController (HTTP)', () => {
     const app = express();
     app.use(express.json());
     const settingsRepository: jest.Mocked<GlobalSettingsRepository> = {
+      upsert: jest.fn(),
       find: jest
         .fn()
         .mockResolvedValue(

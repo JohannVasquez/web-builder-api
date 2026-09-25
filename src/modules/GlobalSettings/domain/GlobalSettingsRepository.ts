@@ -5,4 +5,8 @@ import type { GlobalSettings } from './GlobalSettings';
  */
 export abstract class GlobalSettingsRepository {
   public abstract find(tenantId: string): Promise<GlobalSettings>;
+  public abstract upsert(
+    tenantId: string,
+    payload: Record<string, string>,
+  ): Promise<void>;
 }

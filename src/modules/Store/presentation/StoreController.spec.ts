@@ -61,6 +61,7 @@ describe('Tienda (HTTP)', () => {
     whatsapp = '+56912345678',
   ): Express => {
     const settings: jest.Mocked<GlobalSettingsRepository> = {
+      upsert: jest.fn(),
       find: jest
         .fn()
         .mockResolvedValue(
