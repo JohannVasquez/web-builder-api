@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { buildTools, type McpTool } from './tools';
 import type { ApiClient } from './ApiClient';
+import { readFile } from 'node:fs/promises';
+
+jest.mock('node:fs/promises', () => ({
+  readFile: jest.fn(),
+}));
+
+jest.mock('node:path', () => ({
+  basename: (p: string): string => p.split('/').pop() || p,
+  extname: (p: string): string => { const idx = p.lastIndexOf('.'); return idx !== -1 ? p.slice(idx) : ''; },
+}));
 
 describe('herramientas del MCP', () => {
   const buildApi = (): jest.Mocked<Pick<ApiClient, 'request'>> => ({
@@ -192,5 +202,92 @@ describe('herramientas del MCP', () => {
     await find(api, 'list_templates').handler({});
 
     expect(api.request).toHaveBeenCalledWith('GET', '/api/admin/site-templates');
+  });
+
+  describe('upload_media', () => {
+    it('sube una imagen exitosamente', async () => {
+      (readFile as jest.Mock).mockResolvedValue(Buffer.from('fake-image-data'));
+      
+      const api = buildApi();
+      api.request.mockResolvedValue({ asset: { key: 'img-123' } });
+      
+      const tool = find(api, 'upload_media');
+      const result = await tool.handler({
+        tenantId: 't1',
+        files: [{ filePath: '/tmp/foto.jpg' }],
+      });
+
+      expect(result).toEqual({ uploaded: [{ filePath: '/tmp/foto.jpg', key: 'img-123' }] });
+      expect(api.request).toHaveBeenCalledWith('POST', '/api/admin/tenants/t1/media', expect.any(FormData));
+      expect(readFile).toHaveBeenCalledWith('/tmp/foto.jpg');
+    });
+
+    it('sube varias imágenes y configura el texto alternativo en la misma operación', async () => {
+      (readFile as jest.Mock).mockResolvedValue(Buffer.from('data'));
+      
+      const api = buildApi();
+      api.request.mockResolvedValueOnce({ asset: { key: 'img-1' } }) // POST 1
+                 .mockResolvedValueOnce({}) // PATCH 1
+                 .mockResolvedValueOnce({ asset: { key: 'img-2' } }); // POST 2
+      
+      const tool = find(api, 'upload_media');
+      const result = await tool.handler({
+        tenantId: 't1',
+        files: [
+          { filePath: '/tmp/1.png', alt: 'Foto 1' },
+          { filePath: '/tmp/2.webp' }
+        ],
+      });
+
+      expect(result).toEqual({
+        uploaded: [
+          { filePath: '/tmp/1.png', key: 'img-1' },
+          { filePath: '/tmp/2.webp', key: 'img-2' },
+        ]
+      });
+      expect(api.request).toHaveBeenCalledTimes(3);
+      // PATCH for alt text
+      expect(api.request).toHaveBeenCalledWith('PATCH', '/api/admin/tenants/t1/media/img-1', { alt: 'Foto 1' });
+    });
+
+    it('rechaza archivos que no sean imagen por su extensión', async () => {
+      const api = buildApi();
+      const tool = find(api, 'upload_media');
+      
+      await expect(tool.handler({
+        tenantId: 't1',
+        files: [{ filePath: '/tmp/script.sh' }]
+      })).rejects.toThrow(/extensión permitida/);
+      
+      expect(api.request).not.toHaveBeenCalled();
+    });
+
+    it('arroja un error claro si el archivo no existe en el disco', async () => {
+      const error = new Error('ENOENT: no such file') as Error & { code: string };
+      error.code = 'ENOENT';
+      (readFile as jest.Mock).mockRejectedValue(error);
+      
+      const api = buildApi();
+      const tool = find(api, 'upload_media');
+      
+      await expect(tool.handler({
+        tenantId: 't1',
+        files: [{ filePath: '/tmp/fantasma.jpg' }]
+      })).rejects.toThrow(/no existe en el disco local/);
+    });
+    
+    it('propaga el error si la clave es de solo lectura (rechazada por la API)', async () => {
+      (readFile as jest.Mock).mockResolvedValue(Buffer.from('data'));
+      
+      const api = buildApi();
+      api.request.mockRejectedValue(new Error('Tu clave de acceso no tiene permiso para esta acción.'));
+      
+      const tool = find(api, 'upload_media');
+      
+      await expect(tool.handler({
+        tenantId: 't1',
+        files: [{ filePath: '/tmp/foto.jpg' }]
+      })).rejects.toThrow(/no tiene permiso/);
+    });
   });
 });

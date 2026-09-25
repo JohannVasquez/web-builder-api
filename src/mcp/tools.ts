@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ApiClient } from './ApiClient';
+import { MIME_EXTENSIONS } from '../modules/FileStorage/domain/AllowedMimeTypes';
 import { idSchema } from '../shared/domain/identifier';
 
 export interface McpTool {
@@ -469,6 +470,81 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           'GET',
           `/api/admin/tenants/${String(args.tenantId)}/media?search=${encodeURIComponent(search)}`,
         );
+      },
+    ),
+
+    tool(
+      'upload_media',
+      'Subir imágenes a la biblioteca',
+      'Sube uno o más archivos de imagen desde tu disco local a la biblioteca del cliente. Devuelve los identificadores (`keys`) de las imágenes subidas, que son los que debes usar en los bloques. NO devuelve URLs públicas. Si incluyes un `alt`, el texto alternativo quedará configurado de inmediato.',
+      {
+        tenantId,
+        files: z
+          .array(
+            z.object({
+              filePath: z.string().describe('Ruta absoluta al archivo en tu disco local'),
+              alt: z.string().optional().describe('Texto alternativo para accesibilidad'),
+            }),
+          )
+          .min(1)
+          .describe('Lista de imágenes a subir (puedes subir varias de una vez)'),
+      },
+      async (args) => {
+        const { tenantId: id, files } = args as {
+          tenantId: string | number;
+          files: { filePath: string; alt?: string }[];
+        };
+
+        const { readFile } = await import('node:fs/promises');
+        const { basename, extname } = await import('node:path');
+        const allowedExtensions = Object.values(MIME_EXTENSIONS);
+        const toUpload: { file: string; buffer: Buffer; alt?: string }[] = [];
+
+        for (const f of files) {
+          // Seguridad sensata: limitamos la lectura a extensiones de imagen para evitar
+          // que un mensaje malicioso haga que el MCP lea archivos sensibles del usuario.
+          const ext = extname(f.filePath).toLowerCase();
+          if (!allowedExtensions.includes(ext) && ext !== '.jpeg') {
+            throw new Error(
+              `El archivo ${f.filePath} no tiene una extensión permitida (${allowedExtensions.join(', ')}).`,
+            );
+          }
+          try {
+            // No verificamos el magic number del contenido aquí por simplicidad; la API lo valida estrictamente.
+            const buffer = await readFile(f.filePath);
+            toUpload.push({ file: f.filePath, buffer, alt: f.alt });
+          } catch (err) {
+            if (err instanceof Error && 'code' in err && (err as { code?: string }).code === 'ENOENT') {
+              throw new Error(
+                `El archivo no existe en el disco local: ${f.filePath}. Verifica la ruta y reintenta.`,
+              );
+            }
+            throw err;
+          }
+        }
+
+        const results: { filePath: string; key: string }[] = [];
+        for (const item of toUpload) {
+          const blob = new Blob([new Uint8Array(item.buffer)]);
+          const formData = new FormData();
+          formData.append('file', blob, basename(item.file));
+
+          const uploadRes = await api.request<{ asset: { key: string } }>(
+            'POST',
+            `/api/admin/tenants/${String(id)}/media`,
+            formData,
+          );
+
+          if (item.alt) {
+            await api.request(
+              'PATCH',
+              `/api/admin/tenants/${String(id)}/media/${encodeURIComponent(uploadRes.asset.key)}`,
+              { alt: item.alt },
+            );
+          }
+          results.push({ filePath: item.file, key: uploadRes.asset.key });
+        }
+        return { uploaded: results };
       },
     ),
 

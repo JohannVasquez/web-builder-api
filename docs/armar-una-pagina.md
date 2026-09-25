@@ -87,3 +87,31 @@ actualizar en el sitio chocaría a la mitad de cualquier reordenamiento.
 
 Las herramientas que borran exigen `confirm: true` en la misma llamada: un agente no puede
 borrar "de pasada" creyendo que era reversible.
+
+## Imágenes y Carruseles desde el MCP
+
+El agente de IA puede generar imágenes, guardarlas en su disco local y subirlas a la plataforma usando la herramienta `upload_media`. 
+
+### Ejemplo: Crear un carrusel generado por IA
+
+Puedes pedirle al agente exactamente esto:
+> "Genera tres fotos de paisajes patagónicos, súbelas a la biblioteca y ármame un carrusel con ellas en la página de inicio."
+
+El recorrido interno que hace el agente es el siguiente:
+1. Genera las 3 imágenes localmente y las guarda en su disco (ej. `/tmp/paisaje1.jpg`, etc).
+2. Llama a la herramienta `upload_media` pasando las rutas locales y, opcionalmente, los textos alternativos (`alt`):
+   ```json
+   {
+     "tenantId": "1",
+     "files": [
+       { "filePath": "/tmp/paisaje1.jpg", "alt": "Montañas nevadas en la Patagonia" },
+       { "filePath": "/tmp/paisaje2.jpg", "alt": "Lago cristalino al atardecer" },
+       { "filePath": "/tmp/paisaje3.jpg", "alt": "Bosque de lengas en otoño" }
+     ]
+   }
+   ```
+3. El servidor MCP lee los archivos y los envía a la API usando multipart.
+4. La herramienta le devuelve al agente los identificadores (`key`) de las tres imágenes subidas.
+5. El agente usa `add_block` o `update_block` para agregar un bloque de tipo `Carousel` (o similar), utilizando en las propiedades (props) las `keys` devueltas en lugar de URLs.
+
+Este flujo evita saturar la conversación con strings en base64 y respeta el flujo de almacenamiento optimizado (con sharp) de la plataforma.

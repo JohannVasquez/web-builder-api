@@ -320,6 +320,8 @@ Dos reglas que el servidor impone por diseño:
 - **Lo destructivo exige confirmación en la misma llamada.** `delete_page` y
   `delete_block` piden `confirm: true`, para que un agente no borre "de paso".
 
+Para la creación de contenido, la herramienta `upload_media` permite al agente subir imágenes a la biblioteca generándolas localmente y enviándolas mediante multipart desde su disco. Hay un ejemplo detallado de esto en `docs/armar-una-pagina.md`.
+
 Un error de validación vuelve al agente como la lista de campos mal y por qué,
 no como un 400 opaco: es lo que le permite corregir y reintentar solo.
 

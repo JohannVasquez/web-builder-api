@@ -25,13 +25,14 @@ export class ApiClient {
   ) {}
 
   public async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     const response = await this.fetchFn(`${this.baseUrl}${path}`, {
       method,
       headers: {
         'X-Api-Key': this.apiKey,
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined || isFormData ? {} : { 'Content-Type': 'application/json' }),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isFormData ? (body as NonNullable<Parameters<typeof fetch>[1]>['body']) : JSON.stringify(body),
     });
 
     if (response.status === 204) {
