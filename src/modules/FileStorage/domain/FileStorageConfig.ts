@@ -4,7 +4,10 @@
  * en la raíz de composición).
  */
 export class FileStorageConfig {
-  constructor(public readonly maxFileSizeBytes: number) {}
+  constructor(
+    public readonly maxFileSizeBytes: number,
+    public readonly imageMaxWidth: number,
+  ) {}
 
   public get maxFileSizeMb(): number {
     return this.maxFileSizeBytes / (1024 * 1024);

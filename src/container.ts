@@ -366,7 +366,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .asSingleton();
   builder
     .register(FileStorageConfig)
-    .useFactory(() => new FileStorageConfig(env.get('MAX_FILE_SIZE_MB') * 1024 * 1024))
+    .useFactory(() => new FileStorageConfig(env.get('MAX_FILE_SIZE_MB') * 1024 * 1024, env.get('IMAGE_MAX_WIDTH')))
     .asSingleton();
   builder
     .register(StorageProvider)

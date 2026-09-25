@@ -194,7 +194,7 @@ va con él, así que una `key` adivinada no alcanza la biblioteca de otro.
 
 - `GET /api/admin/tenants/:tenantId/media?search=` lista con URLs firmadas
   frescas (el bucket es privado).
-- `POST .../media` sube conservando el nombre original, para poder buscarlo.
+- `POST .../media` sube conservando el nombre original, para poder buscarlo. Las imágenes (excepto SVG) se optimizan y convierten a WebP automáticamente, redimensionándose al ancho máximo configurado (`IMAGE_MAX_WIDTH`, por omisión 2000px).
 - `PATCH .../media/:key` guarda el texto alternativo. Se edita aparte de la
   subida porque casi nunca se escribe en el momento, y sin él la imagen es
   invisible para un lector de pantalla.

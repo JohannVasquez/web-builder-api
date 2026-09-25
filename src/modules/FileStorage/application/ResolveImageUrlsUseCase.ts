@@ -1,27 +1,15 @@
 import { StorageProvider } from '../domain/StorageProvider';
 
-/**
- * Props cuyo valor string es una `key` de archivo. `imageUrl` es el
- * contenido propio de cada sección (ej. la foto lateral de `TextBlock`);
- * `backgroundImageUrl` es el fondo del `<section>` completo, disponible en
- * cualquier tipo de sección vía `SectionBackgroundPropsSchema` (frontend).
- */
-const IMAGE_KEY_PROPS = new Set(['imageUrl', 'backgroundImageUrl']);
-/** Props cuyo valor es un array de `key`s (ej. `Hero.images` del carrusel). */
-const IMAGE_KEY_LIST_PROPS = new Set(['images']);
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//;
+const FILE_KEY_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/i;
 
 /**
  * Recorre un `props` de `PageSection` (o cualquier JSON similar) y reemplaza
- * cada valor de una propiedad "de imagen" — `imageUrl` a cualquier
- * profundidad (incluida dentro de arrays como `Features.items[].imageUrl`),
- * y cada elemento de un array `images` (el carrusel del Hero) — por una URL
- * firmada fresca, sin que el llamador necesite conocer el schema de cada
- * tipo de sección.
+ * cada string que sea una `key` de bucket por una URL firmada fresca.
+ * Busca a cualquier profundidad en el objeto, arreglos incluidos.
  *
- * Solo se firma lo que parece una `key` propia (no empieza con `http(s)://`):
- * eso deja espacio para pegar a mano una URL externa si alguna vez hiciera
- * falta, sin romper ese caso.
+ * Solo se firma lo que cumple el formato estricto de key (<uuid>.<ext>);
+ * lo que ya es una URL absoluta se deja pasar.
  */
 export class ResolveImageUrlsUseCase {
   constructor(private readonly storageProvider: StorageProvider) {}
@@ -33,6 +21,12 @@ export class ResolveImageUrlsUseCase {
   }
 
   private async resolveValue(value: unknown): Promise<unknown> {
+    if (typeof value === 'string') {
+      if (FILE_KEY_PATTERN.test(value)) {
+        return this.resolveImageKey(value);
+      }
+      return value;
+    }
     if (Array.isArray(value)) {
       return Promise.all(value.map((item) => this.resolveValue(item)));
     }
@@ -41,30 +35,13 @@ export class ResolveImageUrlsUseCase {
         Object.entries(value as Record<string, unknown>).map(
           async ([key, entryValue]): Promise<[string, unknown]> => [
             key,
-            await this.resolveEntry(key, entryValue),
+            await this.resolveValue(entryValue),
           ],
         ),
       );
       return Object.fromEntries(entries);
     }
     return value;
-  }
-
-  private async resolveEntry(key: string, value: unknown): Promise<unknown> {
-    if (IMAGE_KEY_PROPS.has(key) && typeof value === 'string') {
-      return this.resolveImageKey(value);
-    }
-    if (IMAGE_KEY_LIST_PROPS.has(key) && Array.isArray(value)) {
-      // `Array.isArray` narrows `unknown` to `any[]` (a known TS lib quirk),
-      // así que se retipa explícito a `unknown[]` antes de mapear.
-      const items: readonly unknown[] = value;
-      return Promise.all(
-        items.map((item) =>
-          typeof item === 'string' ? this.resolveImageKey(item) : item,
-        ),
-      );
-    }
-    return this.resolveValue(value);
   }
 
   /**
