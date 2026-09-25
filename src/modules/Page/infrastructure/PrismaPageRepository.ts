@@ -72,6 +72,14 @@ export class PrismaPageRepository implements PageRepository {
     return record.publishedAt;
   }
 
+  public async findDraftBySlug(tenantId: string, slug: string): Promise<Page | null> {
+    const record = await this.prisma.page.findUnique({
+      where: { tenantId_slug: { tenantId, slug } },
+      include: SECTIONS_INCLUDE,
+    });
+    return record === null ? null : this.toDomain(record);
+  }
+
   public async findBySlug(tenantId: string, slug: string): Promise<Page | null> {
     const record = await this.prisma.page.findUnique({
       where: { tenantId_slug: { tenantId, slug }, isPublished: true },

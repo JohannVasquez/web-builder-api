@@ -57,6 +57,10 @@ describe('buildApp (rutas protegidas)', () => {
         checkout: ok(201),
         confirm: ok(200),
       },
+      adminPreviewLinkController: {
+        generate: ok(201),
+        revoke: ok(204),
+      },
       adminOrderController: {
         listOrders: ok(200),
         getOrder: ok(200),
@@ -184,7 +188,7 @@ describe('buildApp (rutas protegidas)', () => {
   };
 
   const app = (): Express =>
-    buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop);
+    buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop, noop);
 
   it('rechaza subir un archivo sin sesión de administración', async () => {
     const response = await request(app()).post('/api/files');

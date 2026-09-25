@@ -9,8 +9,11 @@ export class GetPageBySlugUseCase {
     private readonly resolveImageUrlsUseCase: ResolveImageUrlsUseCase,
   ) {}
 
-  public async execute(tenantId: string, slug: string): Promise<Page> {
-    const page = await this.pageRepository.findBySlug(tenantId, slug);
+  public async execute(tenantId: string, slug: string, isPreview: boolean = false): Promise<Page> {
+    const page = isPreview
+      ? await this.pageRepository.findDraftBySlug(tenantId, slug)
+      : await this.pageRepository.findBySlug(tenantId, slug);
+      
     if (page === null) {
       throw new PageNotFoundError(slug);
     }
@@ -49,6 +52,7 @@ export class GetPageBySlugUseCase {
       {
         ...page.seo,
         ogImage: await this.resolveImageUrlsUseCase.signKey(page.seo.ogImage),
+        noindex: isPreview || page.seo.noindex,
       },
     );
   }

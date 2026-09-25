@@ -920,22 +920,37 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     tool(
       'get_preview_url',
       'Obtener el enlace de vista previa',
-      'Devuelve el enlace para que una persona revise el sitio antes de publicarlo.',
+      'Genera un enlace de revisión compartible para que una persona vea el sitio tal como quedaría publicado, incluyendo páginas despublicadas y cambios en borrador.',
       { tenantId },
       async (args) => {
         const id = args.tenantId as string;
-        const { tenants } = await api.request<{
-          tenants: { id: string; slug: string; primaryDomain: string | null }[];
-        }>('GET', '/api/admin/tenants');
-        const tenant = tenants.find((candidate) => candidate.id === id);
+        
+        const [tenantRes, linkRes] = await Promise.all([
+          api.request<{ tenants: { id: string; slug: string; primaryDomain: string | null }[] }>('GET', '/api/admin/tenants'),
+          api.request<{ id: string; token: string; expiresAt: string }>('POST', `/api/admin/tenants/${String(id)}/preview-links`, {})
+        ]);
+        
+        const tenant = tenantRes.tenants.find((candidate) => candidate.id === id);
         if (tenant === undefined) {
           throw new Error(`No existe un cliente con id ${String(id)} a tu alcance.`);
         }
+        
+        // Sin dominio propio no hay dirección que armar: el dominio de la plataforma todavía
+        // no está decidido (ver #98) e inventarlo aquí devolvería un enlace roto en silencio.
+        const reviewUrl =
+          tenant.primaryDomain === null
+            ? null
+            : `https://${tenant.primaryDomain}/?previewToken=${linkRes.token}`;
+
         return {
           tenant: tenant.slug,
-          previewUrl:
-            tenant.primaryDomain === null ? null : `https://${tenant.primaryDomain}/`,
-          note: 'Las páginas despublicadas no se ven en el sitio público; publícalas para revisarlas o usa el panel.',
+          previewUrl: reviewUrl,
+          previewToken: linkRes.token,
+          expiresAt: linkRes.expiresAt,
+          note:
+            reviewUrl === null
+              ? 'Este cliente todavía no tiene dominio propio: usa `previewToken` sobre el dominio donde esté servido el sitio. Expira solo, no pide cuenta y lo oculta de los buscadores.'
+              : 'El enlace permite revisar el borrador actual y expira automáticamente. No requiere cuenta y oculta el sitio a buscadores.'
         };
       },
     ),

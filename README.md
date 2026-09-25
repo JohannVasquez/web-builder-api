@@ -62,7 +62,7 @@ igual en `pnpm dev`, `pnpm test` y `pnpm build`.
 
 | Método | Ruta               | Descripción                                                 |
 | ------ | ------------------ | ----------------------------------------------------------- |
-| GET    | `/api/pages/:slug` | Página con sus secciones JSONB ordenadas (404 si no existe) |
+| GET    | `/api/pages/:slug` | Página con sus secciones JSONB ordenadas (envía el header `X-Preview-Token` para ver el borrador) |
 | GET    | `/api/settings`    | Configuraciones globales de marca                           |
 | GET    | `/api/navigation`  | Enlaces del menú del sitio, ordenados                       |
 | POST   | `/api/contact`     | Valida con `ContactSchema` (400 si falla) y envía correo    |
@@ -74,6 +74,7 @@ Todo lo que escribe va detrás de `Authorization: Bearer <token>` (el token lo
 emite `POST /api/admin/auth/login`). Sin cabecera, o con un token inválido o
 vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 
+<<<<<<< HEAD
 | Método  | Ruta                                    | Descripción                       |
 | ------- | --------------------------------------- | --------------------------------- |
 | POST    | `/api/files`                            | Sube un archivo al bucket privado |
@@ -82,6 +83,16 @@ vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 | GET     | `/api/admin/tenants`                    | Lista los clientes                |
 | CRUD    | `/api/admin/tenants/:tenantId/pages`    | Páginas y secciones del cliente   |
 | GET/PUT | `/api/admin/tenants/:tenantId/settings` | Datos del negocio y medición      |
+=======
+| Método | Ruta                                         | Descripción                       |
+| ------ | -------------------------------------------- | --------------------------------- |
+| POST   | `/api/files`                                 | Sube un archivo al bucket privado |
+| DELETE | `/api/files/:key`                            | Borra un archivo del bucket       |
+| GET    | `/api/admin/me`                              | Confirma la sesión vigente        |
+| GET    | `/api/admin/tenants`                         | Lista los clientes                |
+| CRUD   | `/api/admin/tenants/:tenantId/pages`         | Páginas y secciones del cliente   |
+| POST/DEL | `/api/admin/tenants/:tenantId/preview-links` | Genera o anula un enlace de revisión |
+>>>>>>> feat/enlace-de-revision
 
 Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
 servidor al armar cada página, así que los sitios publicados siguen viéndose

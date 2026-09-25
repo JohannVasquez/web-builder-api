@@ -12,6 +12,8 @@ import type { PageSnapshot } from './PageSnapshot';
 export abstract class PageRepository {
   // Público: lee el contenido PUBLICADO, no el borrador que se está editando.
   public abstract findBySlug(tenantId: string, slug: string): Promise<Page | null>;
+  // Público pero solo con enlace de revisión: lee el borrador (las filas de sections).
+  public abstract findDraftBySlug(tenantId: string, slug: string): Promise<Page | null>;
   // Cuándo se publicó la versión vigente de una página; nulo si no existe o no está publicada.
   public abstract findPublishedAt(tenantId: string, slug: string): Promise<Date | null>;
 

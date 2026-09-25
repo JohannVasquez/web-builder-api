@@ -5,6 +5,8 @@ import type { SendContactEmailUseCase } from '../application/SendContactEmailUse
 import { ContactSchema } from '../domain/ContactSchema';
 import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 
+import { isRequestPreview } from '@/modules/PreviewLink/presentation/previewMiddleware';
+
 const SUBMISSIONS_PER_MINUTE = 5;
 
 export class ContactController {
@@ -16,9 +18,10 @@ export class ContactController {
   public readonly send = async (req: Request, res: Response): Promise<void> => {
     const tenant = getRequestTenant(res);
     this.enforceRateLimit(req, tenant.id);
+    const isPreview = isRequestPreview(res);
 
     const input = ContactSchema.parse(req.body);
-    await this.sendContactEmailUseCase.execute(input, tenant.id);
+    await this.sendContactEmailUseCase.execute(input, tenant.id, isPreview);
 
     // Siempre 200 si el mensaje quedó guardado: que el correo falle es problema nuestro,
     // no del visitante, y volver a enviarlo solo duplicaría el contacto.
