@@ -91,6 +91,8 @@ const buildSettings = (): GlobalSettingsRepository => {
       get: jest.fn().mockImplementation((key: string) => (key === 'contactEmail' ? 'admin@store.com' : 'Tienda')),
       toPrimitives: jest.fn(),
     }),
+    // Este caso de uso solo lee; el doble lo implementa porque el contrato lo exige.
+    upsert: jest.fn(),
   };
 };
 
