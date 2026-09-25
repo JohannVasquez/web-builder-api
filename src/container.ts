@@ -176,11 +176,14 @@ import { ConfirmPaymentUseCase } from './modules/Store/application/ConfirmPaymen
 import { ManageOrdersUseCase } from './modules/Store/application/ManageOrdersUseCase';
 import { ManageCouponsUseCase } from './modules/Store/application/ManageCouponsUseCase';
 import { ManageStoreSettingsUseCase } from './modules/Store/application/ManageStoreSettingsUseCase';
+import { ConsumerClaimMailer } from './modules/ConsumerClaims/domain/ConsumerClaimMailer';
+import { SmtpConsumerClaimMailer } from './modules/ConsumerClaims/infrastructure/SmtpConsumerClaimMailer';
 import { CheckoutController } from './modules/Store/presentation/CheckoutController';
 import { IdempotencyStore } from './modules/Idempotency/domain/IdempotencyStore';
 import { PrismaIdempotencyStore } from './modules/Idempotency/infrastructure/PrismaIdempotencyStore';
 import { createIdempotency } from './modules/Idempotency/presentation/idempotency';
 import { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
+import { RetryOrderConfirmationUseCase } from './modules/Store/application/RetryOrderConfirmationUseCase';
 import {
   CreateProductUseCase,
   DeleteProductUseCase,
@@ -425,8 +428,8 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder.registerAndUse(CreatePageUseCase).withDependencies([PageRepository]);
   builder
     .registerAndUse(UpdatePageUseCase)
-    .withDependencies([PageRepository, RecordSlugChangeUseCase]);
-  builder.registerAndUse(DeletePageUseCase).withDependencies([PageRepository]);
+    .withDependencies([PageRepository, RecordSlugChangeUseCase, StoreSettingsRepository]);
+  builder.registerAndUse(DeletePageUseCase).withDependencies([PageRepository, StoreSettingsRepository]);
   builder.registerAndUse(AddSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(UpdateSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(DeleteSectionUseCase).withDependencies([PageRepository]);
@@ -771,8 +774,17 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .use(PrismaConsumerClaimRepository)
     .withDependencies([PrismaClient]);
   builder
+    .register(ConsumerClaimMailer)
+    .use(SmtpConsumerClaimMailer)
+    .withDependencies([SmtpConfig]);
+  builder
     .registerAndUse(SubmitConsumerClaimUseCase)
-    .withDependencies([ConsumerClaimRepository, OrderRepository]);
+    .withDependencies([
+      ConsumerClaimRepository,
+      OrderRepository,
+      GlobalSettingsRepository,
+      ConsumerClaimMailer,
+    ]);
   builder
     .registerAndUse(ManageConsumerClaimsUseCase)
     .withDependencies([ConsumerClaimRepository]);
@@ -792,12 +804,16 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(CheckoutController)
     .withDependencies([QuoteCartUseCase, CheckoutUseCase, ConfirmPaymentUseCase]);
   builder
+    .registerAndUse(RetryOrderConfirmationUseCase)
+    .withDependencies([OrderRepository, OrderMailer, StoreSettingsRepository]);
+  builder
     .registerAndUse(AdminOrderController)
     .withDependencies([
       ManageOrdersUseCase,
       ManageCouponsUseCase,
       ManageStoreSettingsUseCase,
       TenantRepository,
+      RetryOrderConfirmationUseCase,
     ]);
 
   // Blog

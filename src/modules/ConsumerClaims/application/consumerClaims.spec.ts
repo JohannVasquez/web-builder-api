@@ -1,4 +1,6 @@
 import { BadRequestError } from '@/shared/domain/BadRequestError';
+import type { GlobalSettingsRepository } from '@/modules/GlobalSettings/domain/GlobalSettingsRepository';
+import type { ConsumerClaimMailer } from '../domain/ConsumerClaimMailer';
 import { Order } from '@/modules/Store/domain/Order';
 import type { OrderRepository } from '@/modules/Store/domain/OrderRepository';
 import {
@@ -83,6 +85,22 @@ const buildOrders = (order: Order | null): OrderRepository =>
     findByNumber: (): Promise<Order | null> => Promise.resolve(order),
   }) as unknown as OrderRepository;
 
+const buildSettings = (): GlobalSettingsRepository => {
+  return {
+    find: jest.fn().mockResolvedValue({
+      get: jest.fn().mockImplementation((key: string) => (key === 'contactEmail' ? 'admin@store.com' : 'Tienda')),
+      toPrimitives: jest.fn(),
+    }),
+  };
+};
+
+const buildMailer = (): ConsumerClaimMailer => {
+  return {
+    notifySeller: jest.fn(),
+    sendAcknowledgmentToBuyer: jest.fn(),
+  };
+};
+
 const input = (overrides: Partial<ConsumerClaimInput> = {}): ConsumerClaimInput => ({
   kind: 'retracto',
   orderNumber: '0007',
@@ -97,6 +115,8 @@ describe('retracto', () => {
     const useCase = new SubmitConsumerClaimUseCase(
       claims,
       buildOrders(buildOrder(daysAgo(3))),
+      buildSettings(),
+      buildMailer()
     );
 
     await useCase.execute(TENANT, input(), NOW);
@@ -108,6 +128,8 @@ describe('retracto', () => {
     const useCase = new SubmitConsumerClaimUseCase(
       buildClaims(),
       buildOrders(buildOrder(daysAgo(20))),
+      buildSettings(),
+      buildMailer()
     );
 
     await expect(useCase.execute(TENANT, input(), NOW)).rejects.toThrow(
@@ -120,6 +142,8 @@ describe('retracto', () => {
     const useCase = new SubmitConsumerClaimUseCase(
       claims,
       buildOrders(buildOrder(daysAgo(10))),
+      buildSettings(),
+      buildMailer()
     );
 
     await useCase.execute(TENANT, input(), NOW);
@@ -128,7 +152,7 @@ describe('retracto', () => {
   });
 
   it('exige el número de pedido: sin él no hay compra que revertir', async () => {
-    const useCase = new SubmitConsumerClaimUseCase(buildClaims(), buildOrders(null));
+    const useCase = new SubmitConsumerClaimUseCase(buildClaims(), buildOrders(null), buildSettings(), buildMailer());
 
     await expect(
       useCase.execute(TENANT, input({ orderNumber: null }), NOW),
@@ -140,8 +164,10 @@ describe('retracto', () => {
     const deOtro = new SubmitConsumerClaimUseCase(
       buildClaims(),
       buildOrders(buildOrder(daysAgo(3), 'otro@ejemplo.cl')),
+      buildSettings(),
+      buildMailer()
     );
-    const inexistente = new SubmitConsumerClaimUseCase(buildClaims(), buildOrders(null));
+    const inexistente = new SubmitConsumerClaimUseCase(buildClaims(), buildOrders(null), buildSettings(), buildMailer());
 
     const mensajeDeOtro = await deOtro
       .execute(TENANT, input(), NOW)
@@ -157,7 +183,7 @@ describe('retracto', () => {
 describe('reclamo', () => {
   it('no exige pedido ni plazo: puede no haber compra detrás', async () => {
     const claims = buildClaims();
-    const useCase = new SubmitConsumerClaimUseCase(claims, buildOrders(null));
+    const useCase = new SubmitConsumerClaimUseCase(claims, buildOrders(null), buildSettings(), buildMailer());
 
     await useCase.execute(
       TENANT,
@@ -166,6 +192,36 @@ describe('reclamo', () => {
     );
 
     expect(claims.created[0].kind).toBe('reclamo');
+  });
+
+  it('notifica al vendedor y al comprador', async () => {
+    const claims = buildClaims();
+    const mailer = buildMailer();
+    const useCase = new SubmitConsumerClaimUseCase(claims, buildOrders(null), buildSettings(), mailer);
+
+    await useCase.execute(
+      TENANT,
+      input({ kind: 'reclamo', orderNumber: null, email: 'foo@bar.com' }),
+      NOW,
+    );
+
+    expect(mailer.notifySeller).toHaveBeenCalled();
+    expect(mailer.sendAcknowledgmentToBuyer).toHaveBeenCalled();
+  });
+
+  it('no pierde el reclamo si falla el correo', async () => {
+    const claims = buildClaims();
+    const mailer = buildMailer();
+    (mailer.notifySeller as jest.Mock).mockRejectedValue(new Error('Fallo mail'));
+    const useCase = new SubmitConsumerClaimUseCase(claims, buildOrders(null), buildSettings(), mailer);
+
+    await useCase.execute(
+      TENANT,
+      input({ kind: 'reclamo', orderNumber: null }),
+      NOW,
+    );
+
+    expect(claims.created).toHaveLength(1);
   });
 });
 

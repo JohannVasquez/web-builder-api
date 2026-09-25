@@ -155,6 +155,14 @@ export class PrismaOrderRepository implements OrderRepository {
     return record === null ? null : this.toDomain(record);
   }
 
+  public async findPendingConfirmationEmailed(tenantId: string): Promise<Order[]> {
+    const records = await this.prisma.order.findMany({
+      where: { tenantId, confirmationEmailedAt: null },
+      include: { items: true },
+    });
+    return records.map((record) => this.toDomain(record));
+  }
+
   public async findByNumber(tenantId: string, number: string): Promise<Order | null> {
     const record = await this.prisma.order.findFirst({
       where: { tenantId, number },

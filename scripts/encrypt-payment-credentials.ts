@@ -10,16 +10,8 @@
  */
 import { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { EnvConfig } from '@/shared/config/EnvConfig';
-import { looksEncrypted, SecretBox } from '@/shared/infrastructure/crypto/SecretBox';
-
-const ENCRYPTED_KEY = 'enc';
-
-const isPlainCredentialMap = (value: unknown): value is Record<string, string> =>
-  typeof value === 'object' &&
-  value !== null &&
-  !Array.isArray(value) &&
-  !looksEncrypted((value as Record<string, unknown>)[ENCRYPTED_KEY]) &&
-  Object.keys(value).length > 0;
+import { SecretBox } from '@/shared/infrastructure/crypto/SecretBox';
+import { EncryptPaymentCredentialsUseCase } from '@/modules/Store/application/EncryptPaymentCredentialsUseCase';
 
 const run = async (): Promise<void> => {
   const env = EnvConfig.load(process.env);
@@ -30,30 +22,9 @@ const run = async (): Promise<void> => {
   const prisma = new PrismaClient({ datasourceUrl: env.get('DATABASE_URL') });
 
   try {
-    const rows = await prisma.storeSettings.findMany({
-      select: { tenantId: true, paymentCredentials: true },
-    });
-
-    let encrypted = 0;
-    let skipped = 0;
-
-    for (const row of rows) {
-      if (!isPlainCredentialMap(row.paymentCredentials)) {
-        skipped += 1;
-        continue;
-      }
-      await prisma.storeSettings.update({
-        where: { tenantId: row.tenantId },
-        data: {
-          paymentCredentials: {
-            [ENCRYPTED_KEY]: secrets.encrypt(JSON.stringify(row.paymentCredentials)),
-          },
-        },
-      });
-      encrypted += 1;
-    }
-
-    console.log(`Credenciales cifradas: ${encrypted}. Sin cambios: ${skipped}.`);
+    const useCase = new EncryptPaymentCredentialsUseCase(prisma, secrets);
+    const result = await useCase.execute();
+    console.log(`Credenciales cifradas: ${result.encrypted}. Sin cambios: ${result.skipped}.`);
   } finally {
     await prisma.$disconnect();
   }

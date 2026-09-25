@@ -34,6 +34,7 @@ export abstract class OrderRepository {
   ): Promise<void>;
 
   public abstract create(tenantId: string, order: NewOrder): Promise<Order>;
+  public abstract findPendingConfirmationEmailed(tenantId: string): Promise<Order[]>;
   public abstract findById(tenantId: string, id: string): Promise<Order | null>;
   public abstract findByNumber(tenantId: string, number: string): Promise<Order | null>;
   public abstract findByPaymentReference(

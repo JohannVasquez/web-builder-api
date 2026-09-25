@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from 'express';
+import { requirePermission } from '@/modules/ApiKey/presentation/actorMiddleware';
 import type { CheckoutController } from './CheckoutController';
 import type { AdminOrderController } from './AdminOrderController';
 
@@ -31,5 +32,6 @@ export const createAdminOrderRouter = (controller: AdminOrderController): Router
   router.get('/orders', controller.listOrders);
   router.get('/orders/:orderId', controller.getOrder);
   router.patch('/orders/:orderId/status', controller.changeOrderStatus);
+  router.post('/retry-confirmation', requirePermission('full'), controller.retryConfirmation);
   return router;
 };

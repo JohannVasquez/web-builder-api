@@ -40,12 +40,9 @@ export const fillPlaceholders = (
 
 const PRIVACY = `## Quién responde por tus datos
 
-{{siteName}} es responsable del tratamiento de los datos personales que recibe a través de
+{{legalName}} (RUT: {{taxId}}) es responsable del tratamiento de los datos personales que recibe a través de
 este sitio. Domicilio: {{address}}. Para cualquier asunto relacionado con tus datos,
 escríbenos a {{contactEmail}}.
-
-> **Antes de publicar**: agrega aquí tu razón social y tu RUT. Quien reclama tiene derecho a
-> saber exactamente con quién está tratando, y el nombre comercial no siempre lo dice.
 
 ## Qué datos recogemos y para qué
 
@@ -226,7 +223,7 @@ en esta página.`;
 // asesoría legal) antes de publicarla, porque plazos y excepciones dependen de lo que vende.
 const PURCHASE = `## Quién vende
 
-{{siteName}} es quien vende los productos de esta tienda. Si tienes dudas sobre tu
+{{legalName}} (RUT: {{taxId}}) es quien vende los productos de esta tienda. Si tienes dudas sobre tu
 compra, escríbenos a {{contactEmail}} o llámanos al {{contactPhone}}. Dirección:
 {{address}}.
 

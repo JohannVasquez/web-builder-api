@@ -8,6 +8,7 @@ import { StoreSettingsUpdateSchema } from '../domain/StoreSettings';
 import type { ManageCouponsUseCase } from '../application/ManageCouponsUseCase';
 import type { ManageOrdersUseCase } from '../application/ManageOrdersUseCase';
 import type { ManageStoreSettingsUseCase } from '../application/ManageStoreSettingsUseCase';
+import type { RetryOrderConfirmationUseCase } from '../application/RetryOrderConfirmationUseCase';
 import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 
 const OrderQuerySchema = z.object({
@@ -38,6 +39,7 @@ export class AdminOrderController {
     private readonly coupons: ManageCouponsUseCase,
     private readonly settings: ManageStoreSettingsUseCase,
     private readonly tenants: TenantRepository,
+    private readonly retryConfirmationUseCase: RetryOrderConfirmationUseCase,
   ) {}
 
   public readonly listOrders = async (req: Request, res: Response): Promise<void> => {
@@ -80,6 +82,13 @@ export class AdminOrderController {
     const until = to ?? new Date();
     const since = from ?? new Date(until.getTime() - THIRTY_DAYS_MS);
     res.json({ report: await this.orders.report(tenantId, since, until, timeZone) });
+  };
+
+  public readonly retryConfirmation = async (req: Request, res: Response): Promise<void> => {
+    const tenantId = this.tenantIdOf(req);
+    const tenant = await this.tenants.findById(tenantId);
+    const retried = await this.retryConfirmationUseCase.execute(tenantId, tenant?.name ?? 'la tienda');
+    res.json({ retried });
   };
 
   public readonly getSettings = async (req: Request, res: Response): Promise<void> => {

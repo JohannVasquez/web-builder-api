@@ -221,6 +221,7 @@ export const buildApp = (
     '/api/solicitudes-datos',
     tenantResolver,
     siteAvailability,
+    activityRecording,
     createDataRightsRouter(controllers.dataRightsController),
   );
   app.use(

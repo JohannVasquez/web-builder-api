@@ -61,6 +61,7 @@ describe('buildApp (rutas protegidas)', () => {
         listOrders: ok(200),
         getOrder: ok(200),
         changeOrderStatus: ok(200),
+        retryConfirmation: ok(200),
         report: ok(200),
         getSettings: ok(200),
         saveSettings: ok(200),
