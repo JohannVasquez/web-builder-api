@@ -25,4 +25,5 @@ export abstract class StorageProvider {
     key: string,
     expiresInSeconds?: number,
   ): Promise<string>;
+  public abstract healthCheck(): Promise<void>;
 }

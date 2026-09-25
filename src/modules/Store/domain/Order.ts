@@ -83,6 +83,10 @@ export interface OrderPrimitives {
   // Quién vendió, tal como estaba al confirmar. Copia y no referencia: si el cliente cambia
   // su razón social mañana, este pedido tiene que seguir diciendo con quién se contrató.
   readonly seller: SellerIdentity | null;
+  // Expuesto para que el panel sepa por qué falló el correo y pueda reintentar.
+  // Es seguro porque Prisma manda los errores de SMTP que son técnicos (e.g. "Connection refused"),
+  // sin incluir los datos del comprador.
+  readonly confirmationEmailError: string | null;
 }
 
 export interface OrderCustomer {
@@ -125,6 +129,7 @@ export class Order {
     public readonly termsAcceptedAt: Date | null = null,
     public readonly termsVersion: string | null = null,
     public readonly seller: SellerIdentity | null = null,
+    public readonly confirmationEmailError: string | null = null,
   ) {}
 
   public toPrimitives(): OrderPrimitives {
@@ -156,6 +161,7 @@ export class Order {
       termsAcceptedAt: this.termsAcceptedAt?.toISOString() ?? null,
       termsVersion: this.termsVersion,
       seller: this.seller,
+      confirmationEmailError: this.confirmationEmailError,
     };
   }
 }

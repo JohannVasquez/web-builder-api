@@ -17,7 +17,7 @@ describe('ListMediaUseCase', () => {
       findByTenant: jest.fn().mockResolvedValue([asset]),
     } as unknown as jest.Mocked<StorageAssetRepository>;
     const provider = {
-      getPresignedUrl: jest.fn().mockResolvedValue('https://bucket/firmada'),
+      getPresignedUrl: jest.fn().mockResolvedValue('https://bucket/firmada'), healthCheck: jest.fn(),
     } as unknown as jest.Mocked<StorageProvider>;
 
     const assets = await new ListMediaUseCase(repository, provider).execute(
@@ -34,7 +34,7 @@ describe('ListMediaUseCase', () => {
       findByTenant: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<StorageAssetRepository>;
     const provider = {
-      getPresignedUrl: jest.fn(),
+      getPresignedUrl: jest.fn(), healthCheck: jest.fn(),
     } as unknown as jest.Mocked<StorageProvider>;
 
     await new ListMediaUseCase(repository, provider).execute(

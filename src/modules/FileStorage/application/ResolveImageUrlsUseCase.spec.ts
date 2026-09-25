@@ -15,6 +15,7 @@ describe('ResolveImageUrlsUseCase', () => {
       .mockImplementation((key: string) =>
         Promise.resolve(`http://cdn.test/${key}?signed=1`),
       ),
+    healthCheck: jest.fn(),
   });
 
   it('replaces a top-level imageUrl key with a presigned url', async () => {

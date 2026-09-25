@@ -69,7 +69,7 @@ describe('Tienda (HTTP)', () => {
         ),
     };
     const storage = {
-      getPresignedUrl: jest.fn().mockResolvedValue('https://bucket/firmada'),
+      getPresignedUrl: jest.fn().mockResolvedValue('https://bucket/firmada'), healthCheck: jest.fn(),
     } as unknown as StorageProvider;
 
     const catalog = new PublicCatalogUseCase(repository, settings, storage);

@@ -11,6 +11,7 @@ describe('ResolveBrandAssetsUseCase', () => {
       .mockImplementation((key: string) =>
         Promise.resolve(`http://cdn.test/${key}?signed=1`),
       ),
+    healthCheck: jest.fn(),
   });
 
   const buildBrand = (overrides: Partial<Brand> = {}): Brand =>

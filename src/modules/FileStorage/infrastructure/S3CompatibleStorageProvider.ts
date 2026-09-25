@@ -3,6 +3,7 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
+  HeadBucketCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { FileData, StorageProvider, UploadResult } from '../domain/StorageProvider';
@@ -77,5 +78,9 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   ): Promise<string> {
     const command = new GetObjectCommand({ Bucket: this.config.bucket, Key: key });
     return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+  }
+
+  public async healthCheck(): Promise<void> {
+    await this.client.send(new HeadBucketCommand({ Bucket: this.config.bucket }));
   }
 }

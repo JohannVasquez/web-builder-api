@@ -12,7 +12,7 @@ import { TooManyRequestsError } from '../domain/TooManyRequestsError';
 export class ErrorHandler {
   public readonly handle = (
     error: unknown,
-    _req: Request,
+    req: Request,
     res: Response,
     _next: NextFunction,
   ): void => {
@@ -75,7 +75,15 @@ export class ErrorHandler {
       return;
     }
 
-    console.error('[UnhandledError]', error);
+    const tenantId =
+      (res.locals as { tenant?: { id: string } }).tenant?.id ??
+      req.params.tenantId ??
+      'unknown';
+      
+    console.error(
+      `[UnhandledError] ${req.method} ${req.originalUrl} (Client: ${String(tenantId)})`,
+      error instanceof Error ? error.stack || error.message : error,
+    );
     res.status(500).json({ error: 'InternalServerError' });
   };
 }

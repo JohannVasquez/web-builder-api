@@ -259,4 +259,22 @@ describe('buildApp (rutas protegidas)', () => {
     expect(settings.status).toBe(200);
     expect(navigation.status).toBe(200);
   });
+
+  describe('health', () => {
+    it('responde 200 ok si la base de datos y el storage responden', async () => {
+      const server = buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop, noop, noop, () => Promise.resolve());
+
+      const res = await request(server).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ status: 'ok' });
+    });
+
+    it('responde 503 error si falla el healthCheck', async () => {
+      const server = buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop, noop, noop, () => Promise.reject(new Error('Timeout de base de datos')));
+
+      const res = await request(server).get('/health');
+      expect(res.status).toBe(503);
+      expect((res.body as { status: string }).status).toBe('error');
+    });
+  });
 });

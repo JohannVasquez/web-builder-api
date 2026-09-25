@@ -1,4 +1,4 @@
-import { canTransition, nextOrderNumber, ORDER_STATUSES } from './Order';
+import { canTransition, nextOrderNumber, ORDER_STATUSES, Order } from './Order';
 
 describe('Order', () => {
   describe('nextOrderNumber', () => {
@@ -39,6 +39,21 @@ describe('Order', () => {
       expect(canTransition('pending', 'cancelled')).toBe(true);
       expect(canTransition('preparing', 'cancelled')).toBe(true);
       expect(canTransition('shipped', 'cancelled')).toBe(true);
+    });
+  });
+
+  describe('toPrimitives', () => {
+    it('incluye el mensaje de error del correo si falló (para que el panel lo exponga)', () => {
+      const order = new Order(
+        'id-1', '0001', 'pending',
+        { name: 'A', email: 'a@a.com', phone: '123' },
+        { method: 'pickup', shippingCode: null, shippingName: null, addressLine: null, addressCity: null, addressRegion: null, addressNotes: null },
+        [], 100, 0, 0, 0, 100, 'CLP', null, null, null, null, new Date(),
+        null, null, null, 'Connection refused'
+      );
+
+      const primitives = order.toPrimitives();
+      expect(primitives.confirmationEmailError).toBe('Connection refused');
     });
   });
 });

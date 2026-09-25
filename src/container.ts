@@ -1006,6 +1006,13 @@ export class Container {
       createActivityRecordingMiddleware(this.services.get(RecordActivityUseCase)),
       createPreviewMiddleware(this.services.get(ValidatePreviewTokenUseCase)),
       createIdempotency(this.services.get(IdempotencyStore), 'store.checkout'),
+      async () => {
+        // Ping DB (ligero)
+        const prisma = this.services.get(PrismaClient) as unknown as { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
+        await prisma.$queryRaw`SELECT 1`;
+        // Ping Storage
+        await this.services.get(StorageProvider).healthCheck();
+      }
     );
   }
 

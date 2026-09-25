@@ -16,31 +16,19 @@ Los respaldos protegen a la plataforma contra caídas de servidor, errores human
 
 ## 2. Procedimiento de extracción
 
-Automatiza estos comandos en una tarea programada (cron) que corra a diario en el servidor.
-
-**Base de Datos (pg_dump):**
+Automatiza la ejecución del script de respaldo en una tarea programada (cron) que corra a diario en el servidor. Este script lee las mismas variables de entorno que la API (incluyendo base de datos y almacenamiento) y extrae tanto el `dump` de PostgreSQL como los archivos del bucket S3.
 
 ```bash
-FECHA=$(date +%F)
-# Saca el respaldo en formato personalizado comprimido
-docker exec web-builder-db pg_dump -U webbuilder -F c -d web_builder -f /tmp/db_backup_$FECHA.dump
+# Entra al directorio del proyecto API
+cd /ruta/a/web-builder-api
 
-# Extrae el archivo al host
-docker cp web-builder-db:/tmp/db_backup_$FECHA.dump ./respaldos/
-docker exec web-builder-db rm /tmp/db_backup_$FECHA.dump
-
-# Envíalo a tu almacenamiento remoto seguro (usando rclone, aws cli o mc)
-# Ejemplo con mc: mc cp ./respaldos/db_backup_$FECHA.dump remote_storage/backups_db/
+# Corre el script de respaldo
+pnpm backup
 ```
 
-**Bucket S3:**
+El script dejará en la carpeta actual un archivo `backup-YYYY-MM-DD.dump` y una carpeta `backup-YYYY-MM-DD-assets/` con todos los recursos subidos.
 
-Sincroniza el bucket usando utilidades S3 (como `mc mirror` o `aws s3 sync`). Se recomienda no borrar en destino lo que se haya borrado en origen, como salvaguarda ante un borrado accidental.
-
-```bash
-# Usando cliente MinIO (mc)
-mc mirror s3_prod/web-builder-assets s3_backup/assets_backup
-```
+Asegúrate de mover estos archivos a tu almacenamiento remoto seguro todos los días, y configurar la limpieza de los más antiguos.
 
 ## 3. Restauración paso a paso
 

@@ -50,6 +50,7 @@ interface OrderRecord {
   readonly termsAcceptedAt: Date | null;
   readonly termsVersion: string | null;
   readonly seller?: unknown;
+  readonly confirmationEmailError: string | null;
   readonly items: readonly OrderItemRecord[];
 }
 
@@ -403,6 +404,7 @@ export class PrismaOrderRepository implements OrderRepository {
       record.termsAcceptedAt,
       record.termsVersion,
       toSeller(record.seller),
+      record.confirmationEmailError,
     );
   }
 }

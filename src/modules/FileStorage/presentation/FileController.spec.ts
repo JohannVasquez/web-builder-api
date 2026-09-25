@@ -33,6 +33,7 @@ describe('FileController (HTTP)', () => {
       .mockImplementation((key: string) =>
         Promise.resolve(`http://cdn.test/assets/${key}`),
       ),
+    healthCheck: jest.fn(),
   });
 
   const buildAssetRepository = (): jest.Mocked<StorageAssetRepository> => ({

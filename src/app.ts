@@ -146,6 +146,7 @@ export const buildApp = (
   checkoutIdempotency: RequestHandler = (_req, _res, next) => {
     next();
   },
+  healthCheck: () => Promise<void> = async () => {},
 ): Express => {
   const app = express();
   const errorHandler = new ErrorHandler();
@@ -161,8 +162,13 @@ export const buildApp = (
   );
   app.use(express.json());
 
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
+  app.get('/health', async (_req, res) => {
+    try {
+      await healthCheck();
+      res.json({ status: 'ok' });
+    } catch {
+      res.status(503).json({ status: 'error', detail: 'Service unavailable' });
+    }
   });
 
   // Capa de borde (Caddy), no el frontend: no lleva prefijo /api y no debe

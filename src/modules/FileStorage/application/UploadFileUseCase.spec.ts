@@ -32,6 +32,7 @@ describe('UploadFileUseCase', () => {
       .mockImplementation((key: string) =>
         Promise.resolve(`http://cdn.test/assets/${key}?signed=1`),
       ),
+    healthCheck: jest.fn(),
   });
 
   const buildAssetRepository = (): jest.Mocked<StorageAssetRepository> => ({

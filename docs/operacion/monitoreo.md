@@ -26,3 +26,20 @@ Configura tu herramienta de monitoreo para que revise estas métricas cada **1 a
 | **Disparo CPU o RAM al 100%** | Un proceso quedó en un bucle infinito o hay un ataque de tráfico masivo. | 1. Usa `htop` o `docker stats` para ver quién consume.<br>2. Revisa los logs de Caddy para ver si un IP específico inunda de peticiones. |
 | **Alerta "Disco al 90%"** | Contenedores viejos, logs de Docker o la base de datos están devorando el volumen. | 1. Corre `df -h` para confirmar.<br>2. Limpia basura de Docker: `docker system prune -a --volumes`. |
 | **Sitio de cliente dice "No seguro" (SSL falló)** | El proxy no emitió el certificado On-Demand para el dominio de un cliente. | 1. Revisa los logs de Caddy.<br>2. Asegúrate de que el DNS del cliente apunte correctamente al `PLATFORM_SITE_TARGET`. |
+
+## 4. Registro de Errores (Logs)
+
+La API captura los errores no controlados (errores de código, fallos de conexión) y los imprime en la salida estándar (`stdout`/`stderr`) con el prefijo `[UnhandledError]`. El registro incluye la ruta afectada, el método HTTP, el cliente (`tenantId`) y la traza del error, omitiendo deliberadamente datos sensibles (PII o secretos).
+
+**Cómo conectarlo a un servicio externo (ej. Datadog, Sentry, AWS CloudWatch):**
+No es necesario instalar un agente pesado dentro de la API. Basta con recolectar la salida estándar del contenedor Docker.
+Por ejemplo, puedes usar el driver de log de Docker para enviarlo directo a AWS CloudWatch:
+```bash
+# Ejemplo en docker-compose.yml:
+logging:
+  driver: awslogs
+  options:
+    awslogs-region: us-east-1
+    awslogs-group: web-builder-api
+```
+O usar un recolector como Promtail/Filebeat que lea los archivos JSON de Docker y envíe solo las líneas que contienen `[UnhandledError]` a tu sistema de alertas, donde podrás filtrar por cliente o ruta.

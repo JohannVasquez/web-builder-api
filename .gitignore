@@ -10,3 +10,7 @@ src/shared/infrastructure/prisma/generated/
 
 # Grafo de conocimiento de graphify: se regenera solo, vive solo en local.
 graphify-out/
+
+# Respaldos generados por `pnpm backup`: nunca se versionan.
+backup-*.dump
+backup-*-assets/
