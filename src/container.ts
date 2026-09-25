@@ -240,6 +240,14 @@ import { buildApp } from './app';
  * no tienen esa información y generan metadata incompleta. El wiring explícito
  * es una característica de diod de primera clase, sin esa dependencia frágil.
  */
+import { PreviewLinkRepository } from './modules/PreviewLink/domain/PreviewLinkRepository';
+import { PrismaPreviewLinkRepository } from './modules/PreviewLink/infrastructure/PrismaPreviewLinkRepository';
+import { GeneratePreviewLinkUseCase } from './modules/PreviewLink/application/GeneratePreviewLinkUseCase';
+import { RevokePreviewLinkUseCase } from './modules/PreviewLink/application/RevokePreviewLinkUseCase';
+import { ValidatePreviewTokenUseCase } from './modules/PreviewLink/application/ValidatePreviewTokenUseCase';
+import { AdminPreviewLinkController } from './modules/PreviewLink/presentation/AdminPreviewLinkController';
+import { createPreviewMiddleware } from './modules/PreviewLink/presentation/previewMiddleware';
+
 const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   const builder = new ContainerBuilder();
 
@@ -871,6 +879,14 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       UnsubscribeFromNewsletterUseCase,
       RateLimiter,
     ]);
+  builder.register(PreviewLinkRepository).use(PrismaPreviewLinkRepository);
+  builder.registerAndUse(GeneratePreviewLinkUseCase).withDependencies([PreviewLinkRepository]);
+  builder.registerAndUse(RevokePreviewLinkUseCase).withDependencies([PreviewLinkRepository]);
+  builder.registerAndUse(ValidatePreviewTokenUseCase).withDependencies([PreviewLinkRepository]);
+  builder.registerAndUse(AdminPreviewLinkController).withDependencies([
+    GeneratePreviewLinkUseCase,
+    RevokePreviewLinkUseCase,
+  ]);
 
   return builder.build();
 };
@@ -914,6 +930,7 @@ export class Container {
         adminStoreController: this.services.get(AdminStoreController),
         checkoutController: this.services.get(CheckoutController),
         adminOrderController: this.services.get(AdminOrderController),
+        adminPreviewLinkController: this.services.get(AdminPreviewLinkController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
@@ -925,6 +942,7 @@ export class Container {
       ),
       createCacheInvalidationMiddleware(this.services.get(InvalidateTenantCacheUseCase)),
       createActivityRecordingMiddleware(this.services.get(RecordActivityUseCase)),
+      createPreviewMiddleware(this.services.get(ValidatePreviewTokenUseCase)),
       createIdempotency(this.services.get(IdempotencyStore), 'store.checkout'),
     );
   }

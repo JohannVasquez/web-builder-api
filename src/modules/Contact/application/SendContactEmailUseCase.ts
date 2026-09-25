@@ -19,6 +19,7 @@ export class SendContactEmailUseCase {
   public async execute(
     input: ContactInput,
     tenantId: string,
+    isPreview: boolean = false,
   ): Promise<SendContactResult> {
     const contact = ContactRequest.fromInput(input);
 
@@ -27,6 +28,12 @@ export class SendContactEmailUseCase {
 
     const settings = await this.globalSettingsRepository.find(tenantId);
     const recipient = this.normalizeRecipients(settings.get('contactEmail'));
+
+    if (isPreview) {
+      // Guardamos la evidencia de que fue una prueba en el motivo de fallo.
+      await this.contactMessageRepository.markEmailed(stored.id, 'No enviado (Vista previa)');
+      return { stored: true, emailed: false };
+    }
 
     try {
       await this.emailService.sendContactEmail(contact, recipient);

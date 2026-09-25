@@ -161,6 +161,26 @@ describe('SendContactEmailUseCase', () => {
     expect(recipient).toBeUndefined();
   });
 
+  it('skips sending the email when called in preview mode, but marks it as a test', async () => {
+    const emailService = buildEmailService();
+    const contactMessageRepository = buildContactMessageRepository();
+    const useCase = new SendContactEmailUseCase(
+      emailService,
+      buildSettingsRepository('ventas@electroandes.cl'),
+      contactMessageRepository,
+    );
+
+    const result = await useCase.execute(validInput, TENANT_ID, true);
+
+    expect(emailService.sendContactEmail).not.toHaveBeenCalled();
+    expect(contactMessageRepository.save).toHaveBeenCalled();
+    expect(contactMessageRepository.markEmailed).toHaveBeenCalledWith(
+      STORED_ID,
+      'No enviado (Vista previa)'
+    );
+    expect(result).toEqual({ stored: true, emailed: false });
+  });
+
   describe('ContactSchema', () => {
     it('rejects payloads with unknown keys (strict mode)', () => {
       const result = ContactSchema.safeParse({

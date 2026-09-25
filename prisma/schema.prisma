@@ -39,6 +39,7 @@ model Tenant {
   consumerClaims     ConsumerClaim[]
   redirects          Redirect[]
   consents           ConsentRecord[]
+  previewLinks       PreviewLink[]
 
   @@map("tenants")
 }
@@ -763,4 +764,24 @@ model ConsumerClaim {
 
   @@index([tenantId, status, createdAt])
   @@map("consumer_claims")
+}
+
+/// Enlace de revisión compartible para que el cliente vea el sitio en borrador antes de publicar.
+/// Se guarda el hash del token, nunca el token en claro, por seguridad.
+model PreviewLink {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  
+  /// SHA-256 del token aleatorio entregado al usuario.
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz()
+  /// Fecha en la que el enlace fue anulado manualmente. Nulo si sigue vigente (salvo que expire).
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz()
+  
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, expiresAt])
+  @@map("preview_links")
 }

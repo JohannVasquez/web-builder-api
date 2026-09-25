@@ -40,6 +40,8 @@ import type { StoreController } from './modules/Store/presentation/StoreControll
 import type { AdminStoreController } from './modules/Store/presentation/AdminStoreController';
 import type { CheckoutController } from './modules/Store/presentation/CheckoutController';
 import type { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
+import type { AdminPreviewLinkController } from './modules/PreviewLink/presentation/AdminPreviewLinkController';
+import { createAdminPreviewLinkRouter } from './modules/PreviewLink/presentation/adminPreviewLinkRouter';
 import {
   createAdminOrderRouter,
   createCheckoutRouter,
@@ -119,6 +121,7 @@ export interface AppControllers {
   readonly adminStoreController: AdminStoreController;
   readonly checkoutController: CheckoutController;
   readonly adminOrderController: AdminOrderController;
+  readonly adminPreviewLinkController: AdminPreviewLinkController;
 }
 
 export const buildApp = (
@@ -129,6 +132,7 @@ export const buildApp = (
   actorMiddleware: RequestHandler,
   cacheInvalidation: RequestHandler,
   activityRecording: RequestHandler,
+  previewMiddleware: RequestHandler,
   // Sin clave de idempotencia la compra se comporta igual; por defecto no hace nada.
   checkoutIdempotency: RequestHandler = (_req, _res, next) => {
     next();
@@ -160,6 +164,7 @@ export const buildApp = (
   app.use(
     '/api/pages',
     tenantResolver,
+    previewMiddleware,
     siteAvailability,
     createPageRouter(controllers.pageController),
   );
@@ -178,6 +183,7 @@ export const buildApp = (
   app.use(
     '/api/contact',
     tenantResolver,
+    previewMiddleware,
     siteAvailability,
     createContactRouter(controllers.contactController),
   );
@@ -308,6 +314,11 @@ export const buildApp = (
     ...adminGuards,
     cacheInvalidation,
     controllers.legalPageController.create,
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/preview-links',
+    ...adminGuards,
+    createAdminPreviewLinkRouter(controllers.adminPreviewLinkController),
   );
   app.use(
     '/api/admin/tenants/:tenantId/products',
