@@ -8,6 +8,7 @@ import type { UnsubscribeFromNewsletterUseCase } from '../application/Unsubscrib
 import { SubscribeSchema } from '../domain/NewsletterSchema';
 import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 import { idSchema } from '@/shared/domain/identifier';
+import { isDemoRequest } from '@/shared/presentation/demoRequest';
 
 const SUBSCRIPTIONS_PER_MINUTE = 5;
 
@@ -31,7 +32,11 @@ export class NewsletterController {
     this.enforceRateLimit(req, tenant.id);
 
     const { email } = SubscribeSchema.parse(req.body);
-    await this.subscribeUseCase.execute(tenant.id, email);
+    // En una demo nadie se suscribe de verdad: ni se guarda el correo ni su consentimiento,
+    // pero quien prueba el formulario ve la misma respuesta.
+    if (!isDemoRequest(res)) {
+      await this.subscribeUseCase.execute(tenant.id, email);
+    }
 
     res.status(200).json({
       success: true,

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
+import { isDemoRequest } from '@/shared/presentation/demoRequest';
 import { CartSchema, CheckoutSchema } from '../domain/Order';
 import { StoreDisabledError } from '../domain/StoreDisabledError';
 import type { CheckoutUseCase } from '../application/CheckoutUseCase';
@@ -54,6 +55,7 @@ export class CheckoutController {
     const result = await this.checkoutUseCase.execute(tenant.id, input, {
       returnUrl: `${origin}/tienda/gracias`,
       confirmationUrl: `${origin}/api/store/payment-callback`,
+      simulatedPayment: isDemoRequest(res),
     });
     res.status(201).json({
       order: result.order.toPrimitives(),
@@ -66,6 +68,12 @@ export class CheckoutController {
   // preguntarle al proveedor, no de que la petición haya llegado.
   public readonly confirm = async (req: Request, res: Response): Promise<void> => {
     const tenant = getRequestTenant(res);
+    // Una demo nunca le pregunta nada al proveedor configurado (podría ser la cuenta de Flow
+    // de otra persona) ni manda los correos de un pago confirmado.
+    if (isDemoRequest(res)) {
+      res.status(200).json({ confirmed: false });
+      return;
+    }
     const payload = {
       ...(req.body as Record<string, unknown>),
       ...(req.query as Record<string, unknown>),

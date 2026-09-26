@@ -17,6 +17,10 @@ export interface PaymentContext {
   readonly confirmationUrl: string;
 }
 
+// Pago simulado de las demos de prospecto. No es un `PaymentProvider` configurable: ninguna
+// tienda lo elige, lo impone el checkout cuando el sitio es una demo.
+export const DEMO_PAYMENT_PROVIDER = 'demo';
+
 export interface PaymentConfirmation {
   readonly reference: string;
   readonly paid: boolean;

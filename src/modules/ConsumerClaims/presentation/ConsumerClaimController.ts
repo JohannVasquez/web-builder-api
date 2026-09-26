@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 import { idSchema } from '@/shared/domain/identifier';
+import { isDemoRequest } from '@/shared/presentation/demoRequest';
 import type { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
 import { CLAIM_STATUSES, ConsumerClaimSchema } from '../domain/ConsumerClaim';
 import type { SubmitConsumerClaimUseCase } from '../application/SubmitConsumerClaimUseCase';
@@ -27,7 +28,12 @@ export class ConsumerClaimController {
     this.enforceRateLimit(req, tenant.id);
 
     const input = ConsumerClaimSchema.parse(req.body);
-    const claim = await this.submitUseCase.execute(tenant.id, input);
+    const claim = await this.submitUseCase.execute(
+      tenant.id,
+      input,
+      new Date(),
+      !isDemoRequest(res),
+    );
 
     res.status(201).json({
       claim: claim.toPrimitives(),

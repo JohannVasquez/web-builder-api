@@ -178,6 +178,7 @@ import { PaymentGatewayRegistry } from './modules/Store/domain/PaymentGateway';
 import { DefaultPaymentGatewayRegistry } from './modules/Store/infrastructure/DefaultPaymentGatewayRegistry';
 import { FlowPaymentGateway } from './modules/Store/infrastructure/FlowPaymentGateway';
 import { TransferPaymentGateway } from './modules/Store/infrastructure/TransferPaymentGateway';
+import { DemoPaymentGateway } from './modules/Store/infrastructure/DemoPaymentGateway';
 import { QuoteCartUseCase } from './modules/Store/application/QuoteCartUseCase';
 import { CheckoutUseCase } from './modules/Store/application/CheckoutUseCase';
 import { ConfirmPaymentUseCase } from './modules/Store/application/ConfirmPaymentUseCase';
@@ -790,6 +791,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
         new DefaultPaymentGatewayRegistry([
           new TransferPaymentGateway(),
           new FlowPaymentGateway(),
+          new DemoPaymentGateway(),
         ]),
     )
     .asSingleton();
@@ -854,7 +856,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(ManageStoreSettingsUseCase)
     // Depende de las páginas para comprobar que los términos de compra estén publicados de
     // verdad antes de dejar encender la tienda.
-    .withDependencies([StoreSettingsRepository, PageRepository]);
+    .withDependencies([StoreSettingsRepository, PageRepository, TenantRepository]);
   builder
     .registerAndUse(CheckoutController)
     .withDependencies([QuoteCartUseCase, CheckoutUseCase, ConfirmPaymentUseCase]);

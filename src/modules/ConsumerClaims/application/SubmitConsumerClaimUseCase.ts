@@ -23,11 +23,16 @@ export class SubmitConsumerClaimUseCase {
     tenantId: string,
     input: ConsumerClaimInput,
     now = new Date(),
+    // Falso en una demo: el reclamo queda registrado, pero no le escribe a nadie.
+    notify = true,
   ): Promise<ConsumerClaim> {
     if (input.kind === 'retracto') {
       await this.ensureWithinWindow(tenantId, input, now);
     }
     const claim = await this.claims.create(tenantId, input);
+    if (!notify) {
+      return claim;
+    }
 
     try {
       const settings = await this.settings.find(tenantId);

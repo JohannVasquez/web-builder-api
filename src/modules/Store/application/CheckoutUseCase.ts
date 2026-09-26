@@ -2,10 +2,20 @@ import { CheckoutRejectedError } from '../domain/CheckoutRejectedError';
 import { StoreDisabledError } from '../domain/StoreDisabledError';
 import type { CheckoutInput, Order } from '../domain/Order';
 import type { OrderRepository } from '../domain/OrderRepository';
-import type { PaymentContext, PaymentGatewayRegistry } from '../domain/PaymentGateway';
+import {
+  DEMO_PAYMENT_PROVIDER,
+  type PaymentContext,
+  type PaymentGatewayRegistry,
+} from '../domain/PaymentGateway';
 import type { QuoteCartUseCase } from './QuoteCartUseCase';
 import type { PageRepository } from '@/modules/Page/domain/PageRepository';
 import type { StoreSettings } from '../domain/StoreSettings';
+
+export interface CheckoutContext extends PaymentContext {
+  // En una demo de prospecto se compra de punta a punta, pero sin cobrar: nunca se llama al
+  // proveedor configurado y el pedido queda pagado al instante.
+  readonly simulatedPayment?: boolean;
+}
 
 export interface CheckoutResult {
   readonly order: Order;
@@ -42,7 +52,7 @@ export class CheckoutUseCase {
   public async execute(
     tenantId: string,
     input: CheckoutInput,
-    context: PaymentContext,
+    context: CheckoutContext,
     now = new Date(),
   ): Promise<CheckoutResult> {
     const settings = await this.quoteCartUseCase.settingsFor(tenantId);
@@ -81,13 +91,20 @@ export class CheckoutUseCase {
       totalCents: quote.totals.totalCents,
       currency: quote.currency,
       couponCode: quote.coupon?.code ?? null,
-      paymentProvider: settings.paymentProvider,
+      paymentProvider:
+        context.simulatedPayment === true
+          ? DEMO_PAYMENT_PROVIDER
+          : settings.paymentProvider,
       termsAcceptedAt: terms === null ? null : now,
       termsVersion: terms?.version ?? null,
       // Copia, no referencia: el pedido tiene que poder decir con quién se contrató aunque
       // el cliente cambie su razón social después.
       seller: settings.seller,
     });
+
+    if (context.simulatedPayment === true) {
+      return this.simulatePayment(tenantId, order, settings, input, context);
+    }
 
     if (!settings.acceptsOnlinePayment()) {
       return { order, redirectUrl: null, instructions: null };
@@ -105,6 +122,28 @@ export class CheckoutUseCase {
       redirectUrl: payment.redirectUrl,
       instructions: payment.instructions,
     };
+  }
+
+  // Sin correos ni stock ni cupón: la confirmación real (ConfirmPaymentUseCase) es la que avisa
+  // al comprador y a la dueña, y una compra de prueba no puede agotar el catálogo de la demo.
+  private async simulatePayment(
+    tenantId: string,
+    order: Order,
+    settings: StoreSettings,
+    input: CheckoutInput,
+    context: CheckoutContext,
+  ): Promise<CheckoutResult> {
+    const gateway = this.gateways.for(DEMO_PAYMENT_PROVIDER);
+    const payment = await gateway.start(order, settings, {
+      returnUrl: input.returnUrl ?? context.returnUrl,
+      confirmationUrl: context.confirmationUrl,
+    });
+    const paid = await this.orderRepository.markPaid(
+      tenantId,
+      order.id,
+      payment.reference,
+    );
+    return { order: paid, redirectUrl: payment.redirectUrl, instructions: null };
   }
 
   // La dirección se exige según la forma de envío elegida, no según el método: hay

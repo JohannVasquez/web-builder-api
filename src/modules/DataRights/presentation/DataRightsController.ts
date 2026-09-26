@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 import { idSchema } from '@/shared/domain/identifier';
+import { isDemoRequest } from '@/shared/presentation/demoRequest';
 import type { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
 import { DataRightsRequestSchema, REQUEST_STATUSES } from '../domain/DataRightsRequest';
 import type { SubmitDataRightsRequestUseCase } from '../application/SubmitDataRightsRequestUseCase';
@@ -36,12 +37,16 @@ export class DataRightsController {
     this.enforceRateLimit(req, tenant.id);
 
     const input = DataRightsRequestSchema.parse(req.body);
-    const origin = `${req.protocol}://${req.get('host') ?? ''}`;
-    await this.submitUseCase.execute(
-      tenant.id,
-      input,
-      (token) => `${origin}/datos/verificar/${token}`,
-    );
+    // En una demo no se guarda ni se manda el correo de verificación: sin él la solicitud no
+    // se podría confirmar, y el correo iría a una persona que solo estaba probando.
+    if (!isDemoRequest(res)) {
+      const origin = `${req.protocol}://${req.get('host') ?? ''}`;
+      await this.submitUseCase.execute(
+        tenant.id,
+        input,
+        (token) => `${origin}/datos/verificar/${token}`,
+      );
+    }
 
     // La misma respuesta exista o no ese correo en la base: por la respuesta, nadie puede
     // averiguar si otra persona es cliente de este sitio.
@@ -54,7 +59,11 @@ export class DataRightsController {
 
   public readonly verify = async (req: Request, res: Response): Promise<void> => {
     const { token } = TokenParamsSchema.parse(req.params);
-    const outcome = await this.verifyUseCase.execute(token);
+    // El token vale en toda la plataforma: desde una demo no se confirma nada, porque
+    // confirmar manda el resultado por correo.
+    const outcome = isDemoRequest(res)
+      ? ({ kind: 'invalido' } as const)
+      : await this.verifyUseCase.execute(token);
 
     if (outcome.kind === 'invalido') {
       res.status(404).json({
