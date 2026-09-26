@@ -896,6 +896,8 @@ model Demo {
   /// Nulo mientras no haya resultado; `converted` | `discarded`.
   outcome   String?   @db.VarChar(20)
   outcomeAt DateTime? @map("outcome_at") @db.Timestamptz()
+  /// Cuántas veces se extendió; cada extensión suma `DEMO_DURATION_DAYS`.
+  extensionCount Int @default(0) @map("extension_count")
 
   /// Contadores propios: se conservan aunque las visitas se borren con los datos personales.
   visitCount   Int       @default(0) @map("visit_count")
@@ -916,6 +918,7 @@ model Demo {
   @@index([prospectId])
   @@index([actorId])
   @@index([createdAt])
+  @@index([expiresAt])
   @@map("demos")
 }
 

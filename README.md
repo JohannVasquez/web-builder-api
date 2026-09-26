@@ -46,11 +46,14 @@ vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 | GET    | `/api/admin/tenants`                     | Lista los clientes (sin demos; `?includeDemos=true` las incluye) |
 | POST   | `/api/admin/demos`                       | Crea una demo de prospecto y entrega sus dos enlaces             |
 | GET    | `/api/admin/demos`                       | Lista demos (`status`, `prospectId`, `createdBy`)                |
+| GET    | `/api/admin/demos?status=por-vencer`     | Demos vigentes que vencen en los próximos 3 días                 |
 | GET    | `/api/admin/demos/:demoId`               | Demo, ficha del prospecto y sus otras demos                      |
 | PATCH  | `/api/admin/demos/:demoId/prospect`      | Edita la ficha del prospecto                                     |
 | POST   | `/api/admin/demos/:demoId/prospect-link` | Regenera el enlace del prospecto                                 |
 | POST   | `/api/admin/demos/:demoId/team-link`     | Regenera el enlace del equipo                                    |
 | GET    | `/api/admin/demos/:demoId/visits`        | Visitas del prospecto, paginadas                                 |
+| POST   | `/api/admin/demos/:demoId/extend`        | Extiende la demo 14 días (`DEMO_DURATION_DAYS`)                  |
+| PATCH  | `/api/admin/demos/:demoId/expiry`        | `{ neverExpires }`: la deja sin vencimiento o se lo devuelve     |
 | POST   | `/api/admin/signed-documents`            | Registra firma de contrato (exige full)                          |
 | GET    | `/api/admin/signed-documents/tenant/:id` | Lista documentos firmados por un cliente                         |
 | GET    | `/api/admin/signed-documents/outdated`   | Clientes en versión anterior de un contrato                      |

@@ -248,6 +248,8 @@ import { UpdateSubscriptionUseCase } from './modules/Subscription/application/Up
 import { ExportBillingCsvUseCase } from './modules/Subscription/application/ExportBillingCsvUseCase';
 import { AdminSubscriptionController } from './modules/Subscription/presentation/AdminSubscriptionController';
 import { DemoRepository } from './modules/Demo/domain/DemoRepository';
+import { DemoLifecycleConfig } from './modules/Demo/domain/DemoLifecycleConfig';
+import { ManageDemoExpiryUseCase } from './modules/Demo/application/ManageDemoExpiryUseCase';
 import { PrismaDemoRepository } from './modules/Demo/infrastructure/PrismaDemoRepository';
 import { CreateDemoUseCase } from './modules/Demo/application/CreateDemoUseCase';
 import { QueryDemosUseCase } from './modules/Demo/application/QueryDemosUseCase';
@@ -1022,6 +1024,16 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
 
   // Demos de prospecto: un tenant en estado `demo` con su ficha y sus enlaces mágicos.
   builder
+    .register(DemoLifecycleConfig)
+    .useFactory(
+      () =>
+        new DemoLifecycleConfig(
+          env.get('DEMO_DURATION_DAYS'),
+          env.get('DEMO_EXPIRY_WARNING_DAYS'),
+        ),
+    )
+    .asSingleton();
+  builder
     .register(DemoRepository)
     .use(PrismaDemoRepository)
     .withDependencies([PrismaClient]);
@@ -1033,8 +1045,14 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       SiteContentSource,
       PlatformDomainConfig,
       RecordActivityUseCase,
+      DemoLifecycleConfig,
     ]);
-  builder.registerAndUse(QueryDemosUseCase).withDependencies([DemoRepository]);
+  builder
+    .registerAndUse(QueryDemosUseCase)
+    .withDependencies([DemoRepository, DemoLifecycleConfig]);
+  builder
+    .registerAndUse(ManageDemoExpiryUseCase)
+    .withDependencies([DemoRepository, DemoLifecycleConfig, RecordActivityUseCase]);
   builder
     .registerAndUse(UpdateProspectUseCase)
     .withDependencies([DemoRepository, RecordActivityUseCase]);
@@ -1059,6 +1077,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       QueryDemosUseCase,
       UpdateProspectUseCase,
       RegenerateDemoLinkUseCase,
+      ManageDemoExpiryUseCase,
     ]);
 
   return builder.build();

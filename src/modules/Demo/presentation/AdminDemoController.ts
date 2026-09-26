@@ -5,10 +5,12 @@ import type { CreateDemoUseCase, IssuedDemoLink } from '../application/CreateDem
 import type { QueryDemosUseCase } from '../application/QueryDemosUseCase';
 import type { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
 import type { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
+import type { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
 import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoView } from '../domain/DemoRepository';
 import {
   CreateDemoSchema,
+  DemoExpirySchema,
   DemoListQuerySchema,
   DemoVisitsQuerySchema,
 } from '../domain/DemoSchema';
@@ -35,6 +37,7 @@ export class AdminDemoController {
     private readonly queryDemosUseCase: QueryDemosUseCase,
     private readonly updateProspectUseCase: UpdateProspectUseCase,
     private readonly regenerateDemoLinkUseCase: RegenerateDemoLinkUseCase,
+    private readonly manageDemoExpiryUseCase: ManageDemoExpiryUseCase,
   ) {}
 
   public readonly create = async (req: Request, res: Response): Promise<void> => {
@@ -104,6 +107,28 @@ export class AdminDemoController {
     res: Response,
   ): Promise<void> => {
     await this.regenerate(req, res, 'team');
+  };
+
+  public readonly extend = async (req: Request, res: Response): Promise<void> => {
+    const now = new Date();
+    const view = await this.manageDemoExpiryUseCase.extend(
+      this.demoIdOf(req),
+      this.actorOf(res),
+      now,
+    );
+    res.json({ demo: presentDemo(view, now) });
+  };
+
+  public readonly updateExpiry = async (req: Request, res: Response): Promise<void> => {
+    const { neverExpires } = DemoExpirySchema.parse(req.body);
+    const now = new Date();
+    const view = await this.manageDemoExpiryUseCase.setNeverExpires(
+      this.demoIdOf(req),
+      neverExpires,
+      this.actorOf(res),
+      now,
+    );
+    res.json({ demo: presentDemo(view, now) });
   };
 
   // Lo que el prospecto abrió, lo más reciente primero: la señal para decidir si volver a

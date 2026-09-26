@@ -16,7 +16,15 @@ export interface DemoView {
   readonly demo: Demo;
   // Nulo cuando el sitio ya se borró y la fila quedó como rastro anónimo.
   readonly site: DemoSite | null;
-  readonly prospect: { readonly id: string; readonly businessName: string } | null;
+  // Lo justo para llamarlo desde la lista "por vencer" sin abrir cada ficha.
+  readonly prospect: {
+    readonly id: string;
+    readonly businessName: string;
+    readonly contactName: string | null;
+    readonly phone: string | null;
+    // Si le llegará el aviso por correo; el correo mismo se ve en la ficha.
+    readonly hasEmail: boolean;
+  } | null;
 }
 
 export interface NewDemo {
@@ -40,6 +48,13 @@ export interface DemoFilter {
   readonly status?: DemoStatus;
   readonly prospectId?: string;
   readonly createdBy?: string;
+  // Solo las que vencen hasta esta fecha (inclusive), de la más próxima a la más lejana.
+  readonly expiresBefore?: Date;
+}
+
+export interface DemoExpiryChange {
+  readonly expiresAt: Date | null;
+  readonly extensionCount: number;
 }
 
 export interface DemoAccess {
@@ -61,7 +76,17 @@ export abstract class DemoRepository {
   // nadie, y un sitio sin su fila de demo quedaría en estado `demo` para siempre.
   public abstract create(input: NewDemo): Promise<string>;
   public abstract isAddressTaken(tenantSlug: string, address: string): Promise<boolean>;
+  // Nula también si ya se borró: una demo borrada no se lista ni se consulta como demo.
   public abstract findById(demoId: string): Promise<DemoView | null>;
+  // Incluye las borradas, para poder responder "ya se borró" en vez de "no existe".
+  public abstract findDemo(demoId: string): Promise<Demo | null>;
+  // Solo escribe si el vencimiento sigue siendo `expected`: dos extensiones a la vez no pueden
+  // calcularse sobre la misma fecha y contar como una. Devuelve si escribió.
+  public abstract updateExpiry(
+    demoId: string,
+    expected: Date | null,
+    change: DemoExpiryChange,
+  ): Promise<boolean>;
   public abstract list(filter: DemoFilter, now: Date): Promise<DemoView[]>;
   public abstract findProspect(prospectId: string): Promise<Prospect | null>;
   public abstract updateProspect(

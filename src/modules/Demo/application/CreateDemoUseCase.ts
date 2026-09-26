@@ -3,7 +3,8 @@ import type { PlatformDomainConfig } from '@/modules/Tenant/application/ManageTe
 import type { SiteContentSource } from '@/modules/Tenant/domain/SiteContentSource';
 import type { RecordActivityUseCase } from '@/modules/ActivityLog/application/RecordActivityUseCase';
 import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityError';
-import { demoExpiryFrom, type DemoCreator, type DemoLinkKind } from '../domain/Demo';
+import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
+import { addDays, type DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoRepository, DemoView } from '../domain/DemoRepository';
 import { DEMO_SLUG_MAX_LENGTH, type CreateDemoInput } from '../domain/DemoSchema';
 import type { Prospect } from '../domain/Prospect';
@@ -39,6 +40,7 @@ export class CreateDemoUseCase {
     private readonly siteContentSource: SiteContentSource,
     private readonly platform: PlatformDomainConfig,
     private readonly recordActivity: RecordActivityUseCase,
+    private readonly config: DemoLifecycleConfig,
   ) {}
 
   public async execute(
@@ -91,7 +93,7 @@ export class CreateDemoUseCase {
         industry: prospectIndustry ?? (await this.templateIndustry(input.templateId)),
         creator,
         createdAt: now,
-        expiresAt: demoExpiryFrom(now),
+        expiresAt: addDays(now, this.config.durationDays),
         tokenHashes: { prospect: prospectLink.hash, team: teamLink.hash },
       });
     } catch (error) {

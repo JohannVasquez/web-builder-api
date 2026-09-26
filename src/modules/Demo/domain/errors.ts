@@ -1,5 +1,6 @@
 import { ConflictError } from '@/shared/domain/ConflictError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityError';
 
 export class DemoNotFoundError extends NotFoundError {
   constructor() {
@@ -35,5 +36,22 @@ export class DemoSlugTakenError extends ConflictError {
         : `Ya existe una demo en "demo-${slug}". Prueba con "${suggestedSlug}".`,
     );
     this.name = 'DemoSlugTakenError';
+  }
+}
+
+// Convertida, descartada o borrada: el pedido tiene sentido, pero no sobre esta demo.
+export class DemoClosedError extends UnprocessableEntityError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DemoClosedError';
+  }
+}
+
+export class DemoNeverExpiresError extends UnprocessableEntityError {
+  constructor() {
+    super(
+      'Esta demo no vence, así que no hay plazo que extender. Si quieres que venza, cámbiale el vencimiento.',
+    );
+    this.name = 'DemoNeverExpiresError';
   }
 }

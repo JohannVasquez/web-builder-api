@@ -5,6 +5,7 @@ import type { SiteContentSource } from '@/modules/Tenant/domain/SiteContentSourc
 import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 import type { RecordActivityUseCase } from '@/modules/ActivityLog/application/RecordActivityUseCase';
 import { Demo, type DemoCreator } from '../domain/Demo';
+import { DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoRepository, DemoView, NewDemo } from '../domain/DemoRepository';
 import { CreateDemoSchema } from '../domain/DemoSchema';
 import { Prospect } from '../domain/Prospect';
@@ -78,11 +79,18 @@ describe('CreateDemoUseCase', () => {
       name: 'Pastelería Luna',
       address: 'demo-pasteleria-luna.webbuilder.co',
     },
-    prospect: { id: PROSPECT_ID, businessName: 'Pastelería Luna' },
+    prospect: {
+      id: PROSPECT_ID,
+      businessName: 'Pastelería Luna',
+      contactName: null,
+      phone: null,
+      hasEmail: false,
+    },
   };
 
   const build = (
     taken: readonly string[] = [],
+    config = new DemoLifecycleConfig(),
   ): {
     useCase: CreateDemoUseCase;
     repository: jest.Mocked<DemoRepository>;
@@ -127,6 +135,7 @@ describe('CreateDemoUseCase', () => {
       source,
       platform,
       activity,
+      config,
     );
     return { useCase, repository, activity, source };
   };
@@ -158,6 +167,14 @@ describe('CreateDemoUseCase', () => {
     expect(demo.industry).toBe('pastelería');
     expect(demo.expiresAt?.toISOString()).toBe('2026-10-10T12:00:00.000Z');
     expect(demo.creator).toEqual(creator);
+  });
+
+  it('el plazo sale de DEMO_DURATION_DAYS', async () => {
+    const { useCase, repository } = build([], new DemoLifecycleConfig(7));
+
+    await useCase.execute(input(), creator, NOW);
+
+    expect(created(repository).expiresAt?.toISOString()).toBe('2026-10-03T12:00:00.000Z');
   });
 
   it('al duplicar un sitio, la demo nace con sus páginas publicadas', async () => {

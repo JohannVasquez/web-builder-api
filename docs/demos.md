@@ -77,7 +77,7 @@ que al vender se convierte en cliente sin copiar nada (etapa 3).
   `demo-<slug>.<PLATFORM_DOMAIN>`, verificada y principal.
 - Todas las páginas nacen **publicadas**, también al duplicar: el prospecto solo ve lo
   publicado.
-- Vence a los 14 días (`expiresAt`); extender, avisar y borrar son de la etapa 2.
+- Vence a los 14 días (`DEMO_DURATION_DAYS`); ver [Ciclo de vida](#ciclo-de-vida).
 - Sitio, ficha, demo y enlaces se escriben en una sola transacción.
 - Si la dirección está ocupada responde `409` con el siguiente slug libre:
   `{ "error": "Conflict", "message": "...", "suggestedSlug": "pasteleria-luna-2" }`.
@@ -167,14 +167,53 @@ las lista, lo más reciente primero.
 ### Consultar y editar
 
 - `GET /api/admin/demos?status=&prospectId=&createdBy=` — estado derivado (`vigente`,
-  `vencida`, `convertida`, `descartada`), negocio, dirección, vencimiento, quién la creó y
-  visitas.
+  `vencida`, `convertida`, `descartada`), negocio, contacto y teléfono, si tiene correo
+  (`prospect.hasEmail`), dirección, vencimiento (`expiresAt`, `neverExpires`,
+  `extensionCount`), quién la creó y visitas. `status=por-vencer` trae las vigentes que vencen
+  en los próximos `DEMO_EXPIRY_WARNING_DAYS` días, la más próxima primero.
 - `GET /api/admin/demos/:demoId` — la demo, la ficha del prospecto y sus otras demos.
 - `PATCH /api/admin/demos/:demoId/prospect` — edita la ficha (al menos un campo).
 
-Crear, editar la ficha y regenerar enlaces queda en el registro de actividad
-(`demo.create`, `demo.prospect.update`, `demo.link.regenerate`) con quién lo hizo y **sin**
-tokens.
+Crear, editar la ficha, regenerar enlaces y cambiar el vencimiento queda en el registro de
+actividad (`demo.create`, `demo.prospect.update`, `demo.link.regenerate`, `demo.extend`,
+`demo.expiry.update`) con quién lo hizo y **sin** tokens.
+
+### Ciclo de vida
+
+```text
+crear ──▶ vigente ──(pasa expiresAt)──▶ vencida
+             ▲                             │
+             └───────── extender ──────────┘
+
+"sin vencimiento" (expiresAt nulo): se queda vigente
+```
+
+El estado es **derivado**, no una columna: se calcula con la hora de cada consulta, así que
+nadie tiene que acordarse de actualizarlo.
+
+| Estado       | Cuándo                                      | Prospecto | Equipo, panel y MCP |
+| ------------ | ------------------------------------------- | --------- | ------------------- |
+| `vigente`    | Sin resultado y `expiresAt` futuro (o nulo) | Entra     | Entra y edita       |
+| `vencida`    | Sin resultado y `expiresAt` ya pasó         | 404       | Entra y edita       |
+| `convertida` | `outcome = converted` (etapa 3)             | 404       | Es un cliente       |
+| `descartada` | `outcome = discarded` (etapa 3)             | 404       | Entra               |
+
+- **Vence sola** a los `DEMO_DURATION_DAYS` (14) de crearse. El enlace del prospecto responde
+  404 **en el mismo instante** en que vence: la guarda compara con la hora de la petición y no
+  espera a ninguna tarea programada.
+- **Extender:** `POST /api/admin/demos/:demoId/extend` suma 14 días a lo que sea más tarde entre
+  ahora y el vencimiento actual. A una vigente que vence en 5 días la deja venciendo en 19; a una
+  vencida hace 10 días la deja vigente 14 días desde hoy, y el prospecto vuelve a entrar con el
+  **mismo enlace**. Sin máximo; `extensionCount` cuenta cuántas veces se extendió.
+- **Sin vencimiento:** `PATCH /api/admin/demos/:demoId/expiry` con `{ "neverExpires": true }`
+  deja `expiresAt` en nulo (una demo de portafolio, por ejemplo). Con `false` le vuelve a poner
+  vencimiento a 14 días desde hoy; si ya vencía, no le cambia la fecha. Extender una demo sin
+  vencimiento responde 422: primero hay que devolverle el vencimiento.
+- Ninguna de las dos acciones vale sobre una demo convertida, descartada o ya borrada (422).
+  Si dos personas cambian el vencimiento a la vez, la segunda recibe 409 en vez de pisar a la
+  primera.
+- Ambas son de owner, editores y claves con `write`, y responden `{ "demo": { ... } }` con la
+  demo actualizada.
 
 ### Reglas que protegen el estado
 
@@ -202,7 +241,7 @@ de modo que las demos nunca pidan uno propio.
 
 ### Etapas siguientes
 
-Vencer, extender y avisar (etapa 2), borrado automático con registro anónimo (etapa 2),
+Avisar al prospecto (etapa 2), borrado automático con registro anónimo (etapa 2),
 convertir y descartar (etapa 3), herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas
 que necesitan (`expiresAt`, `outcome`, `outcomeAt`, `purgedAt`, contadores) ya existen, y la
 fila `demos` suelta el tenant y el prospecto (`SetNull`) para poder quedar como rastro anónimo.

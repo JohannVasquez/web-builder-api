@@ -15,9 +15,12 @@ const PAGE_SLUG_PATH = /^\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/;
 
 // Va después de resolver el tenant y antes de `siteAvailability`, en TODAS las rutas públicas
 // scoped por tenant (hay una prueba en app.spec.ts que falla si una ruta nueva se la salta).
-// Para un tenant que no es demo no hace nada: ni headers ni consultas.
+// Para un tenant que no es demo no hace nada: ni headers ni consultas. El vencimiento se
+// evalúa contra la hora de cada petición, así que el enlace del prospecto deja de servir en
+// el instante en que vence, sin esperar a ninguna tarea programada.
 export const createDemoGuard = (
   validateAccess: ValidateDemoAccessUseCase,
+  clock: () => Date = () => new Date(),
 ): RequestHandler => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const tenant = getRequestTenant(res);
@@ -36,7 +39,7 @@ export const createDemoGuard = (
     const access =
       token === undefined || token === ''
         ? null
-        : await validateAccess.execute(tenant.id, token);
+        : await validateAccess.execute(tenant.id, token, clock());
 
     // Sin 403 ni código propio: la respuesta es la de algo que no existe.
     if (access === null) {

@@ -12,6 +12,7 @@ import {
 } from '../domain/Demo';
 import type {
   DemoAccess,
+  DemoExpiryChange,
   DemoFilter,
   DemoRepository,
   DemoView,
@@ -37,7 +38,15 @@ const VIEW_INCLUDE = {
       domains: { where: { isPrimary: true }, take: 1, select: { domain: true } },
     },
   },
-  prospect: { select: { id: true, businessName: true } },
+  prospect: {
+    select: {
+      id: true,
+      businessName: true,
+      contactName: true,
+      phone: true,
+      email: true,
+    },
+  },
 } satisfies Prisma.DemoInclude;
 
 type DemoRecord = Prisma.DemoGetPayload<object>;
@@ -70,6 +79,7 @@ const toDemo = (record: DemoRecord): Demo =>
       lastAt: record.lastVisitAt,
     },
     record.purgedAt,
+    record.extensionCount,
   );
 
 const toView = (record: DemoViewRecord): DemoView => ({
@@ -83,7 +93,16 @@ const toView = (record: DemoViewRecord): DemoView => ({
           name: record.tenant.name,
           address: record.tenant.domains[0]?.domain ?? null,
         },
-  prospect: record.prospect,
+  prospect:
+    record.prospect === null
+      ? null
+      : {
+          id: record.prospect.id,
+          businessName: record.prospect.businessName,
+          contactName: record.prospect.contactName,
+          phone: record.prospect.phone,
+          hasEmail: record.prospect.email !== null,
+        },
 });
 
 const toProspect = (record: Prisma.ProspectGetPayload<object>): Prospect =>
@@ -207,11 +226,35 @@ export class PrismaDemoRepository implements DemoRepository {
         ...(filter.prospectId === undefined ? {} : { prospectId: filter.prospectId }),
         ...(filter.createdBy === undefined ? {} : { actorId: filter.createdBy }),
         ...(filter.status === undefined ? {} : statusWhere(filter.status, now)),
+        ...(filter.expiresBefore === undefined
+          ? {}
+          : { AND: [{ expiresAt: { not: null, lte: filter.expiresBefore } }] }),
       },
       include: VIEW_INCLUDE,
-      orderBy: { createdAt: 'desc' },
+      // Con fecha tope la pregunta es "a quién llamo primero": la que vence antes.
+      orderBy:
+        filter.expiresBefore === undefined
+          ? { createdAt: 'desc' }
+          : [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
     });
     return records.map(toView);
+  }
+
+  public async findDemo(demoId: string): Promise<Demo | null> {
+    const record = await this.prisma.demo.findUnique({ where: { id: demoId } });
+    return record === null ? null : toDemo(record);
+  }
+
+  public async updateExpiry(
+    demoId: string,
+    expected: Date | null,
+    change: DemoExpiryChange,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.demo.updateMany({
+      where: { id: demoId, expiresAt: expected, outcome: null, purgedAt: null },
+      data: { expiresAt: change.expiresAt, extensionCount: change.extensionCount },
+    });
+    return count === 1;
   }
 
   public async findProspect(prospectId: string): Promise<Prospect | null> {

@@ -200,6 +200,8 @@ describe('buildApp (rutas protegidas)', () => {
         regenerateProspectLink: ok(201),
         regenerateTeamLink: ok(201),
         listVisits: ok(200),
+        extend: ok(200),
+        updateExpiry: ok(200),
       },
     } as unknown as AppControllers;
   };

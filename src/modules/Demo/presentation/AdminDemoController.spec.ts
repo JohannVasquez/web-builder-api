@@ -18,7 +18,9 @@ import { CreateDemoUseCase } from '../application/CreateDemoUseCase';
 import { QueryDemosUseCase } from '../application/QueryDemosUseCase';
 import { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
 import { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
-import { Demo } from '../domain/Demo';
+import { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
+import { Demo, type DemoOutcome } from '../domain/Demo';
+import { DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoRepository, DemoView } from '../domain/DemoRepository';
 import { Prospect } from '../domain/Prospect';
 import { DemoVisit } from '../domain/DemoVisit';
@@ -70,8 +72,13 @@ describe('AdminDemoController (HTTP)', () => {
     NOW,
     NOW,
   );
-  const view: DemoView = {
-    demo: new Demo(
+  const FAR_EXPIRY = new Date('2099-01-01T00:00:00Z');
+  const buildDemo = (
+    expiresAt: Date | null = FAR_EXPIRY,
+    outcome: DemoOutcome | null = null,
+    extensionCount = 0,
+  ): Demo =>
+    new Demo(
       DEMO_ID,
       TENANT_ID,
       PROSPECT_ID,
@@ -79,25 +86,36 @@ describe('AdminDemoController (HTTP)', () => {
       'pastelería',
       { type: 'admin', id: staff.id, name: 'Pau' },
       NOW,
-      new Date('2099-01-01T00:00:00Z'),
-      null,
-      null,
+      expiresAt,
+      outcome,
+      outcome === null ? null : NOW,
       { count: 0, firstAt: null, lastAt: null },
       null,
-    ),
+      extensionCount,
+    );
+  const view: DemoView = {
+    demo: buildDemo(),
     site: {
       tenantId: TENANT_ID,
       slug: 'demo-pasteleria-luna',
       name: 'Pastelería Luna',
       address: 'demo-pasteleria-luna.webbuilder.co',
     },
-    prospect: { id: PROSPECT_ID, businessName: 'Pastelería Luna' },
+    prospect: {
+      id: PROSPECT_ID,
+      businessName: 'Pastelería Luna',
+      contactName: 'Luna',
+      phone: '+56 9 1234 5678',
+      hasEmail: false,
+    },
   };
 
   const buildRepository = (): jest.Mocked<DemoRepository> => ({
     create: jest.fn().mockResolvedValue(DEMO_ID),
     isAddressTaken: jest.fn().mockResolvedValue(false),
     findById: jest.fn().mockResolvedValue(view),
+    findDemo: jest.fn().mockResolvedValue(view.demo),
+    updateExpiry: jest.fn().mockResolvedValue(true),
     list: jest.fn().mockResolvedValue([view]),
     findProspect: jest.fn().mockResolvedValue(prospect),
     updateProspect: jest.fn().mockResolvedValue(prospect),
@@ -120,6 +138,7 @@ describe('AdminDemoController (HTTP)', () => {
       listTemplates: jest.fn().mockResolvedValue([]),
     };
     const platform = new PlatformDomainConfig('webbuilder.co', 'sitios.webbuilder.co');
+    const config = new DemoLifecycleConfig();
     const controller = new AdminDemoController(
       new CreateDemoUseCase(
         repository,
@@ -127,10 +146,12 @@ describe('AdminDemoController (HTTP)', () => {
         source,
         platform,
         activity,
+        config,
       ),
-      new QueryDemosUseCase(repository),
+      new QueryDemosUseCase(repository, config),
       new UpdateProspectUseCase(repository, activity),
       new RegenerateDemoLinkUseCase(repository, activity),
+      new ManageDemoExpiryUseCase(repository, config, activity),
     );
     const fakeActor: RequestHandler = (_req, res, next) => {
       setRequestActor(res, actor);
@@ -395,5 +416,127 @@ describe('AdminDemoController (HTTP)', () => {
 
     expect(response.status).toBe(403);
     expect(repository.listVisits).not.toHaveBeenCalled();
+  });
+
+  describe('vencimiento', () => {
+    it('extender suma 14 días al vencimiento y cuenta la extensión', async () => {
+      const { app, repository, logs } = build(staff);
+
+      const response = await request(app).post(`/api/admin/demos/${DEMO_ID}/extend`);
+
+      expect(response.status).toBe(200);
+      expect(repository.updateExpiry).toHaveBeenCalledWith(DEMO_ID, FAR_EXPIRY, {
+        expiresAt: new Date('2099-01-15T00:00:00Z'),
+        extensionCount: 1,
+      });
+      expect(logs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'demo.extend',
+          entityId: DEMO_ID,
+          tenantId: TENANT_ID,
+          before: { expiresAt: '2099-01-01T00:00:00.000Z', extensionCount: 0 },
+          after: { expiresAt: '2099-01-15T00:00:00.000Z', extensionCount: 1 },
+        }),
+      );
+    });
+
+    it('una clave con write extiende; una de solo lectura no', async () => {
+      const [write, read] = await Promise.all([
+        request(build(writeKey).app).post(`/api/admin/demos/${DEMO_ID}/extend`),
+        request(build(readKey).app).post(`/api/admin/demos/${DEMO_ID}/extend`),
+      ]);
+
+      expect(write.status).toBe(200);
+      expect(read.status).toBe(403);
+    });
+
+    it.each([
+      ['convertida', 'converted'],
+      ['descartada', 'discarded'],
+    ] as const)('no extiende una demo %s (422)', async (_label, outcome) => {
+      const repository = buildRepository();
+      repository.findDemo.mockResolvedValue(buildDemo(FAR_EXPIRY, outcome));
+      const { app } = build(staff, repository);
+
+      const [extend, expiry] = await Promise.all([
+        request(app).post(`/api/admin/demos/${DEMO_ID}/extend`),
+        request(app)
+          .patch(`/api/admin/demos/${DEMO_ID}/expiry`)
+          .send({ neverExpires: true }),
+      ]);
+
+      expect(extend.status).toBe(422);
+      expect(expiry.status).toBe(422);
+      expect(repository.updateExpiry).not.toHaveBeenCalled();
+    });
+
+    it('si otra petición cambió el vencimiento a la vez, responde 409', async () => {
+      const repository = buildRepository();
+      repository.updateExpiry.mockResolvedValue(false);
+      const { app } = build(staff, repository);
+
+      const response = await request(app).post(`/api/admin/demos/${DEMO_ID}/extend`);
+
+      expect(response.status).toBe(409);
+    });
+
+    it('marcarla sin vencimiento le quita la fecha y queda registrado', async () => {
+      const { app, repository, logs } = build(staff);
+
+      const response = await request(app)
+        .patch(`/api/admin/demos/${DEMO_ID}/expiry`)
+        .send({ neverExpires: true });
+
+      expect(response.status).toBe(200);
+      expect(repository.updateExpiry).toHaveBeenCalledWith(DEMO_ID, FAR_EXPIRY, {
+        expiresAt: null,
+        extensionCount: 0,
+      });
+      expect(logs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'demo.expiry.update',
+          before: { expiresAt: '2099-01-01T00:00:00.000Z' },
+          after: { expiresAt: null },
+        }),
+      );
+    });
+
+    it('rechaza un cuerpo sin neverExpires booleano', async () => {
+      const { app, repository } = build(staff);
+
+      const response = await request(app)
+        .patch(`/api/admin/demos/${DEMO_ID}/expiry`)
+        .send({ neverExpires: 'si' });
+
+      expect(response.status).toBe(400);
+      expect(repository.updateExpiry).not.toHaveBeenCalled();
+    });
+
+    it('la respuesta dice si vence y cuántas veces se extendió', async () => {
+      const repository = buildRepository();
+      repository.findById.mockResolvedValue({ ...view, demo: buildDemo(null, null, 2) });
+      const { app } = build(staff, repository);
+
+      const response = await request(app).get(`/api/admin/demos/${DEMO_ID}`);
+
+      expect(response.body).toMatchObject({
+        demo: { expiresAt: null, neverExpires: true, extensionCount: 2 },
+      });
+    });
+
+    it('"por vencer" pide las vigentes que vencen en los próximos 3 días', async () => {
+      const { app, repository } = build(staff);
+      const before = Date.now();
+
+      const response = await request(app).get('/api/admin/demos?status=por-vencer');
+
+      expect(response.status).toBe(200);
+      const [filter] = repository.list.mock.calls[0] ?? [];
+      expect(filter?.status).toBe('vigente');
+      const until = filter?.expiresBefore?.getTime() ?? 0;
+      const threeDays = 3 * 24 * 60 * 60 * 1000;
+      expect(until).toBeGreaterThanOrEqual(before + threeDays);
+      expect(until).toBeLessThanOrEqual(Date.now() + threeDays);
+    });
   });
 });

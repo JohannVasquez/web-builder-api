@@ -1,4 +1,6 @@
+import { addDays, type DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoFilter, DemoRepository, DemoView } from '../domain/DemoRepository';
+import type { DemoListQuery } from '../domain/DemoSchema';
 import type { DemoVisit } from '../domain/DemoVisit';
 import type { Prospect } from '../domain/Prospect';
 import { DemoNotFoundError } from '../domain/errors';
@@ -11,9 +13,21 @@ export interface DemoDetails {
 }
 
 export class QueryDemosUseCase {
-  constructor(private readonly demoRepository: DemoRepository) {}
+  constructor(
+    private readonly demoRepository: DemoRepository,
+    private readonly config: DemoLifecycleConfig,
+  ) {}
 
-  public async list(filter: DemoFilter, now: Date = new Date()): Promise<DemoView[]> {
+  public async list(query: DemoListQuery, now: Date = new Date()): Promise<DemoView[]> {
+    const { status, ...rest } = query;
+    const filter: DemoFilter =
+      status === 'por-vencer'
+        ? {
+            ...rest,
+            status: 'vigente',
+            expiresBefore: addDays(now, this.config.warningDays),
+          }
+        : { ...rest, status };
     return this.demoRepository.list(filter, now);
   }
 

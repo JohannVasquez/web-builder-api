@@ -37,8 +37,12 @@ export const CreateDemoSchema = z
 
 export type CreateDemoInput = z.infer<typeof CreateDemoSchema>;
 
+// `por-vencer` no es un estado más: son las vigentes que vencen dentro de la ventana de aviso,
+// la lista para llamar a los prospectos a los que no les llega el correo.
+export const DEMO_LIST_STATUSES = [...DEMO_STATUSES, 'por-vencer'] as const;
+
 export const DemoListQuerySchema = z.object({
-  status: z.enum(DEMO_STATUSES).optional(),
+  status: z.enum(DEMO_LIST_STATUSES).optional(),
   prospectId: idSchema.optional(),
   // Id de la persona o clave que la creó.
   createdBy: idSchema.optional(),
@@ -49,4 +53,8 @@ export type DemoListQuery = z.infer<typeof DemoListQuerySchema>;
 export const DemoVisitsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   perPage: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export const DemoExpirySchema = z.strictObject({
+  neverExpires: z.boolean(),
 });
