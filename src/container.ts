@@ -253,6 +253,7 @@ import { ManageDemoExpiryUseCase } from './modules/Demo/application/ManageDemoEx
 import { PurgeDemoUseCase } from './modules/Demo/application/PurgeDemoUseCase';
 import { PrismaDemoRepository } from './modules/Demo/infrastructure/PrismaDemoRepository';
 import { CreateDemoUseCase } from './modules/Demo/application/CreateDemoUseCase';
+import { ConvertDemoUseCase } from './modules/Demo/application/ConvertDemoUseCase';
 import { DiscardDemoUseCase } from './modules/Demo/application/DiscardDemoUseCase';
 import { QueryDemosUseCase } from './modules/Demo/application/QueryDemosUseCase';
 import { UpdateProspectUseCase } from './modules/Demo/application/UpdateProspectUseCase';
@@ -1068,6 +1069,17 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([DemoRepository, RecordActivityUseCase]);
   builder.registerAndUse(ValidateDemoAccessUseCase).withDependencies([DemoRepository]);
   builder
+    .registerAndUse(ConvertDemoUseCase)
+    .withDependencies([
+      DemoRepository,
+      AdminUserRepository,
+      PasswordHasher,
+      ManageAdminUsersUseCase,
+      SiteCacheInvalidator,
+      PlatformDomainConfig,
+      RecordActivityUseCase,
+    ]);
+  builder
     .registerAndUse(DiscardDemoUseCase)
     .withDependencies([
       DemoRepository,
@@ -1094,6 +1106,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       RegenerateDemoLinkUseCase,
       ManageDemoExpiryUseCase,
       PurgeDemoUseCase,
+      ConvertDemoUseCase,
       DiscardDemoUseCase,
     ]);
 

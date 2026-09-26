@@ -69,7 +69,7 @@ actualizarlo aquí**.
 | **Dónde**           | `prospects`; la demo asociada en `demos` (sin datos personales propios)                          |
 | **Base de licitud** | Interés legítimo: contacto comercial con un negocio a partir de datos de fuentes públicas        |
 | **Fin**             | Preparar y presentar una propuesta de sitio, seguirla y avisar por correo antes de que venza     |
-| **Conservación**    | Hasta 30 días después de que su última demo venza o se descarte (`DEMO_PURGE_GRACE_DAYS`)        |
+| **Conservación**    | Hasta 30 días tras vencer o descartarse su última demo; si compra, mientras sea cliente          |
 | **Destinatarios**   | Nadie fuera de la agencia. El enlace de la demo nunca expone la ficha                            |
 | **Borrado**         | Tarea diaria `purge-expired-demos` o el owner a mano. Nunca con una demo convertida              |
 | **Nota**            | La fila `demos` queda como registro **anónimo** para métricas (kit, rubro, vendedor, contadores) |

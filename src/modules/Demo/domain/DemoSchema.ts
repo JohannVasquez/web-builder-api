@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from '@/shared/domain/identifier';
+import { tenantSlugSchema } from '@/modules/Tenant/domain/TenantSchema';
 import { DEMO_DISCARD_REASONS } from './Demo';
+import { DEMO_SLUG_PREFIX } from './demoSlug';
 import { ProspectInputSchema } from './Prospect';
 
 // El slug del tenant será `demo-<slug>` y el sufijo sugerido ante un choque suma unos
@@ -72,6 +74,25 @@ export const DeleteDemoSchema = z.object({
     error: 'Borrar una demo no se puede deshacer: confirma con { "confirm": true }.',
   }),
 });
+
+export const ConvertDemoSchema = z.strictObject({
+  // Por omisión, el de la demo sin `demo-` ni el sufijo de una segunda propuesta.
+  slug: tenantSlugSchema
+    .refine(
+      (slug) => !slug.startsWith(DEMO_SLUG_PREFIX),
+      'El cliente no lleva el prefijo "demo-": manda el slug definitivo, por ejemplo "pasteleria-luna".',
+    )
+    .optional(),
+  // La persona dueña del negocio: entra al panel como `client`, limitada a este sitio.
+  owner: z
+    .strictObject({
+      name: z.string().trim().min(2, 'El nombre es muy corto').max(120),
+      email: z.email('Ingresa un correo válido').max(255),
+    })
+    .optional(),
+});
+
+export type ConvertDemoInput = z.infer<typeof ConvertDemoSchema>;
 
 export const DiscardDemoSchema = z.strictObject({
   reason: z.enum(DEMO_DISCARD_REASONS).optional(),

@@ -9,16 +9,13 @@ import type { DemoRepository, DemoView } from '../domain/DemoRepository';
 import { DEMO_SLUG_MAX_LENGTH, type CreateDemoInput } from '../domain/DemoSchema';
 import type { Prospect } from '../domain/Prospect';
 import { buildDemoUrl, generateDemoToken } from '../domain/demoToken';
+import { DEMO_SLUG_PREFIX, slugSuggestions } from '../domain/demoSlug';
 import {
   DemoAddressTakenError,
   DemoNotFoundError,
   DemoSlugTakenError,
   ProspectNotFoundError,
 } from '../domain/errors';
-
-export const DEMO_SLUG_PREFIX = 'demo-';
-// Más allá de esto es más útil elegir otro nombre que seguir numerando.
-const MAX_SUGGESTION_ATTEMPTS = 50;
 
 export interface IssuedDemoLink {
   readonly kind: DemoLinkKind;
@@ -160,10 +157,7 @@ export class CreateDemoUseCase {
   }
 
   private async suggestSlug(slug: string): Promise<string | null> {
-    for (let attempt = 2; attempt <= MAX_SUGGESTION_ATTEMPTS; attempt += 1) {
-      // Recortada si hace falta, para que la sugerencia pase la misma validación al reenviarla.
-      const suffix = `-${attempt}`;
-      const candidate = `${slug.slice(0, DEMO_SLUG_MAX_LENGTH - suffix.length).replace(/-+$/, '')}${suffix}`;
+    for (const candidate of slugSuggestions(slug, DEMO_SLUG_MAX_LENGTH)) {
       const tenantSlug = `${DEMO_SLUG_PREFIX}${candidate}`;
       if (
         !(await this.demoRepository.isAddressTaken(

@@ -56,6 +56,43 @@ export class DemoNeverExpiresError extends UnprocessableEntityError {
   }
 }
 
+// Al convertir, el slug definitivo del cliente ya lo usa otro sitio. Trae el siguiente libre,
+// igual que al crear la demo.
+export class ClientSlugTakenError extends ConflictError {
+  constructor(
+    public readonly slug: string,
+    public readonly suggestedSlug: string | null,
+  ) {
+    super(
+      suggestedSlug === null
+        ? `Ya existe un sitio en "${slug}". Elige otro slug para el cliente.`
+        : `Ya existe un sitio en "${slug}". Prueba con "${suggestedSlug}".`,
+    );
+    this.name = 'ClientSlugTakenError';
+  }
+}
+
+// El dueño que se indica al convertir entra como `client`, limitado a su sitio. Si el correo
+// ya es de alguien de la agencia, reutilizarlo le bajaría el rol o le sumaría un alcance que
+// no significa nada para el equipo; mejor que lo decida una persona.
+export class DemoOwnerNotClientError extends UnprocessableEntityError {
+  constructor() {
+    super(
+      'Ese correo ya es de una persona del equipo de la agencia. Usa el correo del dueño del negocio.',
+    );
+    this.name = 'DemoOwnerNotClientError';
+  }
+}
+
+export class DemoOwnerDisabledError extends UnprocessableEntityError {
+  constructor() {
+    super(
+      'Ese correo es de una cuenta de cliente desactivada. Reactívala en /api/admin/users antes de convertir, o usa otro correo.',
+    );
+    this.name = 'DemoOwnerDisabledError';
+  }
+}
+
 // La tarea diaria eligió la demo para borrar, pero antes de borrarla alguien la extendió o la
 // recuperó. No es un fallo: simplemente ya no le toca.
 export class DemoNoLongerDueError extends DemoClosedError {

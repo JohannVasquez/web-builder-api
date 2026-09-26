@@ -7,10 +7,12 @@ import type { UpdateProspectUseCase } from '../application/UpdateProspectUseCase
 import type { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import type { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
 import type { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
+import type { ConvertDemoUseCase } from '../application/ConvertDemoUseCase';
 import type { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
 import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoView } from '../domain/DemoRepository';
 import {
+  ConvertDemoSchema,
   CreateDemoSchema,
   DeleteDemoSchema,
   DiscardDemoSchema,
@@ -19,7 +21,7 @@ import {
   DemoVisitsQuerySchema,
 } from '../domain/DemoSchema';
 import { ProspectPatchSchema } from '../domain/Prospect';
-import { DemoSlugTakenError } from '../domain/errors';
+import { ClientSlugTakenError, DemoSlugTakenError } from '../domain/errors';
 
 // La forma en que la agencia ve una demo en listas y detalle. Nunca lleva enlaces: esos se
 // muestran una sola vez, al crearlos o regenerarlos.
@@ -35,6 +37,20 @@ const presentLink = (link: IssuedDemoLink): Record<string, unknown> => ({
   token: link.token,
 });
 
+// Mismo cuerpo que cualquier 409 más la sugerencia, para que el panel o el agente puedan
+// reintentar sin adivinar. Devuelve si respondió.
+const respondSlugConflict = (error: unknown, res: Response): boolean => {
+  if (!(error instanceof DemoSlugTakenError || error instanceof ClientSlugTakenError)) {
+    return false;
+  }
+  res.status(409).json({
+    error: 'Conflict',
+    message: error.message,
+    suggestedSlug: error.suggestedSlug,
+  });
+  return true;
+};
+
 export class AdminDemoController {
   constructor(
     private readonly createDemoUseCase: CreateDemoUseCase,
@@ -43,6 +59,7 @@ export class AdminDemoController {
     private readonly regenerateDemoLinkUseCase: RegenerateDemoLinkUseCase,
     private readonly manageDemoExpiryUseCase: ManageDemoExpiryUseCase,
     private readonly purgeDemoUseCase: PurgeDemoUseCase,
+    private readonly convertDemoUseCase: ConvertDemoUseCase,
     private readonly discardDemoUseCase: DiscardDemoUseCase,
   ) {}
 
@@ -60,17 +77,9 @@ export class AdminDemoController {
         },
       });
     } catch (error) {
-      // Mismo cuerpo que cualquier 409 más la sugerencia, para que el panel o el agente
-      // puedan reintentar sin adivinar.
-      if (error instanceof DemoSlugTakenError) {
-        res.status(409).json({
-          error: 'Conflict',
-          message: error.message,
-          suggestedSlug: error.suggestedSlug,
-        });
-        return;
+      if (!respondSlugConflict(error, res)) {
+        throw error;
       }
-      throw error;
     }
   };
 
@@ -135,6 +144,47 @@ export class AdminDemoController {
       now,
     );
     res.json({ demo: presentDemo(view, now) });
+  };
+
+  // La venta: el sitio pasa a ser del cliente. La invitación sale después de confirmar la
+  // conversión, así que su resultado viene aparte y no la deshace si falla.
+  public readonly convert = async (req: Request, res: Response): Promise<void> => {
+    const input = ConvertDemoSchema.parse(req.body ?? {});
+    try {
+      const now = new Date();
+      const { view, converted, invitation } = await this.convertDemoUseCase.execute(
+        this.demoIdOf(req),
+        input,
+        this.actorOf(res),
+        now,
+      );
+      res.json({
+        demo: presentDemo(view, now),
+        tenant: {
+          id: view.site?.tenantId ?? null,
+          slug: view.site?.slug ?? null,
+          status: 'active',
+          primaryDomain: view.site?.address ?? null,
+        },
+        removedAddresses: converted.removedAddresses,
+        discardedDemoIds: converted.discardedSiblings.map((sibling) => sibling.demoId),
+        owner:
+          converted.owner === null
+            ? null
+            : {
+                id: converted.owner.id,
+                email: converted.owner.email,
+                name: converted.owner.name,
+                role: 'client',
+                created: converted.owner.created,
+              },
+        invitation,
+      });
+    } catch (error) {
+      if (!respondSlugConflict(error, res)) {
+        throw error;
+      }
+    }
   };
 
   public readonly discard = async (req: Request, res: Response): Promise<void> => {

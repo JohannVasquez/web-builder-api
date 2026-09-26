@@ -20,7 +20,11 @@ import { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
 import { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
 import { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
+import { ConvertDemoUseCase } from '../application/ConvertDemoUseCase';
 import { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
+import type { ManageAdminUsersUseCase } from '@/modules/Auth/application/ManageAdminUsersUseCase';
+import type { AdminUserRepository } from '@/modules/Auth/domain/AdminUserRepository';
+import type { PasswordHasher } from '@/modules/Auth/domain/PasswordHasher';
 import type { SiteCacheInvalidator } from '@/modules/SiteCache/domain/SiteCacheInvalidator';
 import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { Demo, type DemoOutcome } from '../domain/Demo';
@@ -28,6 +32,8 @@ import { DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoRepository, DemoView } from '../domain/DemoRepository';
 import { Prospect } from '../domain/Prospect';
 import { DemoVisit } from '../domain/DemoVisit';
+import { DemoAddressTakenError } from '../domain/errors';
+import { AdminUser } from '@/modules/Auth/domain/AdminUser';
 import { AdminDemoController } from './AdminDemoController';
 import { createAdminDemoRouter } from './adminDemoRouter';
 
@@ -143,9 +149,12 @@ describe('AdminDemoController (HTTP)', () => {
     failPendingFile: jest.fn(),
     discard: jest.fn().mockResolvedValue(true),
     restore: jest.fn().mockResolvedValue(true),
+    convert: jest.fn(),
   });
 
   interface Collaborators {
+    readonly users: jest.Mocked<Pick<AdminUserRepository, 'findByEmail'>>;
+    readonly adminUsers: jest.Mocked<Pick<ManageAdminUsersUseCase, 'sendInvitation'>>;
     readonly cache: jest.Mocked<SiteCacheInvalidator>;
   }
 
@@ -171,6 +180,8 @@ describe('AdminDemoController (HTTP)', () => {
     const storage = {
       delete: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<StorageProvider>;
+    const users = { findByEmail: jest.fn().mockResolvedValue(null) };
+    const adminUsers = { sendInvitation: jest.fn().mockResolvedValue(undefined) };
     const cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
     const controller = new AdminDemoController(
       new CreateDemoUseCase(
@@ -186,6 +197,15 @@ describe('AdminDemoController (HTTP)', () => {
       new RegenerateDemoLinkUseCase(repository, activity),
       new ManageDemoExpiryUseCase(repository, config, activity),
       new PurgeDemoUseCase(repository, storage, activity),
+      new ConvertDemoUseCase(
+        repository,
+        users as unknown as AdminUserRepository,
+        { hash: jest.fn().mockResolvedValue('hash') } as unknown as PasswordHasher,
+        adminUsers as unknown as ManageAdminUsersUseCase,
+        cache,
+        platform,
+        activity,
+      ),
       new DiscardDemoUseCase(repository, config, cache, activity),
     );
     const fakeActor: RequestHandler = (_req, res, next) => {
@@ -203,7 +223,7 @@ describe('AdminDemoController (HTTP)', () => {
       createAdminDemoRouter(controller),
     );
     app.use(new ErrorHandler().handle);
-    return { app, repository, logs, storage, cache };
+    return { app, repository, logs, storage, users, adminUsers, cache };
   };
 
   const body = {
@@ -685,6 +705,338 @@ describe('AdminDemoController (HTTP)', () => {
       expect((await remove(app)).status).toBe(404);
     });
   });
+  describe('convertir', () => {
+    const CLIENT_ID = '018f6f1a-0000-7000-8000-0000000000c1';
+    const SIBLING_ID = '018f6f1a-0000-7000-8000-0000000000d2';
+    const convertedDemo = buildDemo(null, 'converted');
+    const convertedView: DemoView = {
+      ...view,
+      demo: convertedDemo,
+      site: {
+        tenantId: TENANT_ID,
+        slug: 'pasteleria-luna',
+        name: 'Pastelería Luna',
+        address: 'pasteleria-luna.webbuilder.co',
+      },
+    };
+    const withConversion = (
+      owner: { created: boolean } | null = null,
+      siteSlug = 'demo-pasteleria-luna',
+    ): jest.Mocked<DemoRepository> => {
+      const repository = buildRepository();
+      repository.findById
+        .mockResolvedValueOnce({
+          ...view,
+          site: {
+            ...view.site!,
+            slug: siteSlug,
+            address: `${siteSlug}.webbuilder.co`,
+          },
+        })
+        .mockResolvedValue(convertedView);
+      repository.convert.mockResolvedValue({
+        demo: convertedDemo,
+        removedAddresses: [`${siteSlug}.webbuilder.co`],
+        discardedSiblings: [
+          {
+            demoId: SIBLING_ID,
+            tenantId: '018f6f1a-0000-7000-8000-0000000000e2',
+            address: 'demo-pasteleria-luna-2.webbuilder.co',
+          },
+        ],
+        owner:
+          owner === null
+            ? null
+            : {
+                id: CLIENT_ID,
+                email: 'ana@pasteleria.cl',
+                name: 'Ana Pérez',
+                created: owner.created,
+              },
+      });
+      return repository;
+    };
+    const convert = (app: Express, payload: object = {}): request.Test =>
+      request(app).post(`/api/admin/demos/${DEMO_ID}/convert`).send(payload);
+
+    it('pasa la demo a cliente con el slug sin demo- y descarta sus otras propuestas', async () => {
+      const { app, repository, logs, cache } = build(staff, withConversion());
+
+      const response = await convert(app);
+
+      expect(response.status).toBe(200);
+      expect(repository.convert).toHaveBeenCalledWith({
+        demoId: DEMO_ID,
+        slug: 'pasteleria-luna',
+        address: 'pasteleria-luna.webbuilder.co',
+        now: expect.any(Date) as unknown,
+        owner: null,
+      });
+      expect(response.body).toMatchObject({
+        demo: { status: 'convertida', neverExpires: true, expiresAt: null },
+        tenant: {
+          id: TENANT_ID,
+          slug: 'pasteleria-luna',
+          status: 'active',
+          primaryDomain: 'pasteleria-luna.webbuilder.co',
+        },
+        removedAddresses: ['demo-pasteleria-luna.webbuilder.co'],
+        discardedDemoIds: [SIBLING_ID],
+        owner: null,
+        invitation: null,
+      });
+      // La caché olvida la dirección vieja y la nueva.
+      expect(cache.invalidate).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          'demo-pasteleria-luna.webbuilder.co',
+          'pasteleria-luna.webbuilder.co',
+        ]),
+      );
+      expect(logs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'demo.convert',
+          tenantId: TENANT_ID,
+          actorName: 'Pau',
+          after: expect.objectContaining({
+            status: 'active',
+            slug: 'pasteleria-luna',
+            discardedDemoIds: [SIBLING_ID],
+          }) as unknown,
+        }),
+      );
+      expect(logs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'demo.discard',
+          entityId: SIBLING_ID,
+          after: expect.objectContaining({ reason: 'otra-propuesta' }) as unknown,
+        }),
+      );
+      // Ningún enlace en la respuesta.
+      expect(JSON.stringify(response.body)).not.toContain('demo_');
+    });
+
+    it('por omisión quita también el sufijo de una segunda propuesta', async () => {
+      const { app, repository } = build(
+        staff,
+        withConversion(null, 'demo-pasteleria-luna-2'),
+      );
+
+      expect((await convert(app)).status).toBe(200);
+      expect(repository.convert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slug: 'pasteleria-luna',
+          address: 'pasteleria-luna.webbuilder.co',
+        }),
+      );
+    });
+
+    it('usa el slug que se le indica, pero nunca uno con demo-', async () => {
+      const { app, repository } = build(staff, withConversion());
+
+      const [chosen, prefixed] = [
+        await convert(app, { slug: 'luna-pasteleria' }),
+        await convert(app, { slug: 'demo-luna' }),
+      ];
+
+      expect(chosen.status).toBe(200);
+      expect(repository.convert).toHaveBeenCalledWith(
+        expect.objectContaining({ slug: 'luna-pasteleria' }),
+      );
+      expect(prefixed.status).toBe(400);
+    });
+
+    it('si el slug definitivo está ocupado responde 409 con una alternativa y no cambia nada', async () => {
+      const repository = withConversion();
+      repository.isAddressTaken.mockImplementation((slug: string) =>
+        Promise.resolve(slug === 'pasteleria-luna' || slug === 'pasteleria-luna-2'),
+      );
+      const { app, logs } = build(staff, repository);
+
+      const response = await convert(app);
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Conflict',
+        message: expect.stringContaining('pasteleria-luna-3') as unknown,
+        suggestedSlug: 'pasteleria-luna-3',
+      });
+      expect(repository.convert).not.toHaveBeenCalled();
+      expect(logs).not.toHaveBeenCalled();
+    });
+
+    it('si otro sitio gana la carrera por el slug dentro de la transacción, también 409', async () => {
+      const repository = withConversion();
+      repository.convert.mockRejectedValue(new DemoAddressTakenError('pasteleria-luna'));
+      const { app } = build(staff, repository);
+
+      const response = await convert(app);
+
+      expect(response.status).toBe(409);
+      expect((response.body as { suggestedSlug: string }).suggestedSlug).toBe(
+        'pasteleria-luna-2',
+      );
+    });
+
+    it('crea la cuenta del dueño y le manda la invitación después de convertir', async () => {
+      const { app, repository, adminUsers } = build(
+        staff,
+        withConversion({ created: true }),
+      );
+
+      const response = await convert(app, {
+        owner: { name: 'Ana Pérez', email: 'Ana@Pasteleria.cl' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(repository.convert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          owner: { email: 'ana@pasteleria.cl', name: 'Ana Pérez', passwordHash: 'hash' },
+        }),
+      );
+      expect(adminUsers.sendInvitation).toHaveBeenCalledWith(
+        expect.objectContaining({ id: CLIENT_ID, email: 'ana@pasteleria.cl' }),
+      );
+      // La invitación sale con la transacción ya confirmada.
+      expect(adminUsers.sendInvitation.mock.invocationCallOrder[0]).toBeGreaterThan(
+        repository.convert.mock.invocationCallOrder[0] ?? Infinity,
+      );
+      expect(response.body).toMatchObject({
+        owner: { id: CLIENT_ID, role: 'client', created: true },
+        invitation: { status: 'sent' },
+      });
+    });
+
+    it('si el correo falla, la conversión queda hecha y la respuesta lo dice', async () => {
+      const { app, adminUsers } = build(staff, withConversion({ created: true }));
+      adminUsers.sendInvitation.mockRejectedValue(new Error('SMTP caído'));
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const response = await convert(app, {
+        owner: { name: 'Ana Pérez', email: 'ana@pasteleria.cl' },
+      });
+
+      spy.mockRestore();
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        demo: { status: 'convertida' },
+        invitation: {
+          status: 'failed',
+          message: expect.stringContaining('forgot-password') as unknown,
+        },
+      });
+    });
+
+    it('una cuenta de cliente que ya existía se reutiliza sin mandarle otra invitación', async () => {
+      const { app, adminUsers } = build(staff, withConversion({ created: false }));
+
+      const response = await convert(app, {
+        owner: { name: 'Ana Pérez', email: 'ana@pasteleria.cl' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(adminUsers.sendInvitation).not.toHaveBeenCalled();
+      expect(response.body).toMatchObject({
+        owner: { created: false },
+        invitation: { status: 'not-needed' },
+      });
+    });
+
+    it.each([
+      [
+        'de una persona del equipo',
+        new AdminUser('x', 'pau@agencia.cl', 'Pau', 'h', 'editor'),
+      ],
+      [
+        'de una cuenta de cliente desactivada',
+        new AdminUser('x', 'ana@pasteleria.cl', 'Ana', 'h', 'client', NOW),
+      ],
+    ])('un correo %s responde 422 antes de cambiar nada', async (_label, existing) => {
+      const repository = withConversion();
+      const { app, users, logs } = build(staff, repository);
+      users.findByEmail.mockResolvedValue(existing);
+
+      const response = await convert(app, {
+        owner: { name: 'Pau', email: existing.email },
+      });
+
+      expect(response.status).toBe(422);
+      expect(repository.convert).not.toHaveBeenCalled();
+      expect(logs).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['descartada', buildDemo(FAR_EXPIRY, 'discarded')],
+      ['convertida', buildDemo(null, 'converted')],
+      [
+        'borrada',
+        new Demo(
+          DEMO_ID,
+          null,
+          null,
+          null,
+          null,
+          { type: 'admin', id: null, name: 'Pau' },
+          NOW,
+          FAR_EXPIRY,
+          null,
+          null,
+          { count: 0, firstAt: null, lastAt: null },
+          NOW,
+        ),
+      ],
+    ])('convertir una demo %s responde 422', async (_label, demo) => {
+      const repository = withConversion();
+      repository.findDemo.mockResolvedValue(demo);
+      const { app } = build(staff, repository);
+
+      expect((await convert(app)).status).toBe(422);
+      expect(repository.convert).not.toHaveBeenCalled();
+    });
+
+    it('una demo vencida sí se convierte', async () => {
+      const repository = withConversion();
+      repository.findDemo.mockResolvedValue(buildDemo(new Date('2000-01-01T00:00:00Z')));
+      const { app } = build(staff, repository);
+
+      expect((await convert(app)).status).toBe(200);
+    });
+
+    it.each([
+      ['el owner', owner, 200],
+      ['un editor', staff, 200],
+      ['una clave full', fullKey, 200],
+      ['una clave write', writeKey, 403],
+      ['una clave de solo lectura', readKey, 403],
+      ['un usuario client', client, 403],
+      [
+        'una clave limitada a algunos clientes',
+        { ...fullKey, tenantScope: [TENANT_ID] },
+        403,
+      ],
+    ])('%s: %i', async (_label, actor, status) => {
+      const repository = withConversion();
+      const { app } = build(actor, repository);
+
+      expect((await convert(app)).status).toBe(status);
+      if (status === 403) {
+        expect(repository.convert).not.toHaveBeenCalled();
+      }
+    });
+
+    it('regenerar un enlace de una demo convertida responde 422', async () => {
+      const repository = buildRepository();
+      repository.findById.mockResolvedValue(convertedView);
+      const { app } = build(staff, repository);
+
+      const response = await request(app).post(
+        `/api/admin/demos/${DEMO_ID}/prospect-link`,
+      );
+
+      expect(response.status).toBe(422);
+      expect(repository.replaceAccessToken).not.toHaveBeenCalled();
+    });
+  });
+
   describe('descartar y recuperar', () => {
     const discardedDemo = buildDemo(FAR_EXPIRY, 'discarded');
     const withDiscarded = (demo: Demo = discardedDemo): jest.Mocked<DemoRepository> => {

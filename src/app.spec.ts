@@ -202,6 +202,7 @@ describe('buildApp (rutas protegidas)', () => {
         listVisits: ok(200),
         extend: ok(200),
         updateExpiry: ok(200),
+        convert: ok(200),
         discard: ok(200),
         restore: ok(200),
         remove: ok(200),

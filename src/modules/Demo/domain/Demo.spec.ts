@@ -296,6 +296,19 @@ describe('Demo', () => {
         'no-interesado',
       );
 
+    it('se convierte una vigente o una vencida; nunca una descartada, convertida o borrada', () => {
+      expect(() => build(inDays(5)).assertCanBeConverted()).not.toThrow();
+      expect(() => build(inDays(-5)).assertCanBeConverted()).not.toThrow();
+      expect(() => build(null).assertCanBeConverted()).not.toThrow();
+      expect(() => build(inDays(5), 'discarded').assertCanBeConverted()).toThrow(
+        /recupérala primero/,
+      );
+      expect(() => build(null, 'converted').assertCanBeConverted()).toThrow(
+        DemoClosedError,
+      );
+      expect(() => purged.assertCanBeConverted()).toThrow(/ya se borró/);
+    });
+
     it('descartar una ya descartada no hace falta; una convertida o borrada no se descarta', () => {
       expect(build(inDays(5)).needsDiscard()).toBe(true);
       expect(build(inDays(-5)).needsDiscard()).toBe(true);

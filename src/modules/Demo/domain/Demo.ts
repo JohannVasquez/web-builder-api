@@ -30,6 +30,15 @@ export const DEMO_DISCARD_REASONS = [
 ] as const;
 export type DemoDiscardReason = (typeof DEMO_DISCARD_REASONS)[number];
 
+// Lo pone la conversión en las otras propuestas al mismo prospecto. No se puede elegir desde
+// afuera: no es un "no" del prospecto, y contarlo como tal ensuciaría las métricas.
+export const SIBLING_CONVERTED_REASON = 'otra-propuesta';
+export type StoredDiscardReason = DemoDiscardReason | typeof SIBLING_CONVERTED_REASON;
+export const STORED_DISCARD_REASONS: readonly StoredDiscardReason[] = [
+  ...DEMO_DISCARD_REASONS,
+  SIBLING_CONVERTED_REASON,
+];
+
 // Quién creó la demo, congelado como en el registro de actividad: la métrica "por vendedor"
 // tiene que sobrevivir a que la persona o la clave dejen de existir.
 export interface DemoCreator {
@@ -70,7 +79,7 @@ export interface DemoPrimitives {
   readonly expiresAt: string | null;
   readonly outcome: DemoOutcome | null;
   readonly outcomeAt: string | null;
-  readonly discardReason: DemoDiscardReason | null;
+  readonly discardReason: StoredDiscardReason | null;
   readonly purgedAt: string | null;
   readonly neverExpires: boolean;
   readonly extensionCount: number;
@@ -103,7 +112,7 @@ export class Demo {
     public readonly purgedAt: Date | null,
     public readonly extensionCount: number = 0,
     public readonly expiryWarning: DemoExpiryWarning = NO_EXPIRY_WARNING,
-    public readonly discardReason: DemoDiscardReason | null = null,
+    public readonly discardReason: StoredDiscardReason | null = null,
   ) {}
 
   // El resultado manda sobre el vencimiento: una demo convertida no "vence" después.
@@ -199,6 +208,20 @@ export class Demo {
     if (this.outcome === 'converted') {
       throw new DemoClosedError(
         'Esa demo ya es un cliente: no se puede borrar como demo.',
+      );
+    }
+  }
+
+  // Solo una demo sin resultado, vigente o vencida: la vencida es la del prospecto que llamó
+  // tarde. Una descartada primero se recupera, para que la decisión quede a la vista.
+  public assertCanBeConverted(): void {
+    this.assertNotPurged();
+    if (this.outcome === 'converted') {
+      throw new DemoClosedError('Esa demo ya es un cliente.');
+    }
+    if (this.outcome === 'discarded') {
+      throw new DemoClosedError(
+        'Esa demo está descartada. Si el prospecto cambió de opinión, recupérala primero.',
       );
     }
   }

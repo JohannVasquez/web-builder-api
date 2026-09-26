@@ -151,6 +151,145 @@ describe('demos de punta a punta (API y base reales)', () => {
     };
   };
 
+  describe('convertir', () => {
+    it('la demo pasa a ser el sitio público del cliente y sus enlaces dejan de servir', async () => {
+      const slug = `pasteleria-${tag}-luna`;
+      const chosen = await createDemo(slug, {
+        prospect: {
+          businessName: 'Pastelería Luna',
+          email: `luna-${tag}@prueba.invalid`,
+        },
+      });
+      // Una segunda propuesta al mismo negocio: su dirección lleva `-2`.
+      const taken = await admin('post', '/api/admin/demos', keys.write, {
+        slug,
+        name: 'Pastelería Luna',
+        prospectId: chosen.prospectId,
+      });
+      expect(taken.status).toBe(409);
+      const suggested = (taken.body as { suggestedSlug: string }).suggestedSlug;
+      expect(suggested).toBe(`${slug}-2`);
+      const second = await createDemo(suggested, { prospectId: chosen.prospectId });
+
+      expect((await visit(chosen.address)).status).toBe(404);
+      expect((await visit(chosen.address, chosen.prospectToken)).status).toBe(200);
+      expect((await visit(second.address, second.prospectToken)).status).toBe(200);
+
+      const quiet = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const response = await admin(
+        'post',
+        `/api/admin/demos/${chosen.demoId}/convert`,
+        keys.full,
+        { owner: { name: 'Ana Pérez', email: `ana-${tag}@prueba.invalid` } },
+      );
+
+      quiet.mockRestore();
+      expect(response.status).toBe(200);
+      const newAddress = `${slug}.${platform}`;
+      expect(response.body).toMatchObject({
+        demo: { status: 'convertida', expiresAt: null, neverExpires: true },
+        tenant: {
+          id: chosen.tenantId,
+          slug,
+          status: 'active',
+          primaryDomain: newAddress,
+        },
+        removedAddresses: [chosen.address],
+        discardedDemoIds: [second.demoId],
+        owner: { email: `ana-${tag}@prueba.invalid`, role: 'client', created: true },
+        // El correo va a un puerto cerrado: la conversión queda hecha igual y lo dice.
+        invitation: { status: 'failed' },
+      });
+
+      // Público, sin enlace, como cualquier cliente.
+      const open = await visit(newAddress);
+      expect(open.status).toBe(200);
+      expect(open.headers['x-demo']).toBeUndefined();
+      expect(open.headers['x-robots-tag']).toBeUndefined();
+
+      // La dirección `demo-…` ya no es de nadie y los enlaces quedaron anulados.
+      expect(
+        await prisma.tenantDomain.findUnique({ where: { domain: chosen.address } }),
+      ).toBeNull();
+      const tokens = await prisma.demoAccessToken.findMany({
+        where: { demoId: chosen.demoId },
+      });
+      expect(tokens.length).toBeGreaterThan(0);
+      expect(tokens.every((token) => token.revokedAt !== null)).toBe(true);
+
+      // La otra propuesta quedó descartada: su prospecto ya no entra, el equipo sí.
+      expect((await visit(second.address, second.prospectToken)).status).toBe(404);
+      expect((await visit(second.address, second.teamToken)).status).toBe(200);
+      const sibling = await admin('get', `/api/admin/demos/${second.demoId}`, keys.read);
+      expect(sibling.body).toMatchObject({
+        demo: { status: 'descartada', discardReason: 'otra-propuesta' },
+      });
+
+      // Es un cliente más: se lista sin pedir demos, y la cuenta del dueño alcanza solo su sitio.
+      const tenants = await admin('get', '/api/admin/tenants', keys.read);
+      expect(tenants.body).toMatchObject({
+        tenants: expect.arrayContaining([
+          expect.objectContaining({ id: chosen.tenantId, status: 'active' }),
+        ]) as unknown,
+      });
+      const ownerAccount = await prisma.adminUser.findUniqueOrThrow({
+        where: { email: `ana-${tag}@prueba.invalid` },
+        include: { tenants: true },
+      });
+      expect(ownerAccount.role).toBe('client');
+      expect(ownerAccount.tenants.map((link) => link.tenantId)).toEqual([
+        chosen.tenantId,
+      ]);
+
+      // La ficha se queda, y la tarea de borrado nunca la toca.
+      expect(
+        await prisma.prospect.findUnique({ where: { id: chosen.prospectId } }),
+      ).not.toBeNull();
+      expect(
+        await prisma.activityLog.count({
+          where: { action: 'demo.convert', entityId: chosen.demoId },
+        }),
+      ).toBe(1);
+
+      const again = await admin(
+        'post',
+        `/api/admin/demos/${chosen.demoId}/convert`,
+        keys.full,
+      );
+      expect(again.status).toBe(422);
+    });
+
+    it('una clave write no convierte y un slug ocupado responde 409 sin cambiar nada', async () => {
+      const demo = await createDemo(`luna-${tag}-ocupado`, {
+        prospect: { businessName: 'Luna' },
+      });
+
+      const denied = await admin(
+        'post',
+        `/api/admin/demos/${demo.demoId}/convert`,
+        keys.write,
+      );
+      expect(denied.status).toBe(403);
+
+      // El slug definitivo ya es de otro cliente.
+      const other = await prisma.tenant.create({
+        data: { slug: `luna-${tag}-ocupado`, name: 'Otro' },
+      });
+      created.tenants.push(other.id);
+      const conflict = await admin(
+        'post',
+        `/api/admin/demos/${demo.demoId}/convert`,
+        keys.full,
+      );
+      expect(conflict.status).toBe(409);
+      expect(conflict.body).toMatchObject({ suggestedSlug: `luna-${tag}-ocupado-2` });
+
+      expect((await visit(demo.address, demo.prospectToken)).status).toBe(200);
+      expect(
+        await prisma.tenant.findUniqueOrThrow({ where: { id: demo.tenantId } }),
+      ).toMatchObject({ status: 'demo', slug: `demo-luna-${tag}-ocupado` });
+    });
+  });
   describe('descartar y recuperar', () => {
     it('el prospecto deja de entrar al instante, el equipo no, y recuperada vuelve con el mismo enlace', async () => {
       const demo = await createDemo(`sol-${tag}-descarte`, {

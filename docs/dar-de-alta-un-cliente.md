@@ -1,6 +1,7 @@
 # Dar de alta un cliente
 
-Tres caminos, de más rápido a más control. Los tres terminan igual: un sitio que
+Cuatro caminos. Los tres primeros van de más rápido a más control; el cuarto es
+para cuando el cliente ya tenía una demo. Todos terminan igual: un sitio que
 responde en su propio dominio.
 
 ## 1. Desde un kit por rubro (lo normal)
@@ -46,6 +47,30 @@ nadie y publicarlo debería ser una decisión.
 
 Sin `templateId` ni `duplicateFromTenantId`, el cliente nace vacío. Después se
 crean páginas y bloques, a mano o pidiéndoselo a un agente por MCP.
+
+## 4. Convirtiendo una demo de prospecto
+
+Si el negocio compró después de ver su [demo](demos.md#demos-de-prospecto), no
+se crea nada: la demo **ya es** su sitio. Se convierte con una sola petición
+(owner, editor o clave `full`):
+
+```bash
+curl -s -X POST http://localhost:4000/api/admin/demos/$DEMO/convert \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"owner":{"name":"Ana Pérez","email":"ana@pasteleria.cl"}}'
+```
+
+De una vez y sin dejar nada a medias: el sitio pasa a `active`, deja de vencer,
+cambia `demo-pasteleria-luna.<plataforma>` por `pasteleria-luna.<plataforma>`
+(el slug sin `demo-`, o el que se mande en `slug`), los enlaces de la demo dejan
+de valer, las otras propuestas al mismo negocio quedan descartadas y la dueña
+recibe su cuenta `client` con el correo para elegir contraseña. Si el slug está
+ocupado responde 409 con uno libre. El detalle está en
+[Convertir en cliente](demos.md#convertir-en-cliente).
+
+Como las páginas de una demo ya están publicadas, el sitio queda visible en el
+acto. Lo que falta es lo de cualquier cliente: el dominio propio (con los
+contratos firmados) y el cobro, que por ahora es manual.
 
 ---
 
@@ -123,7 +148,8 @@ agentes de IA".
 Lo que conviene pedirle a un agente, en este orden:
 
 1. `get_catalog` — qué bloques, variantes y estilos existen hoy.
-2. `list_templates` y `create_tenant` — el cliente armado.
+2. `list_templates` y `create_tenant` — el cliente armado (si todavía no compró,
+   es una demo: ver [Demos](demos.md)).
 3. `update_brand` — colores y tipografía.
 4. `add_block` / `update_block` — el contenido real.
 5. `get_preview_url` — para que una persona lo revise.

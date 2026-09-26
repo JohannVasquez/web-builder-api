@@ -44,13 +44,22 @@ export class ManageAdminUsersUseCase {
       input.tenantIds,
     );
 
+    await this.sendInvitation(user);
+    return user.toPrimitives();
+  }
+
+  // El correo para que una cuenta nueva elija su contraseña. Aparte porque convertir una demo
+  // crea la cuenta del dueño dentro de su transacción y el correo sale recién cuando quedó
+  // confirmada: si saliera antes, podría llegar la invitación a una cuenta que no existe.
+  public async sendInvitation(
+    user: Pick<AdminUserPrimitives, 'id' | 'email' | 'name'>,
+  ): Promise<void> {
     const token = await this.passwordReset.issue(user.id);
     await this.mailer.sendInvitation(
       user.email,
       user.name,
       this.passwordReset.buildUrl(token),
     );
-    return user.toPrimitives();
   }
 
   public async changeRole(

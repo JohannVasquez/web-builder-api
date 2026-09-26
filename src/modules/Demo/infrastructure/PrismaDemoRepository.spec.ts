@@ -9,7 +9,12 @@ import { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
 import { PurgeExpiredDemosUseCase } from '../application/PurgeExpiredDemosUseCase';
 import { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
 import { ValidateDemoAccessUseCase } from '../application/ValidateDemoAccessUseCase';
-import { DemoClosedError, DemoNoLongerDueError } from '../domain/errors';
+import {
+  DemoAddressTakenError,
+  DemoClosedError,
+  DemoNoLongerDueError,
+  DemoOwnerNotClientError,
+} from '../domain/errors';
 import { addDays, DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoExpiryWarningMail } from '../domain/DemoMailer';
 import { generateDemoToken, hashDemoToken } from '../domain/demoToken';
@@ -29,6 +34,7 @@ describe('PrismaDemoRepository (base real)', () => {
     demos: [] as string[],
     prospects: [] as string[],
     tenants: [] as string[],
+    users: [] as string[],
   };
 
   interface DemoFixture {
@@ -96,6 +102,7 @@ describe('PrismaDemoRepository (base real)', () => {
     await prisma.demo.deleteMany({ where: { id: { in: created.demos } } });
     await prisma.tenant.deleteMany({ where: { id: { in: created.tenants } } });
     await prisma.prospect.deleteMany({ where: { id: { in: created.prospects } } });
+    await prisma.adminUser.deleteMany({ where: { id: { in: created.users } } });
     await prisma.$disconnect();
   });
 
@@ -605,6 +612,315 @@ describe('PrismaDemoRepository (base real)', () => {
       ).not.toBeNull();
     });
   });
+  describe('conversión', () => {
+    const tag = (): string => randomUUID().slice(0, 8);
+    const at = addDays(NOW, 2);
+
+    // Todo lo que la conversión puede tocar, para comparar antes y después.
+    const snapshot = async (demoId: string): Promise<unknown> => {
+      const demo = await prisma.demo.findUniqueOrThrow({
+        where: { id: demoId },
+        include: {
+          accessTokens: { select: { revokedAt: true }, orderBy: { kind: 'asc' } },
+          tenant: {
+            select: {
+              slug: true,
+              status: true,
+              domains: { select: { domain: true, isPrimary: true } },
+              adminUsers: { select: { adminUserId: true } },
+            },
+          },
+        },
+      });
+      const { updatedAt: _ignored, ...rest } = demo;
+      return rest;
+    };
+
+    const prospectOf = async (demoId: string): Promise<string> => {
+      const { prospectId } = await prisma.demo.findUniqueOrThrow({
+        where: { id: demoId },
+      });
+      if (prospectId === null) {
+        throw new Error('Sin prospecto');
+      }
+      return prospectId;
+    };
+
+    const siteOf = async (
+      demoId: string,
+    ): Promise<{ tenantId: string; address: string }> => {
+      const view = await repository.findById(demoId);
+      if (view?.site?.address == null) {
+        throw new Error('Sin sitio');
+      }
+      return { tenantId: view.site.tenantId, address: view.site.address };
+    };
+
+    const createTenant = async (slug: string, domain?: string): Promise<string> => {
+      const tenant = await prisma.tenant.create({
+        data: {
+          slug,
+          name: 'Otro sitio',
+          ...(domain === undefined
+            ? {}
+            : { domains: { create: [{ domain, isPrimary: true, verifiedAt: NOW }] } }),
+        },
+      });
+      created.tenants.push(tenant.id);
+      return tenant.id;
+    };
+
+    const createUser = async (
+      email: string,
+      role: 'owner' | 'editor' | 'client',
+      tenantIds: readonly string[] = [],
+    ): Promise<string> => {
+      const user = await prisma.adminUser.create({
+        data: {
+          email,
+          name: 'Persona',
+          passwordHash: 'hash-original',
+          role,
+          tenants: { create: tenantIds.map((tenantId) => ({ tenantId })) },
+        },
+      });
+      created.users.push(user.id);
+      return user.id;
+    };
+
+    it('en una sola operación: cliente activo, dirección nueva, enlaces anulados y propuestas hermanas descartadas', async () => {
+      const chosen = await createDemo({ expiresAt: addDays(NOW, 10) });
+      const prospectId = await prospectOf(chosen);
+      const current = await createDemo({ expiresAt: addDays(NOW, 5), prospectId });
+      const expired = await createDemo({ expiresAt: addDays(NOW, -3), prospectId });
+      const refused = await createDemo({
+        expiresAt: addDays(NOW, 5),
+        prospectId,
+        outcome: 'discarded',
+        outcomeAt: addDays(NOW, -1),
+      });
+      await prisma.demo.update({
+        where: { id: refused },
+        data: { discardReason: 'precio' },
+      });
+      const refusedBefore = await snapshot(refused);
+      const { tenantId, address: oldAddress } = await siteOf(chosen);
+      const slug = `test-conv-${tag()}`;
+      const email = `dueña-${tag()}@prueba.invalid`;
+
+      const result = await repository.convert({
+        demoId: chosen,
+        slug,
+        address: `${slug}.test.invalid`,
+        now: at,
+        owner: { email, name: 'Ana Pérez', passwordHash: 'hash-nuevo' },
+      });
+      if (result.owner !== null) {
+        created.users.push(result.owner.id);
+      }
+
+      const tenant = await prisma.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+        include: { domains: true },
+      });
+      expect(tenant).toMatchObject({ status: 'active', slug });
+      expect(tenant.domains).toEqual([
+        expect.objectContaining({
+          domain: `${slug}.test.invalid`,
+          isPrimary: true,
+          verifiedAt: at,
+        }),
+      ]);
+      expect(
+        await prisma.tenantDomain.findUnique({ where: { domain: oldAddress } }),
+      ).toBeNull();
+      expect(result.removedAddresses).toEqual([oldAddress]);
+
+      const demo = await prisma.demo.findUniqueOrThrow({
+        where: { id: chosen },
+        include: { accessTokens: true },
+      });
+      expect(demo).toMatchObject({
+        outcome: 'converted',
+        outcomeAt: at,
+        expiresAt: null,
+        tenantId,
+        prospectId,
+      });
+      expect(demo.accessTokens).toHaveLength(2);
+      expect(demo.accessTokens.every((token) => token.revokedAt !== null)).toBe(true);
+
+      for (const sibling of [current, expired]) {
+        const row = await prisma.demo.findUniqueOrThrow({
+          where: { id: sibling },
+          include: { accessTokens: true },
+        });
+        expect(row).toMatchObject({
+          outcome: 'discarded',
+          outcomeAt: at,
+          discardReason: 'otra-propuesta',
+        });
+        // Descartar no anula: si se recupera, el enlace que tiene el prospecto sigue sirviendo.
+        expect(row.accessTokens.every((token) => token.revokedAt === null)).toBe(true);
+      }
+      expect(result.discardedSiblings.map((sibling) => sibling.demoId).sort()).toEqual(
+        [current, expired].sort(),
+      );
+      // La que ya tenía resultado queda como estaba, con su motivo.
+      expect(await snapshot(refused)).toEqual(refusedBefore);
+
+      // La ficha queda como antecedente del cliente.
+      expect(
+        await prisma.prospect.findUnique({ where: { id: prospectId } }),
+      ).not.toBeNull();
+
+      const owner = await prisma.adminUser.findUniqueOrThrow({
+        where: { email },
+        include: { tenants: true },
+      });
+      expect(owner).toMatchObject({
+        role: 'client',
+        name: 'Ana Pérez',
+        passwordHash: 'hash-nuevo',
+      });
+      expect(owner.tenants.map((link) => link.tenantId)).toEqual([tenantId]);
+      expect(result.owner).toEqual({
+        id: owner.id,
+        email,
+        name: 'Ana Pérez',
+        created: true,
+      });
+
+      // Una convertida nunca le toca a la tarea de borrado, ni muy en el futuro.
+      const due = await repository.findDueForPurge(addDays(at, 100_000));
+      expect(due.map((candidate) => candidate.id)).not.toContain(chosen);
+      expect((await repository.findDemo(chosen))?.purgeDueAt(30)).toBeNull();
+    });
+
+    it.each([
+      ['el slug es de otro sitio', 'slug'],
+      ['la dirección es de otro sitio', 'domain'],
+    ])(
+      'si %s dentro de la transacción, no queda nada a medias',
+      async (_label, clash) => {
+        const chosen = await createDemo({ expiresAt: addDays(NOW, 10) });
+        const sibling = await createDemo({
+          expiresAt: addDays(NOW, 10),
+          prospectId: await prospectOf(chosen),
+        });
+        const slug = `test-conv-${tag()}`;
+        const address = `${slug}.test.invalid`;
+        // Otro sitio lo toma después de que el caso de uso preguntó y antes de la transacción.
+        if (clash === 'slug') {
+          await createTenant(slug);
+        } else {
+          await createTenant(`otro-${tag()}`, address);
+        }
+        const before = await Promise.all([snapshot(chosen), snapshot(sibling)]);
+        const email = `dueña-${tag()}@prueba.invalid`;
+
+        await expect(
+          repository.convert({
+            demoId: chosen,
+            slug,
+            address,
+            now: at,
+            owner: { email, name: 'Ana', passwordHash: 'hash' },
+          }),
+        ).rejects.toBeInstanceOf(DemoAddressTakenError);
+
+        expect(await Promise.all([snapshot(chosen), snapshot(sibling)])).toEqual(before);
+        expect(await prisma.adminUser.findUnique({ where: { email } })).toBeNull();
+      },
+    );
+
+    it('si el correo del dueño es de alguien del equipo, no cambia nada', async () => {
+      const chosen = await createDemo({ expiresAt: addDays(NOW, 10) });
+      const sibling = await createDemo({
+        expiresAt: addDays(NOW, 10),
+        prospectId: await prospectOf(chosen),
+      });
+      const email = `editor-${tag()}@prueba.invalid`;
+      const editorId = await createUser(email, 'editor');
+      const before = await Promise.all([snapshot(chosen), snapshot(sibling)]);
+      const slug = `test-conv-${tag()}`;
+
+      await expect(
+        repository.convert({
+          demoId: chosen,
+          slug,
+          address: `${slug}.test.invalid`,
+          now: at,
+          owner: { email, name: 'Ana', passwordHash: 'hash' },
+        }),
+      ).rejects.toBeInstanceOf(DemoOwnerNotClientError);
+
+      expect(await Promise.all([snapshot(chosen), snapshot(sibling)])).toEqual(before);
+      expect(
+        await prisma.adminUser.findUniqueOrThrow({
+          where: { id: editorId },
+          include: { tenants: true },
+        }),
+      ).toMatchObject({ role: 'editor', tenants: [] });
+    });
+
+    it('una cuenta de cliente que ya existe se reutiliza y suma este sitio a su alcance', async () => {
+      const chosen = await createDemo({ expiresAt: addDays(NOW, 10) });
+      const otherSite = await createTenant(`otro-${tag()}`);
+      const email = `cliente-${tag()}@prueba.invalid`;
+      const clientId = await createUser(email, 'client', [otherSite]);
+      const slug = `test-conv-${tag()}`;
+      const { tenantId } = await siteOf(chosen);
+
+      const result = await repository.convert({
+        demoId: chosen,
+        slug,
+        address: `${slug}.test.invalid`,
+        now: at,
+        owner: {
+          email: email.toUpperCase(),
+          name: 'Otro nombre',
+          passwordHash: 'hash-nuevo',
+        },
+      });
+
+      expect(result.owner).toEqual({
+        id: clientId,
+        email,
+        name: 'Persona',
+        created: false,
+      });
+      const user = await prisma.adminUser.findUniqueOrThrow({
+        where: { id: clientId },
+        include: { tenants: true },
+      });
+      expect(user).toMatchObject({ role: 'client', passwordHash: 'hash-original' });
+      expect(user.tenants.map((link) => link.tenantId).sort()).toEqual(
+        [otherSite, tenantId].sort(),
+      );
+    });
+
+    it('si otra petición le dio un resultado antes, no la convierte', async () => {
+      const chosen = await createDemo({
+        expiresAt: addDays(NOW, 10),
+        outcome: 'discarded',
+      });
+      const before = await snapshot(chosen);
+      const slug = `test-conv-${tag()}`;
+
+      await expect(
+        repository.convert({
+          demoId: chosen,
+          slug,
+          address: `${slug}.test.invalid`,
+          now: at,
+          owner: null,
+        }),
+      ).rejects.toBeInstanceOf(DemoClosedError);
+      expect(await snapshot(chosen)).toEqual(before);
+    });
+  });
+
   describe('descarte y recuperación', () => {
     const config = new DemoLifecycleConfig();
     const discarding = new DiscardDemoUseCase(

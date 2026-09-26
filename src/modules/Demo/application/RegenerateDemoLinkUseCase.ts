@@ -3,7 +3,7 @@ import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityErr
 import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoRepository } from '../domain/DemoRepository';
 import { buildDemoUrl, generateDemoToken } from '../domain/demoToken';
-import { DemoNotFoundError } from '../domain/errors';
+import { DemoClosedError, DemoNotFoundError } from '../domain/errors';
 import type { IssuedDemoLink } from './CreateDemoUseCase';
 
 export class RegenerateDemoLinkUseCase {
@@ -22,6 +22,12 @@ export class RegenerateDemoLinkUseCase {
     const view = await this.demoRepository.findById(demoId);
     if (view === null || view.site === null) {
       throw new DemoNotFoundError();
+    }
+    // Convertida, el sitio es público y ya no mira enlaces: uno nuevo no serviría para nada.
+    if (view.demo.outcome === 'converted') {
+      throw new DemoClosedError(
+        'Esa demo ya es un cliente: su sitio es público y no usa enlaces de demo.',
+      );
     }
     if (view.site.address === null) {
       throw new UnprocessableEntityError(

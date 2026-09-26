@@ -51,8 +51,9 @@ export const createAdminDemoRouter = (controller: AdminDemoController): Router =
   router.get('/:demoId/visits', controller.listVisits);
   router.post('/:demoId/extend', controller.extend);
   router.patch('/:demoId/expiry', controller.updateExpiry);
-  // Descartar cambia el destino de la demo: con una clave, solo `full`. Owner y editores ya
-  // tienen `full` en el panel. Recuperar deshace un descarte y basta con `write`.
+  // Convertir y descartar cambian el destino de la demo: con una clave, solo `full`. Owner y
+  // editores ya tienen `full` en el panel. Recuperar deshace un descarte y basta con `write`.
+  router.post('/:demoId/convert', requirePermission('full'), controller.convert);
   router.post('/:demoId/discard', requirePermission('full'), controller.discard);
   router.post('/:demoId/restore', controller.restore);
   router.delete('/:demoId', requireDemoDeleter, controller.remove);

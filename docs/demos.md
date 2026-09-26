@@ -47,7 +47,7 @@ duplicar páginas ni configuraciones.
 
 Para la venta en frío: se arma el sitio de un negocio con buenas reseñas y sin sitio (o con uno
 malo), y se lo llama con la página lista. El sitio es un tenant normal en estado `demo`, así
-que al vender se convierte en cliente sin copiar nada (etapa 3).
+que al vender se [convierte en cliente](#convertir-en-cliente) sin copiar nada.
 
 ### Crear una demo
 
@@ -90,6 +90,7 @@ que al vender se convierte en cliente sin copiar nada (etapa 3).
 | ---------------- | --------------------------------------------------------------- | -------------------------------------------- |
 | Para quién       | El prospecto (se manda por WhatsApp)                            | Owner y editores de la agencia               |
 | Vale mientras    | La demo esté **vigente** (no vencida, descartada ni convertida) | La demo exista, también vencida o descartada |
+| Se anula         | Al regenerarlo o al convertir la demo                           | Al regenerarlo o al convertir la demo        |
 | Registra visitas | Sí                                                              | Nunca                                        |
 
 - Token: `demo_` + 32 bytes aleatorios en hex (256 bits). Prefijo propio para no confundirlo
@@ -178,8 +179,8 @@ Una demo borrada no se lista ni se consulta (404): es un número en las métrica
 
 Crear, editar la ficha, regenerar enlaces, cambiar el vencimiento, descartar, recuperar y borrar
 queda en el registro de actividad (`demo.create`, `demo.prospect.update`, `demo.link.regenerate`,
-`demo.extend`, `demo.expiry.update`, `demo.discard`, `demo.restore`, `demo.delete`) con quién lo
-hizo y **sin** tokens. Las entradas que
+`demo.extend`, `demo.expiry.update`, `demo.discard`, `demo.restore`, `demo.convert`,
+`demo.delete`) con quién lo hizo y **sin** tokens. Las entradas que
 llevan el tenant de la demo (con su dirección y el nombre del negocio) se borran con ella;
 `demo.delete` queda sin tenant y sin nada del prospecto.
 
@@ -194,6 +195,9 @@ vigente o vencida ──descartar──▶ descartada ──(30 días desde el d
         ▲                            │
         └── recuperar (dentro de esos 30 días): vigente por 14 días desde hoy
 
+vigente o vencida ──convertir──▶ convertida: un cliente `active`, sin vencimiento, nunca se borra
+                                 (sus otras propuestas sin resultado quedan descartadas)
+
 "sin vencimiento" (expiresAt nulo): se queda vigente y nunca se borra sola
 ```
 
@@ -204,7 +208,7 @@ nadie tiene que acordarse de actualizarlo.
 | ------------ | ------------------------------------------- | --------- | ------------------- |
 | `vigente`    | Sin resultado y `expiresAt` futuro (o nulo) | Entra     | Entra y edita       |
 | `vencida`    | Sin resultado y `expiresAt` ya pasó         | 404       | Entra y edita       |
-| `convertida` | `outcome = converted` (etapa 3)             | 404       | Es un cliente       |
+| `convertida` | `outcome = converted`                       | Público   | Es un cliente       |
 | `descartada` | `outcome = discarded`                       | 404       | Entra y la recupera |
 | `borrada`    | `purgedAt` puesto (ver [Borrado](#borrado)) | 404       | No existe           |
 
@@ -237,6 +241,9 @@ Cuando el prospecto dice que no: `POST /api/admin/demos/:demoId/discard`
 - `reason` es opcional y de una **lista cerrada**, pensada para las métricas: `no-interesado`,
   `precio`, `ya-tiene-sitio`, `no-responde`, `otro` (cualquier otro valor: 400). No es texto
   libre, así que no nombra a nadie y se conserva en la fila anónima cuando la demo se borra.
+  Hay un sexto motivo que no se puede elegir: `otra-propuesta`, el que pone la
+  [conversión](#convertir-en-cliente) a las otras demos del mismo prospecto (no es un "no" del
+  prospecto y las métricas lo tienen que poder separar).
 - La demo queda `descartada` (`outcome = discarded`, `outcomeAt` = ahora, `discardReason`). El
   enlace del prospecto responde 404 en la petición siguiente; el del equipo sigue sirviendo hasta
   el borrado. Los enlaces **no se anulan**: si se recupera, el prospecto entra con el mismo.
@@ -259,6 +266,104 @@ Para el prospecto que llama de vuelta: `POST /api/admin/demos/:demoId/restore`, 
 - Si dos personas la recuperan a la vez, la segunda recibe 409.
 
 Las dos responden `{ "demo": { ... } }` con la demo actualizada (incluye `discardReason`).
+
+### Convertir en cliente
+
+Cuando el prospecto compra. Es manual a propósito: lo decide una persona después de confirmar el
+pago (el cobro automático va aparte, #105). `POST /api/admin/demos/:demoId/convert`:
+
+```json
+{
+  "slug": "pasteleria-luna",
+  "owner": { "name": "Ana Pérez", "email": "ana@pasteleria.cl" }
+}
+```
+
+Los dos campos son opcionales; el cuerpo puede ir vacío.
+
+- `slug`, el definitivo del cliente. Por omisión, el de la demo sin `demo-` y sin el `-2`,
+  `-3`… de una segunda propuesta (`demo-pasteleria-luna-2` → `pasteleria-luna`). Solo se
+  quitan los sufijos que pudo poner la sugerencia (de `-2` a `-50`): si el nombre real termina
+  en número (`taller-24`), conviene mandarlo. Uno que empieza con `demo-` responde 400.
+- Si el slug o su dirección ya son de otro sitio: **409 con el siguiente libre y nada cambia**,
+  `{ "error": "Conflict", "message": "...", "suggestedSlug": "pasteleria-luna-2" }`.
+- `owner`, la persona dueña del negocio. Sin cuenta con ese correo, se crea una con rol `client`
+  limitada a este sitio y le llega la invitación para elegir su contraseña (la misma de
+  `/api/admin/users`). Si ya hay una cuenta de **cliente** con ese correo se reutiliza: suma este
+  sitio a su alcance y no recibe otra invitación (entra con su contraseña de siempre). Un correo
+  de alguien **del equipo**, o de una cuenta de cliente desactivada: 422 antes de cambiar nada.
+
+En **una sola transacción**; si algo falla no cambia nada, tampoco la cuenta del dueño:
+
+1. El tenant pasa de `demo` a `active` y su slug al definitivo.
+2. Se quita `demo-<slug>.<PLATFORM_DOMAIN>` y queda `<slug>.<PLATFORM_DOMAIN>` como dirección
+   principal, verificada (es de la plataforma). Un dominio propio se agrega después, como a
+   cualquier cliente.
+3. La demo queda `convertida` (`outcome = converted`, `outcomeAt` = ahora) y **sin
+   vencimiento**: la tarea de borrado nunca la toca.
+4. Todos sus enlaces (prospecto y equipo) se anulan: el sitio ya es público y no los necesita.
+5. Las **otras demos del mismo prospecto** sin resultado (vigentes o vencidas) quedan descartadas
+   con el motivo `otra-propuesta`. Sus enlaces no se anulan, por si hubiera que recuperar alguna;
+   las que ya tenían resultado no se tocan.
+6. La ficha del prospecto se conserva, asociada a la demo convertida, como antecedente del
+   cliente. El borrado de las otras propuestas ya no se la lleva.
+7. Se crea o se reutiliza la cuenta del dueño.
+
+Recién con la transacción confirmada:
+
+- Sale la invitación. Si el correo falla, la conversión queda hecha igual y la respuesta lo dice
+  (`invitation.status = "failed"`): la persona elige su contraseña con "olvidé mi contraseña".
+- Se invalida la caché del sitio para la dirección vieja y la nueva (y las de las propuestas
+  descartadas).
+- Queda `demo.convert` en el registro de actividad con quién lo hizo, el slug y la dirección de
+  antes y de después y el id de la cuenta del dueño (sin su correo), más un `demo.discard` por
+  cada propuesta descartada.
+
+Reglas:
+
+- Solo se convierte una demo sin resultado, vigente o vencida. Descartada (primero se
+  [recupera](#descartar-y-recuperar)), convertida o borrada: 422.
+- Owner y editores desde el panel; una clave necesita permiso `full` (una `write` recibe 403).
+- Convertida, regenerar un enlace responde 422; la ficha del prospecto se sigue editando.
+
+Respuesta:
+
+```json
+{
+  "demo": {
+    "id": "…",
+    "status": "convertida",
+    "outcome": "converted",
+    "expiresAt": null,
+    "neverExpires": true,
+    "site": {
+      "tenantId": "…",
+      "slug": "pasteleria-luna",
+      "address": "pasteleria-luna.webbuilder.co"
+    }
+  },
+  "tenant": {
+    "id": "…",
+    "slug": "pasteleria-luna",
+    "status": "active",
+    "primaryDomain": "pasteleria-luna.webbuilder.co"
+  },
+  "removedAddresses": ["demo-pasteleria-luna.webbuilder.co"],
+  "discardedDemoIds": ["…"],
+  "owner": {
+    "id": "…",
+    "email": "ana@pasteleria.cl",
+    "name": "Ana Pérez",
+    "role": "client",
+    "created": true
+  },
+  "invitation": { "status": "sent" }
+}
+```
+
+`owner` e `invitation` son `null` si no se mandó `owner`. Si la cuenta ya existía,
+`invitation` es `{ "status": "not-needed", "message": "..." }`; si el correo no salió,
+`{ "status": "failed", "message": "..." }`.
 
 ### Aviso de vencimiento
 
@@ -384,10 +489,12 @@ tenant):
 ### Reglas que protegen el estado
 
 - `PATCH /api/admin/tenants/:id/status` no acepta `demo` ni cambia una demo (422): se entra
-  creándola y se sale convirtiéndola (etapa 3) o [descartándola](#descartar-y-recuperar).
+  creándola y se sale [convirtiéndola](#convertir-en-cliente) o
+  [descartándola](#descartar-y-recuperar). Un tenant `active` nunca vuelve a `demo`.
 - Una demo no acepta dominios (422 "Una demo no puede tener dominio propio; conviértela
   primero.").
 - A una demo no se le asigna una persona con rol `client` (422): el prospecto no entra al panel.
+  La cuenta del dueño se crea al convertirla.
 - `GET /api/admin/tenants` no lista demos salvo con `?includeDemos=true`; la cobranza
   (`/api/admin/subscriptions`) tampoco. Leer o editar una demo por su id funciona igual que con
   cualquier tenant.
@@ -407,5 +514,5 @@ de modo que las demos nunca pidan uno propio.
 
 ### Etapas siguientes
 
-Convertir (etapa 3), herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas que
-necesitan (`outcome`, `outcomeAt`, `discardReason`, `purgedAt`, contadores) ya existen.
+Herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas que necesitan (`outcome`,
+`outcomeAt`, `discardReason`, `purgedAt`, contadores) ya existen.

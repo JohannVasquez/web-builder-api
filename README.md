@@ -56,6 +56,7 @@ vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 | PATCH  | `/api/admin/demos/:demoId/expiry`        | `{ neverExpires }`: la deja sin vencimiento o se lo devuelve     |
 | POST   | `/api/admin/demos/:demoId/discard`       | `{ reason? }`: la descarta; el prospecto deja de entrar          |
 | POST   | `/api/admin/demos/:demoId/restore`       | Recupera una descartada (dentro de la gracia) por 14 días        |
+| POST   | `/api/admin/demos/:demoId/convert`       | `{ slug?, owner? }`: la convierte en cliente (clave `full`)      |
 | DELETE | `/api/admin/demos/:demoId`               | `{ confirm: true }`: la borra ya y deja el registro anónimo      |
 | POST   | `/api/admin/signed-documents`            | Registra firma de contrato (exige full)                          |
 | GET    | `/api/admin/signed-documents/tenant/:id` | Lista documentos firmados por un cliente                         |

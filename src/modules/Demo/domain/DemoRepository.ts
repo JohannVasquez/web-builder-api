@@ -84,6 +84,40 @@ export interface PurgedDemo {
   readonly prospectDeleted: boolean;
 }
 
+export interface DemoConversion {
+  readonly demoId: string;
+  // Slug y dirección definitivos del cliente (`<slug>.<plataforma>`).
+  readonly slug: string;
+  readonly address: string;
+  readonly now: Date;
+  // La cuenta del dueño. `passwordHash` solo se usa si hay que crearla: una que ya existe con
+  // ese correo se reutiliza tal cual y solo suma este sitio a su alcance.
+  readonly owner: {
+    readonly email: string;
+    readonly name: string;
+    readonly passwordHash: string;
+  } | null;
+}
+
+export interface ConvertedDemo {
+  readonly demo: Demo;
+  // Las direcciones que tenía como demo y ya no existen; la caché las tiene que olvidar.
+  readonly removedAddresses: readonly string[];
+  // Las otras propuestas al mismo prospecto que quedaron descartadas, con su dirección.
+  readonly discardedSiblings: readonly {
+    readonly demoId: string;
+    readonly tenantId: string | null;
+    readonly address: string | null;
+  }[];
+  readonly owner: {
+    readonly id: string;
+    readonly email: string;
+    readonly name: string;
+    // Falso si ya existía una cuenta de cliente con ese correo.
+    readonly created: boolean;
+  } | null;
+}
+
 export interface NewDemoVisit {
   readonly pageSlug: string;
   readonly ipHash: string | null;
@@ -164,6 +198,13 @@ export abstract class DemoRepository {
     discardedAt: Date,
     expiresAt: Date,
   ): Promise<boolean>;
+  // En UNA transacción: el tenant pasa a `active` con su slug y su dirección definitivos (la de
+  // la demo se quita), la demo queda convertida y sin vencimiento, sus enlaces se anulan, las
+  // otras propuestas sin resultado del mismo prospecto se descartan y se crea (o se reutiliza)
+  // la cuenta del dueño con alcance a este sitio. Si algo falla no cambia nada. Lanza
+  // `DemoAddressTakenError` si el slug o la dirección ya son de otro, `DemoClosedError` si la
+  // demo ya tiene resultado y `DemoOwnerNotClientError` si el correo es de alguien del equipo.
+  public abstract convert(conversion: DemoConversion): Promise<ConvertedDemo>;
   // Los archivos que siguen pendientes, de una demo o de todas.
   public abstract findPendingFiles(demoId?: string): Promise<string[]>;
   public abstract resolvePendingFile(key: string): Promise<void>;

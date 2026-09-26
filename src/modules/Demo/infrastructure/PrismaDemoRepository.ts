@@ -5,15 +5,19 @@ import {
 import { writeTenantWithContent } from '@/modules/Tenant/infrastructure/tenantContentWriter';
 import {
   Demo,
-  DEMO_DISCARD_REASONS,
   DEMO_OUTCOMES,
+  SIBLING_CONVERTED_REASON,
+  STORED_DISCARD_REASONS,
   type DemoDiscardReason,
   type DemoLinkKind,
   type DemoOutcome,
   type DemoStatus,
+  type StoredDiscardReason,
 } from '../domain/Demo';
 import type {
+  ConvertedDemo,
   DemoAccess,
+  DemoConversion,
   DemoExpiryChange,
   DemoFilter,
   DemoRepository,
@@ -29,6 +33,7 @@ import {
   DemoAddressTakenError,
   DemoClosedError,
   DemoNoLongerDueError,
+  DemoOwnerNotClientError,
 } from '../domain/errors';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -65,9 +70,9 @@ const toOutcome = (value: string | null): DemoOutcome | null =>
     ? (value as DemoOutcome)
     : null;
 
-const toDiscardReason = (value: string | null): DemoDiscardReason | null =>
-  (DEMO_DISCARD_REASONS as readonly string[]).includes(value ?? '')
-    ? (value as DemoDiscardReason)
+const toDiscardReason = (value: string | null): StoredDiscardReason | null =>
+  (STORED_DISCARD_REASONS as readonly string[]).includes(value ?? '')
+    ? (value as StoredDiscardReason)
     : null;
 
 const toDemo = (record: DemoRecord): Demo =>
@@ -172,6 +177,9 @@ const ANONYMIZED: Prisma.DemoUncheckedUpdateInput = {
 };
 
 type Transaction = Prisma.TransactionClient;
+
+// Convertir cambia muchas filas y puede crear una cuenta: más que los 5 s por omisión.
+const CONVERT_TRANSACTION_TIMEOUT_MS = 20_000;
 
 // Un archivo de la demo que otro sitio también usa (por ejemplo, una segunda propuesta que se
 // armó duplicando esta) no se borra del bucket: pasa a la biblioteca de ese otro sitio. La
@@ -619,6 +627,149 @@ export class PrismaDemoRepository implements DemoRepository {
       data: { outcome: null, outcomeAt: null, discardReason: null, expiresAt },
     });
     return count === 1;
+  }
+
+  public async convert(conversion: DemoConversion): Promise<ConvertedDemo> {
+    const { demoId, now } = conversion;
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Condicional: si otra petición la convirtió o descartó en el medio, esta no escribe.
+        const { count } = await tx.demo.updateMany({
+          where: { id: demoId, outcome: null, purgedAt: null, tenantId: { not: null } },
+          data: { outcome: 'converted', outcomeAt: now, expiresAt: null },
+        });
+        const record = await tx.demo.findUnique({ where: { id: demoId } });
+        if (count !== 1 || record?.tenantId == null) {
+          throw new DemoClosedError(
+            'Esa demo ya no se puede convertir: alguien la convirtió, la descartó o la borró recién.',
+          );
+        }
+        const { tenantId, prospectId } = record;
+
+        // Primero la cuenta: si después falla el cambio de dirección, la transacción se la lleva
+        // y no queda una persona con acceso a un sitio que sigue siendo demo.
+        const owner =
+          conversion.owner === null
+            ? null
+            : await this.attachOwner(tx, tenantId, conversion.owner);
+
+        const removed = await tx.tenantDomain.findMany({
+          where: { tenantId },
+          select: { domain: true },
+        });
+        try {
+          await tx.tenant.update({
+            where: { id: tenantId },
+            data: { status: 'active', slug: conversion.slug },
+          });
+          // Una demo tiene una sola dirección, `demo-<slug>.<plataforma>` (no acepta otras):
+          // se va entera y queda la definitiva, verificada porque es de la plataforma.
+          await tx.tenantDomain.deleteMany({ where: { tenantId } });
+          await tx.tenantDomain.create({
+            data: {
+              tenantId,
+              domain: conversion.address,
+              isPrimary: true,
+              verifiedAt: now,
+            },
+          });
+        } catch (error) {
+          if (isUniqueConstraintError(error)) {
+            throw new DemoAddressTakenError(conversion.slug);
+          }
+          throw error;
+        }
+
+        await tx.demoAccessToken.updateMany({
+          where: { demoId, revokedAt: null },
+          data: { revokedAt: now },
+        });
+
+        const siblings =
+          prospectId === null
+            ? []
+            : await tx.demo.findMany({
+                where: {
+                  prospectId,
+                  id: { not: demoId },
+                  outcome: null,
+                  purgedAt: null,
+                },
+                select: {
+                  id: true,
+                  tenantId: true,
+                  tenant: {
+                    select: {
+                      domains: {
+                        where: { isPrimary: true },
+                        take: 1,
+                        select: { domain: true },
+                      },
+                    },
+                  },
+                },
+              });
+        // Sus enlaces no se anulan: si el cliente pide después otra propuesta que ya se le
+        // había hecho, se recupera y el enlace que tiene sigue sirviendo.
+        await tx.demo.updateMany({
+          where: { id: { in: siblings.map((sibling) => sibling.id) }, outcome: null },
+          data: {
+            outcome: 'discarded',
+            outcomeAt: now,
+            discardReason: SIBLING_CONVERTED_REASON,
+          },
+        });
+
+        const converted = await tx.demo.findUniqueOrThrow({ where: { id: demoId } });
+        return {
+          demo: toDemo(converted),
+          removedAddresses: removed.map((domain) => domain.domain),
+          discardedSiblings: siblings.map((sibling) => ({
+            demoId: sibling.id,
+            tenantId: sibling.tenantId,
+            address: sibling.tenant?.domains[0]?.domain ?? null,
+          })),
+          owner,
+        };
+      },
+      { timeout: CONVERT_TRANSACTION_TIMEOUT_MS },
+    );
+  }
+
+  // Dentro de la transacción de la conversión: si algo falla después, no queda una cuenta
+  // creada para un sitio que sigue siendo demo.
+  private async attachOwner(
+    tx: Transaction,
+    tenantId: string,
+    owner: NonNullable<DemoConversion['owner']>,
+  ): Promise<NonNullable<ConvertedDemo['owner']>> {
+    const email = owner.email.trim().toLowerCase();
+    const existing = await tx.adminUser.findUnique({ where: { email } });
+    if (existing !== null) {
+      if (existing.role !== 'client') {
+        throw new DemoOwnerNotClientError();
+      }
+      await tx.adminUserTenant.createMany({
+        data: [{ adminUserId: existing.id, tenantId }],
+        skipDuplicates: true,
+      });
+      return {
+        id: existing.id,
+        email: existing.email,
+        name: existing.name,
+        created: false,
+      };
+    }
+    const created = await tx.adminUser.create({
+      data: {
+        email,
+        name: owner.name,
+        passwordHash: owner.passwordHash,
+        role: 'client',
+        tenants: { create: [{ tenantId }] },
+      },
+    });
+    return { id: created.id, email: created.email, name: created.name, created: true };
   }
 
   public async findPendingFiles(demoId?: string): Promise<string[]> {
