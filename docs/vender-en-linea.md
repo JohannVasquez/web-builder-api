@@ -65,6 +65,17 @@ de la API: las respuestas solo dicen `hasPaymentCredentials: true|false`.
 Para Flow: `{ "apiKey": "...", "secretKey": "...", "mode": "sandbox" }`. Con
 `mode: "production"` se usa `https://www.flow.cl/api`; con cualquier otro valor, el sandbox.
 
+### Pago simulado en las demos de prospecto
+
+En un sitio en estado `demo` el checkout **ignora** el `paymentProvider` configurado y usa un
+medio de demostración: el pedido se crea con `paymentProvider: "demo"`, queda `paid` al
+instante (referencia `demo-<número>`) y la respuesta trae como `redirectUrl` la misma URL de
+retorno que usaría un pago real, para que el sitio muestre su confirmación normal. Nunca se
+llama a Flow, no se muestran datos bancarios, no se descuenta stock ni se gasta el cupón y no
+sale ningún correo; el aviso del proveedor responde `{ "confirmed": false }` sin consultar a
+nadie. `demo` no es un valor que se pueda configurar en la tienda. La tienda de una demo se
+puede encender sin los datos del vendedor. Ver [Demos](demos.md).
+
 ## Comprar
 
 ```bash

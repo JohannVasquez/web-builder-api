@@ -21,13 +21,16 @@ Consulta la [Guía de Arquitectura](docs/arquitectura.md) para detalles sobre la
 
 ## Endpoints
 
-| Método | Ruta               | Descripción                                                 |
-| ------ | ------------------ | ----------------------------------------------------------- |
+| Método | Ruta               | Descripción                                                                                       |
+| ------ | ------------------ | ------------------------------------------------------------------------------------------------- |
 | GET    | `/api/pages/:slug` | Página con sus secciones JSONB ordenadas (envía el header `X-Preview-Token` para ver el borrador) |
-| GET    | `/api/settings`    | Configuraciones globales de marca                           |
-| GET    | `/api/navigation`  | Enlaces del menú del sitio, ordenados                       |
-| POST   | `/api/contact`     | Valida con `ContactSchema` (400 si falla) y envía correo    |
-| GET    | `/health`          | Health check                                                |
+| GET    | `/api/settings`    | Configuraciones globales de marca                                                                 |
+| GET    | `/api/navigation`  | Enlaces del menú del sitio, ordenados                                                             |
+| POST   | `/api/contact`     | Valida con `ContactSchema` (400 si falla) y envía correo                                          |
+| GET    | `/health`          | Health check                                                                                      |
+
+Las rutas públicas de un sitio en estado `demo` (demo de prospecto) exigen el header
+`X-Demo-Token`; sin él responden 404. Ver [Demos](docs/demos.md).
 
 ### Rutas que exigen sesión de administración
 
@@ -35,23 +38,30 @@ Todo lo que escribe va detrás de `Authorization: Bearer <token>` (el token lo
 emite `POST /api/admin/auth/login`). Sin cabecera, o con un token inválido o
 vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 
-| Método  | Ruta                                         | Descripción                       |
-| ------- | -------------------------------------------- | --------------------------------- |
-| POST    | `/api/files`                                 | Sube un archivo al bucket privado |
-| DELETE  | `/api/files/:key`                            | Borra un archivo del bucket       |
-| GET     | `/api/admin/me`                              | Confirma la sesión vigente        |
-| GET     | `/api/admin/tenants`                         | Lista los clientes                |
-| POST    | `/api/admin/signed-documents`                | Registra firma de contrato (exige full) |
-| GET     | `/api/admin/signed-documents/tenant/:id`     | Lista documentos firmados por un cliente |
-| GET     | `/api/admin/signed-documents/outdated`       | Clientes en versión anterior de un contrato |
+| Método | Ruta                                     | Descripción                                                      |
+| ------ | ---------------------------------------- | ---------------------------------------------------------------- |
+| POST   | `/api/files`                             | Sube un archivo al bucket privado                                |
+| DELETE | `/api/files/:key`                        | Borra un archivo del bucket                                      |
+| GET    | `/api/admin/me`                          | Confirma la sesión vigente                                       |
+| GET    | `/api/admin/tenants`                     | Lista los clientes (sin demos; `?includeDemos=true` las incluye) |
+| POST   | `/api/admin/demos`                       | Crea una demo de prospecto y entrega sus dos enlaces             |
+| GET    | `/api/admin/demos`                       | Lista demos (`status`, `prospectId`, `createdBy`)                |
+| GET    | `/api/admin/demos/:demoId`               | Demo, ficha del prospecto y sus otras demos                      |
+| PATCH  | `/api/admin/demos/:demoId/prospect`      | Edita la ficha del prospecto                                     |
+| POST   | `/api/admin/demos/:demoId/prospect-link` | Regenera el enlace del prospecto                                 |
+| POST   | `/api/admin/demos/:demoId/team-link`     | Regenera el enlace del equipo                                    |
+| GET    | `/api/admin/demos/:demoId/visits`        | Visitas del prospecto, paginadas                                 |
+| POST   | `/api/admin/signed-documents`            | Registra firma de contrato (exige full)                          |
+| GET    | `/api/admin/signed-documents/tenant/:id` | Lista documentos firmados por un cliente                         |
+| GET    | `/api/admin/signed-documents/outdated`   | Clientes en versión anterior de un contrato                      |
 
-| GET     | `/api/admin/subscriptions`                   | Vista global de cobros y MRR      |
-| GET     | `/api/admin/subscriptions/export`            | Exportar cobros en CSV            |
-| CRUD    | `/api/admin/tenants/:tenantId/pages`         | Páginas y secciones del cliente   |
-| GET/PUT | `/api/admin/tenants/:tenantId/settings`      | Datos del negocio y medición      |
-| GET/PUT | `/api/admin/tenants/:tenantId/subscription`  | Consulta y cambia plan de cliente |
-| POST    | `/api/admin/tenants/:tenantId/subscription/payments` | Registra pago recibido (exige full)|
-| GET    | `/api/admin/tenants/:tenantId/quality-review`| Revisa la calidad antes de entregar |
+| GET | `/api/admin/subscriptions` | Vista global de cobros y MRR |
+| GET | `/api/admin/subscriptions/export` | Exportar cobros en CSV |
+| CRUD | `/api/admin/tenants/:tenantId/pages` | Páginas y secciones del cliente |
+| GET/PUT | `/api/admin/tenants/:tenantId/settings` | Datos del negocio y medición |
+| GET/PUT | `/api/admin/tenants/:tenantId/subscription` | Consulta y cambia plan de cliente |
+| POST | `/api/admin/tenants/:tenantId/subscription/payments` | Registra pago recibido (exige full)|
+| GET | `/api/admin/tenants/:tenantId/quality-review`| Revisa la calidad antes de entregar |
 | POST/DEL | `/api/admin/tenants/:tenantId/preview-links` | Genera o anula un enlace de revisión |
 
 Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
@@ -79,6 +89,11 @@ quede listo en minutos—, pero una copia de otro cliente nace **despublicada**:
 no tiene dominios propios todavía y publicarla debería ser una decisión.
 
 `GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
+
+Para el sitio privado de un prospecto que todavía no compró se usa
+`POST /api/admin/demos`, que parte de los mismos orígenes pero deja el sitio en
+estado `demo`, con todo publicado y visible solo con su enlace. Ver
+[Demos](docs/demos.md).
 
 ## Tienda (etapa 1)
 
@@ -210,17 +225,18 @@ contacto, sin arreglar nada.
 
 | Guía                                                                   | De qué trata                                               |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [Guía para Agentes (Punto de entrada)](AGENTS.md)                       | Qué leer y qué no leer al modificar este código            |
-| [Arquitectura](docs/arquitectura.md)                                    | Capas, módulos, dependencias e inyección                   |
-| [Convenciones](docs/convenciones.md)                                    | Nomenclatura, comentarios y reglas de código               |
-| [Herramientas MCP](docs/herramientas-agentes.md)                        | Lista y uso de herramientas para agentes IA                |
-| [Cómo agregar funciones](docs/como-agregar-nuevas-funciones.md)         | Paso a paso para extender el proyecto                      |
+| [Guía para Agentes (Punto de entrada)](AGENTS.md)                      | Qué leer y qué no leer al modificar este código            |
+| [Arquitectura](docs/arquitectura.md)                                   | Capas, módulos, dependencias e inyección                   |
+| [Convenciones](docs/convenciones.md)                                   | Nomenclatura, comentarios y reglas de código               |
+| [Herramientas MCP](docs/herramientas-agentes.md)                       | Lista y uso de herramientas para agentes IA                |
+| [Cómo agregar funciones](docs/como-agregar-nuevas-funciones.md)        | Paso a paso para extender el proyecto                      |
 | [Dar de alta un cliente](docs/dar-de-alta-un-cliente.md)               | El paso a paso completo, de cero a sitio publicado         |
 | [Datos del negocio](docs/datos-del-negocio.md)                         | Información global, contacto, horarios y analítica         |
 | [Armar una página](docs/armar-una-pagina.md)                           | Bloques, borrador y publicado, versiones y el menú         |
 | [Dominios y estado del sitio](docs/dominios-y-estado-del-sitio.md)     | Conectar el dominio propio de un cliente y pausar un sitio |
 | [Gestionar el equipo del panel](docs/gestionar-el-equipo-del-panel.md) | Roles, invitaciones y recuperación de contraseña           |
 | [Vender en línea](docs/vender-en-linea.md)                             | Tienda, carrito, cobro, cupones, pedidos y reportes        |
+| [Demos](docs/demos.md)                                                 | Sitios de demostración y demos privadas de prospectos      |
 
 ## Claves de acceso y agentes de IA
 

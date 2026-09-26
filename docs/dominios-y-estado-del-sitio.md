@@ -9,10 +9,14 @@ Cómo se conecta el dominio propio de un cliente y cómo se pausa un sitio sin p
 | `active`   | El sitio, normal.                                                             |
 | `paused`   | Página de mantención: "Estamos haciendo unos ajustes. Volvemos muy pronto."   |
 | `building` | Página de mantención: "Estamos construyendo este sitio. Vuelve en unos días." |
+| `demo`     | 404, salvo con el enlace de la demo (ver [Demos](demos.md)).                  |
 
 Pausado y en construcción **no borran nada**: las rutas públicas responden 503 con
 `{ error: 'SitePaused', status, siteName, message }` y reactivar devuelve el sitio tal cual.
 El panel y el MCP siguen viendo y editando el contenido mientras tanto.
+
+`demo` no se pone ni se quita desde este endpoint (responde 422): una demo nace al crearla con
+`POST /api/admin/demos` y sale al convertirla o descartarla. Tampoco acepta dominios propios.
 
 ```bash
 curl -X PATCH "$API/api/admin/tenants/$TENANT/status" \

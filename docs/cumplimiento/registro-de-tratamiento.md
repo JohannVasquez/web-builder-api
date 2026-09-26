@@ -60,7 +60,31 @@ actualizarlo aquí**.
 | **Base de licitud** | Obligación legal                                                   |
 | **Conservación**    | Se conservan resueltas, para acreditar que se respondió en plazo   |
 
-### 6. Usuarios del panel
+### 6. Prospectos de la agencia (demos de prospecto)
+
+|                     |                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| **Responsable**     | **La plataforma** (la agencia): el prospecto todavía no es cliente de nadie                      |
+| **Datos**           | Nombre del negocio, nombre de contacto, teléfono, correo (opcional), rubro, origen, notas        |
+| **Dónde**           | `prospects`; la demo asociada en `demos` (sin datos personales propios)                          |
+| **Base de licitud** | Interés legítimo: contacto comercial con un negocio a partir de datos de fuentes públicas        |
+| **Fin**             | Preparar y presentar una propuesta de sitio y hacer su seguimiento comercial                     |
+| **Conservación**    | Mientras la demo exista; se borran con ella (etapa 2: 30 días tras vencer, configurable)         |
+| **Destinatarios**   | Nadie fuera de la agencia. El enlace de la demo nunca expone la ficha                            |
+| **Nota**            | La fila `demos` queda como registro **anónimo** para métricas (kit, rubro, vendedor, contadores) |
+
+### 7. Visitas a las demos de prospecto
+
+|                     |                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| **Responsable**     | La plataforma (la agencia)                                                                    |
+| **Datos**           | Página abierta, fecha y hora, **huella** de IP con sal, agente de usuario recortado (255)     |
+| **Dónde**           | `demo_visits`; contadores agregados (total, primera y última) en `demos`                      |
+| **Base de licitud** | Interés legítimo: saber si el prospecto abrió la propuesta que se le envió                    |
+| **Conservación**    | Se borran con la demo; los contadores agregados quedan en el registro anónimo                 |
+| **Nota**            | Solo con el enlace del prospecto; el equipo no genera visitas. Nunca se guarda la IP en claro |
+
+### 8. Usuarios del panel
 
 |                     |                                          |
 | ------------------- | ---------------------------------------- |
@@ -89,7 +113,9 @@ y el DPA con el cliente tiene que listarlos.
 - Credenciales de cobro cifradas en reposo (AES-256-GCM, clave fuera de la base).
 - Contraseñas del panel con hash; nunca en claro.
 - Bucket privado: todo acceso pasa por una URL firmada de vida corta.
-- De la IP se guarda una huella con sal, no la IP.
+- De la IP se guarda una huella con sal, no la IP (consentimientos y visitas a demos).
+- Los enlaces de las demos de prospecto se guardan como SHA-256, nunca en claro, y no se
+  anotan en el registro de actividad.
 - Cabeceras de seguridad y política de contenido en el sitio público.
 - Aislamiento por cliente: toda consulta lleva `tenantId`.
 
