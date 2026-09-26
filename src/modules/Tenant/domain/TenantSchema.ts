@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from '@/shared/domain/identifier';
 
-const slug = z
+// También lo usa la creación de demos, que antepone `demo-`.
+export const tenantSlugSchema = z
   .string()
   .min(2)
   .max(100)
@@ -17,7 +18,7 @@ const domain = z
   .regex(/^[a-z0-9.-]+$/, 'Usa un dominio válido, sin protocolo ni puerto');
 
 export const CreateTenantSchema = z.strictObject({
-  slug,
+  slug: tenantSlugSchema,
   name: z.string().min(2).max(255),
   // El primero es el canónico. Sin dominios, el cliente existe pero no resuelve tráfico.
   domains: z.array(domain).default([]),

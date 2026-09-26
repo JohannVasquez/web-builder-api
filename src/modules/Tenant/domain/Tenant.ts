@@ -1,4 +1,5 @@
-export const TENANT_STATUSES = ['active', 'paused', 'building'] as const;
+// `demo` es el sitio privado de un prospecto: solo lo ve quien trae su enlace (módulo Demo).
+export const TENANT_STATUSES = ['active', 'paused', 'building', 'demo'] as const;
 export type TenantStatus = (typeof TENANT_STATUSES)[number];
 
 // Lo que ve el visitante cuando el sitio no está sirviendo. `building` y `paused` son
@@ -7,6 +8,8 @@ export const TENANT_STATUS_MESSAGES: Readonly<Record<TenantStatus, string>> = {
   active: '',
   paused: 'Estamos haciendo unos ajustes. Volvemos muy pronto.',
   building: 'Estamos construyendo este sitio. Vuelve en unos días.',
+  // Nunca se muestra: sin enlace válido una demo responde 404, como si no existiera.
+  demo: '',
 };
 
 export interface TenantPrimitives {
@@ -35,6 +38,10 @@ export class Tenant {
   // Pausar no borra nada: el contenido sigue ahí y reactivar lo devuelve tal cual.
   public isServable(): boolean {
     return this.status === 'active';
+  }
+
+  public isDemo(): boolean {
+    return this.status === 'demo';
   }
 
   public toPrimitives(): TenantPrimitives {

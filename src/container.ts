@@ -2,11 +2,11 @@ import type { Express } from 'express';
 import { ContainerBuilder, type Container as ServiceContainer } from 'diod';
 import type { EnvConfig } from './shared/config/EnvConfig';
 import { PrismaConnection } from './shared/infrastructure/database/PrismaConnection';
-import { SignedDocumentRepository } from "./modules/SignedDocuments/domain/SignedDocumentRepository";
-import { PrismaSignedDocumentRepository } from "./modules/SignedDocuments/infrastructure/PrismaSignedDocumentRepository";
-import { RegisterSignatureUseCase } from "./modules/SignedDocuments/application/RegisterSignatureUseCase";
-import { QuerySignaturesUseCase } from "./modules/SignedDocuments/application/QuerySignaturesUseCase";
-import { AdminSignedDocumentController } from "./modules/SignedDocuments/presentation/AdminSignedDocumentController";
+import { SignedDocumentRepository } from './modules/SignedDocuments/domain/SignedDocumentRepository';
+import { PrismaSignedDocumentRepository } from './modules/SignedDocuments/infrastructure/PrismaSignedDocumentRepository';
+import { RegisterSignatureUseCase } from './modules/SignedDocuments/application/RegisterSignatureUseCase';
+import { QuerySignaturesUseCase } from './modules/SignedDocuments/application/QuerySignaturesUseCase';
+import { AdminSignedDocumentController } from './modules/SignedDocuments/presentation/AdminSignedDocumentController';
 
 import { PrismaClient } from './shared/infrastructure/prisma/generated/client';
 import { PageRepository } from './modules/Page/domain/PageRepository';
@@ -246,6 +246,12 @@ import { RegisterSubscriptionPaymentUseCase } from './modules/Subscription/appli
 import { UpdateSubscriptionUseCase } from './modules/Subscription/application/UpdateSubscriptionUseCase';
 import { ExportBillingCsvUseCase } from './modules/Subscription/application/ExportBillingCsvUseCase';
 import { AdminSubscriptionController } from './modules/Subscription/presentation/AdminSubscriptionController';
+import { DemoRepository } from './modules/Demo/domain/DemoRepository';
+import { PrismaDemoRepository } from './modules/Demo/infrastructure/PrismaDemoRepository';
+import { CreateDemoUseCase } from './modules/Demo/application/CreateDemoUseCase';
+import { QueryDemosUseCase } from './modules/Demo/application/QueryDemosUseCase';
+import { UpdateProspectUseCase } from './modules/Demo/application/UpdateProspectUseCase';
+import { AdminDemoController } from './modules/Demo/presentation/AdminDemoController';
 import { buildApp } from './app';
 
 /**
@@ -335,7 +341,12 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .asSingleton();
   builder
     .registerAndUse(ManageTenantUseCase)
-    .withDependencies([TenantRepository, DomainVerifier, PlatformDomainConfig, SignedDocumentRepository]);
+    .withDependencies([
+      TenantRepository,
+      DomainVerifier,
+      PlatformDomainConfig,
+      SignedDocumentRepository,
+    ]);
   builder
     .registerAndUse(AdminTenantController)
     .withDependencies([
@@ -385,7 +396,13 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .asSingleton();
   builder
     .register(FileStorageConfig)
-    .useFactory(() => new FileStorageConfig(env.get('MAX_FILE_SIZE_MB') * 1024 * 1024, env.get('IMAGE_MAX_WIDTH')))
+    .useFactory(
+      () =>
+        new FileStorageConfig(
+          env.get('MAX_FILE_SIZE_MB') * 1024 * 1024,
+          env.get('IMAGE_MAX_WIDTH'),
+        ),
+    )
     .asSingleton();
   builder
     .register(StorageProvider)
@@ -455,7 +472,9 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(UpdatePageUseCase)
     .withDependencies([PageRepository, RecordSlugChangeUseCase, StoreSettingsRepository]);
-  builder.registerAndUse(DeletePageUseCase).withDependencies([PageRepository, StoreSettingsRepository]);
+  builder
+    .registerAndUse(DeletePageUseCase)
+    .withDependencies([PageRepository, StoreSettingsRepository]);
   builder.registerAndUse(AddSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(UpdateSectionUseCase).withDependencies([PageRepository]);
   builder.registerAndUse(DeleteSectionUseCase).withDependencies([PageRepository]);
@@ -651,6 +670,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       PasswordHasher,
       RequestPasswordResetUseCase,
       PasswordResetMailer,
+      TenantRepository,
     ]);
   builder
     .registerAndUse(AuthController)
@@ -920,13 +940,18 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       RateLimiter,
     ]);
   builder.register(PreviewLinkRepository).use(PrismaPreviewLinkRepository);
-  builder.registerAndUse(GeneratePreviewLinkUseCase).withDependencies([PreviewLinkRepository]);
-  builder.registerAndUse(RevokePreviewLinkUseCase).withDependencies([PreviewLinkRepository]);
-  builder.registerAndUse(ValidatePreviewTokenUseCase).withDependencies([PreviewLinkRepository]);
-  builder.registerAndUse(AdminPreviewLinkController).withDependencies([
-    GeneratePreviewLinkUseCase,
-    RevokePreviewLinkUseCase,
-  ]);
+  builder
+    .registerAndUse(GeneratePreviewLinkUseCase)
+    .withDependencies([PreviewLinkRepository]);
+  builder
+    .registerAndUse(RevokePreviewLinkUseCase)
+    .withDependencies([PreviewLinkRepository]);
+  builder
+    .registerAndUse(ValidatePreviewTokenUseCase)
+    .withDependencies([PreviewLinkRepository]);
+  builder
+    .registerAndUse(AdminPreviewLinkController)
+    .withDependencies([GeneratePreviewLinkUseCase, RevokePreviewLinkUseCase]);
   builder
     .registerAndUse(ReviewSiteQualityUseCase)
     .withDependencies([
@@ -935,28 +960,75 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       NavigationRepository,
       StorageAssetRepository,
     ]);
-  builder.registerAndUse(AdminSiteQualityReviewController).withDependencies([
-    ReviewSiteQualityUseCase,
-  ]);
+  builder
+    .registerAndUse(AdminSiteQualityReviewController)
+    .withDependencies([ReviewSiteQualityUseCase]);
 
   builder.registerAndUse(PrismaSubscriptionRepository).withDependencies([PrismaClient]);
-  builder.registerAndUse(GetSubscriptionsOverviewUseCase).withDependencies([PrismaSubscriptionRepository]);
-  builder.registerAndUse(GetSubscriptionStatusUseCase).withDependencies([PrismaSubscriptionRepository]);
-  builder.registerAndUse(RegisterSubscriptionPaymentUseCase).withDependencies([PrismaSubscriptionRepository]);
-  builder.registerAndUse(UpdateSubscriptionUseCase).withDependencies([PrismaSubscriptionRepository]);
-  builder.registerAndUse(ExportBillingCsvUseCase).withDependencies([PrismaSubscriptionRepository]);
-  
-  builder.registerAndUse(AdminSubscriptionController).withDependencies([
-    GetSubscriptionsOverviewUseCase,
-    GetSubscriptionStatusUseCase,
-    RegisterSubscriptionPaymentUseCase,
-    UpdateSubscriptionUseCase,
-    ExportBillingCsvUseCase,
-  ]);
-  builder.register(SignedDocumentRepository).use(PrismaSignedDocumentRepository).withDependencies([PrismaClient]);
-  builder.registerAndUse(RegisterSignatureUseCase).withDependencies([SignedDocumentRepository, TenantRepository, RecordActivityUseCase]);
-  builder.registerAndUse(QuerySignaturesUseCase).withDependencies([SignedDocumentRepository, TenantRepository]);
-  builder.registerAndUse(AdminSignedDocumentController).withDependencies([RegisterSignatureUseCase, QuerySignaturesUseCase]);
+  builder
+    .registerAndUse(GetSubscriptionsOverviewUseCase)
+    .withDependencies([PrismaSubscriptionRepository]);
+  builder
+    .registerAndUse(GetSubscriptionStatusUseCase)
+    .withDependencies([PrismaSubscriptionRepository]);
+  builder
+    .registerAndUse(RegisterSubscriptionPaymentUseCase)
+    .withDependencies([PrismaSubscriptionRepository]);
+  builder
+    .registerAndUse(UpdateSubscriptionUseCase)
+    .withDependencies([PrismaSubscriptionRepository]);
+  builder
+    .registerAndUse(ExportBillingCsvUseCase)
+    .withDependencies([PrismaSubscriptionRepository]);
+
+  builder
+    .registerAndUse(AdminSubscriptionController)
+    .withDependencies([
+      GetSubscriptionsOverviewUseCase,
+      GetSubscriptionStatusUseCase,
+      RegisterSubscriptionPaymentUseCase,
+      UpdateSubscriptionUseCase,
+      ExportBillingCsvUseCase,
+    ]);
+  builder
+    .register(SignedDocumentRepository)
+    .use(PrismaSignedDocumentRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(RegisterSignatureUseCase)
+    .withDependencies([
+      SignedDocumentRepository,
+      TenantRepository,
+      RecordActivityUseCase,
+    ]);
+  builder
+    .registerAndUse(QuerySignaturesUseCase)
+    .withDependencies([SignedDocumentRepository, TenantRepository]);
+  builder
+    .registerAndUse(AdminSignedDocumentController)
+    .withDependencies([RegisterSignatureUseCase, QuerySignaturesUseCase]);
+
+  // Demos de prospecto: un tenant en estado `demo` con su ficha y sus enlaces mágicos.
+  builder
+    .register(DemoRepository)
+    .use(PrismaDemoRepository)
+    .withDependencies([PrismaClient]);
+  builder
+    .registerAndUse(CreateDemoUseCase)
+    .withDependencies([
+      DemoRepository,
+      CreateTenantUseCase,
+      SiteContentSource,
+      PlatformDomainConfig,
+      RecordActivityUseCase,
+    ]);
+  builder.registerAndUse(QueryDemosUseCase).withDependencies([DemoRepository]);
+  builder
+    .registerAndUse(UpdateProspectUseCase)
+    .withDependencies([DemoRepository, RecordActivityUseCase]);
+  builder
+    .registerAndUse(AdminDemoController)
+    .withDependencies([CreateDemoUseCase, QueryDemosUseCase, UpdateProspectUseCase]);
 
   return builder.build();
 };
@@ -1002,10 +1074,12 @@ export class Container {
         checkoutController: this.services.get(CheckoutController),
         adminOrderController: this.services.get(AdminOrderController),
         adminPreviewLinkController: this.services.get(AdminPreviewLinkController),
-        adminSiteQualityReviewController: this.services.get(AdminSiteQualityReviewController),
+        adminSiteQualityReviewController: this.services.get(
+          AdminSiteQualityReviewController,
+        ),
         adminSubscriptionController: this.services.get(AdminSubscriptionController),
         adminSignedDocumentController: this.services.get(AdminSignedDocumentController),
-
+        adminDemoController: this.services.get(AdminDemoController),
       },
       env.get('CORS_ORIGIN'),
       createFileUploadMiddleware(this.services.get(FileStorageConfig).maxFileSizeBytes),
@@ -1021,11 +1095,13 @@ export class Container {
       createIdempotency(this.services.get(IdempotencyStore), 'store.checkout'),
       async () => {
         // Ping DB (ligero)
-        const prisma = this.services.get(PrismaClient) as unknown as { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
+        const prisma = this.services.get(PrismaClient) as unknown as {
+          $queryRaw: (query: TemplateStringsArray) => Promise<unknown>;
+        };
         await prisma.$queryRaw`SELECT 1`;
         // Ping Storage
         await this.services.get(StorageProvider).healthCheck();
-      }
+      },
     );
   }
 

@@ -51,7 +51,9 @@ describe('CreateTenantUseCase', () => {
   it('crea un cliente vacío con su dominio de plataforma cuando no se pide plantilla ni duplicado', async () => {
     const repository = buildRepository();
 
-    await new CreateTenantUseCase(repository, buildSource(), buildPlatform()).execute(input);
+    await new CreateTenantUseCase(repository, buildSource(), buildPlatform()).execute(
+      input,
+    );
 
     expect(repository.createWithContent).toHaveBeenCalledWith(
       'nuevo',
@@ -69,19 +71,16 @@ describe('CreateTenantUseCase', () => {
   it('si no hay dominio de plataforma configurado, la creación sigue funcionando', async () => {
     const repository = buildRepository();
 
-    await new CreateTenantUseCase(repository, buildSource(), buildPlatform('')).execute(input);
-
-    expect(repository.createWithContent).toHaveBeenCalledWith(
-      'nuevo',
-      'Nuevo',
-      [],
-      {
-        settings: {},
-        navigation: [],
-        brand: {},
-        pages: [],
-      },
+    await new CreateTenantUseCase(repository, buildSource(), buildPlatform('')).execute(
+      input,
     );
+
+    expect(repository.createWithContent).toHaveBeenCalledWith('nuevo', 'Nuevo', [], {
+      settings: {},
+      navigation: [],
+      brand: {},
+      pages: [],
+    });
   });
 
   it('pone el dominio de plataforma al final si el cliente ya trae uno propio', async () => {

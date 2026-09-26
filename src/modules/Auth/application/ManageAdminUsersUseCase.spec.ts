@@ -1,5 +1,8 @@
 import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityError';
+import { Tenant } from '@/modules/Tenant/domain/Tenant';
+import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 import { AdminUser, type AdminRole } from '../domain/AdminUser';
 import type { AdminUserRepository } from '../domain/AdminUserRepository';
 import type { PasswordHasher } from '../domain/PasswordHasher';
@@ -67,6 +70,18 @@ describe('ManageAdminUsersUseCase', () => {
     verify: jest.fn(),
   });
 
+  const DEMO_ID = '018f6f1a-0000-7000-8000-000000000050';
+  // Toda id es un cliente normal salvo DEMO_ID, que es una demo de prospecto.
+  const tenantRepository = {
+    findById: jest
+      .fn()
+      .mockImplementation((id: string) =>
+        Promise.resolve(
+          new Tenant(id, 'sitio', 'Sitio', null, id === DEMO_ID ? 'demo' : 'active'),
+        ),
+      ),
+  } as unknown as TenantRepository;
+
   const build = (
     users: AdminUser[],
   ): {
@@ -81,6 +96,7 @@ describe('ManageAdminUsersUseCase', () => {
       buildHasher(),
       buildPasswordReset() as unknown as RequestPasswordResetUseCase,
       mailer,
+      tenantRepository,
     );
     return { useCase, repository, mailer };
   };
@@ -327,5 +343,35 @@ describe('ManageAdminUsersUseCase', () => {
       '018f6f1a-0000-7000-8000-000000000003',
       [],
     );
+  });
+
+  it('no invita a una persona con rol cliente sobre una demo', async () => {
+    const { useCase, repository, mailer } = build([owner]);
+
+    await expect(
+      useCase.invite({
+        email: 'prospecto@pasteleria.cl',
+        name: 'Prospecto',
+        role: 'client',
+        tenantIds: [DEMO_ID],
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityError);
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(mailer.sendInvitation).not.toHaveBeenCalled();
+  });
+
+  it('no asigna una demo al pasar a alguien a rol cliente', async () => {
+    const { useCase, repository } = build([owner, editor]);
+
+    await expect(
+      useCase.changeRole(
+        '018f6f1a-0000-7000-8000-000000000001',
+        '018f6f1a-0000-7000-8000-000000000002',
+        'client',
+        ['018f6f1a-0000-7000-8000-000000000040', DEMO_ID],
+      ),
+    ).rejects.toBeInstanceOf(UnprocessableEntityError);
+    expect(repository.setRole).not.toHaveBeenCalled();
+    expect(repository.setTenants).not.toHaveBeenCalled();
   });
 });

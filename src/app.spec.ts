@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
- 
+
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
 import type { Express, RequestHandler } from 'express';
@@ -171,10 +171,26 @@ describe('buildApp (rutas protegidas)', () => {
         listVersions: ok(200),
         restoreVersion: ok(200),
       },
-      adminSignedDocumentController: { register: ok(201), listOutdated: ok(200), listByTenant: ok(200) } as any,
-      adminSubscriptionController: { statusAction: ok(200), updateAction: ok(200), registerPaymentAction: ok(200), overviewAction: ok(200), exportAction: ok(200) },
+      adminSignedDocumentController: {
+        register: ok(201),
+        listOutdated: ok(200),
+        listByTenant: ok(200),
+      } as any,
+      adminSubscriptionController: {
+        statusAction: ok(200),
+        updateAction: ok(200),
+        registerPaymentAction: ok(200),
+        overviewAction: ok(200),
+        exportAction: ok(200),
+      },
       adminSiteQualityReviewController: {
         review: ok(200),
+      },
+      adminDemoController: {
+        create: ok(201),
+        list: ok(200),
+        get: ok(200),
+        updateProspect: ok(200),
       },
     } as unknown as AppControllers;
   };
@@ -198,7 +214,16 @@ describe('buildApp (rutas protegidas)', () => {
   };
 
   const app = (): Express =>
-    buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop, noop);
+    buildApp(
+      buildControllers(),
+      ['*'],
+      noop,
+      fakeTenantResolver,
+      fakeActor,
+      noop,
+      noop,
+      noop,
+    );
 
   it('rechaza subir un archivo sin sesión de administración', async () => {
     const response = await request(app()).post('/api/files');
@@ -267,7 +292,18 @@ describe('buildApp (rutas protegidas)', () => {
 
   describe('health', () => {
     it('responde 200 ok si la base de datos y el storage responden', async () => {
-      const server = buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop, noop, noop, () => Promise.resolve());
+      const server = buildApp(
+        buildControllers(),
+        ['*'],
+        noop,
+        fakeTenantResolver,
+        fakeActor,
+        noop,
+        noop,
+        noop,
+        noop,
+        () => Promise.resolve(),
+      );
 
       const res = await request(server).get('/health');
       expect(res.status).toBe(200);
@@ -275,7 +311,18 @@ describe('buildApp (rutas protegidas)', () => {
     });
 
     it('responde 503 error si falla el healthCheck', async () => {
-      const server = buildApp(buildControllers(), ['*'], noop, fakeTenantResolver, fakeActor, noop, noop, noop, noop, () => Promise.reject(new Error('Timeout de base de datos')));
+      const server = buildApp(
+        buildControllers(),
+        ['*'],
+        noop,
+        fakeTenantResolver,
+        fakeActor,
+        noop,
+        noop,
+        noop,
+        noop,
+        () => Promise.reject(new Error('Timeout de base de datos')),
+      );
 
       const res = await request(server).get('/health');
       expect(res.status).toBe(503);

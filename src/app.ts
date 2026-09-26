@@ -1,6 +1,5 @@
-import type { AdminSignedDocumentController } from "./modules/SignedDocuments/presentation/AdminSignedDocumentController";
-import { createAdminSignedDocumentRouter } from "./modules/SignedDocuments/presentation/adminSignedDocumentRouter";
-
+import type { AdminSignedDocumentController } from './modules/SignedDocuments/presentation/AdminSignedDocumentController';
+import { createAdminSignedDocumentRouter } from './modules/SignedDocuments/presentation/adminSignedDocumentRouter';
 
 import express, { type Express, type RequestHandler } from 'express';
 import cors from 'cors';
@@ -98,7 +97,12 @@ import { ErrorHandler } from './shared/presentation/ErrorHandler';
 import type { AdminSiteQualityReviewController } from './modules/SiteQualityReview/presentation/AdminSiteQualityReviewController';
 import { createAdminSiteQualityReviewRouter } from './modules/SiteQualityReview/presentation/adminSiteQualityReviewRouter';
 import type { AdminSubscriptionController } from './modules/Subscription/presentation/AdminSubscriptionController';
-import { createAdminSubscriptionRouter, createAdminSubscriptionOverviewRouter } from './modules/Subscription/presentation/adminSubscriptionRouter';
+import {
+  createAdminSubscriptionRouter,
+  createAdminSubscriptionOverviewRouter,
+} from './modules/Subscription/presentation/adminSubscriptionRouter';
+import type { AdminDemoController } from './modules/Demo/presentation/AdminDemoController';
+import { createAdminDemoRouter } from './modules/Demo/presentation/adminDemoRouter';
 
 export interface AppControllers {
   readonly pageController: PageController;
@@ -136,6 +140,7 @@ export interface AppControllers {
   readonly adminSiteQualityReviewController: AdminSiteQualityReviewController;
   readonly adminSubscriptionController: AdminSubscriptionController;
   readonly adminSignedDocumentController: AdminSignedDocumentController;
+  readonly adminDemoController: AdminDemoController;
 }
 
 export const buildApp = (
@@ -425,7 +430,7 @@ export const buildApp = (
     actorMiddleware,
     controllers.adminBrandController.listFontPairings,
   );
-  
+
   app.use(
     '/api/admin/tenants/:tenantId/quality-review',
     ...adminGuards,
@@ -446,10 +451,20 @@ export const buildApp = (
     createAdminSubscriptionRouter(controllers.adminSubscriptionController),
   );
 
+  // Demos de prospecto: trabajo de la agencia. Sin `activityRecording` genérico porque cada
+  // caso de uso registra su propia acción (`demo.create`...) sin los enlaces en claro.
+  app.use(
+    '/api/admin/demos',
+    actorMiddleware,
+    requireStaff,
+    requireMethodPermission,
+    createAdminDemoRouter(controllers.adminDemoController),
+  );
+
   app.use(
     '/api/admin/signed-documents',
     ...adminGuards,
-    createAdminSignedDocumentRouter(controllers.adminSignedDocumentController)
+    createAdminSignedDocumentRouter(controllers.adminSignedDocumentController),
   );
 
   app.use(errorHandler.handle);

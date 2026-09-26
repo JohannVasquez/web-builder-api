@@ -4,6 +4,7 @@
 
 import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityError';
 import type { DomainVerifier } from '../domain/DomainVerifier';
 import { Tenant } from '../domain/Tenant';
 import { TenantDomainRecord } from '../domain/TenantDomain';
@@ -63,9 +64,13 @@ describe('ManageTenantUseCase', () => {
     findByTenant: jest.fn().mockResolvedValue(signatures),
   });
 
-
   it('pausa un cliente sin tocar su contenido', async () => {
-    const useCase = new ManageTenantUseCase(repository(), verifier(true), platform, signedRepo() as any);
+    const useCase = new ManageTenantUseCase(
+      repository(),
+      verifier(true),
+      platform,
+      signedRepo() as any,
+    );
 
     const paused = await useCase.setStatus(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -80,7 +85,12 @@ describe('ManageTenantUseCase', () => {
     const empty = {
       findById: jest.fn().mockResolvedValue(null),
     } as unknown as jest.Mocked<TenantRepository>;
-    const useCase = new ManageTenantUseCase(empty, verifier(true), platform, signedRepo() as any);
+    const useCase = new ManageTenantUseCase(
+      empty,
+      verifier(true),
+      platform,
+      signedRepo() as any,
+    );
 
     await expect(
       useCase.setStatus('018f6f1a-0000-7000-8000-000000000099', 'paused'),
@@ -89,7 +99,12 @@ describe('ManageTenantUseCase', () => {
 
   it('da por verificado un subdominio de la propia plataforma', async () => {
     const repo = repository();
-    const useCase = new ManageTenantUseCase(repo, verifier(false), platform, signedRepo() as any);
+    const useCase = new ManageTenantUseCase(
+      repo,
+      verifier(false),
+      platform,
+      signedRepo() as any,
+    );
 
     const created = await useCase.addDomain(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -106,7 +121,12 @@ describe('ManageTenantUseCase', () => {
 
   it('deja sin verificar un dominio propio del cliente', async () => {
     const repo = repository();
-    const useCase = new ManageTenantUseCase(repo, verifier(false), platform, signedRepo() as any);
+    const useCase = new ManageTenantUseCase(
+      repo,
+      verifier(false),
+      platform,
+      signedRepo() as any,
+    );
 
     const created = await useCase.addDomain(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -132,7 +152,7 @@ describe('ManageTenantUseCase', () => {
       repository([pending]),
       verifier(false),
       platform,
-      signedRepo() as any
+      signedRepo() as any,
     );
 
     await expect(
@@ -152,7 +172,10 @@ describe('ManageTenantUseCase', () => {
     );
     const check = verifier(true);
     const repo = repository([pending]);
-    const signedRepoDocs = signedRepo([{ document: 'contrato-de-servicio' }, { document: 'contrato-de-datos' }]) as any;
+    const signedRepoDocs = signedRepo([
+      { document: 'contrato-de-servicio' },
+      { document: 'contrato-de-datos' },
+    ]) as any;
     const useCase = new ManageTenantUseCase(repo, check, platform, signedRepoDocs);
 
     const verified = await useCase.verifyDomain(
@@ -172,7 +195,12 @@ describe('ManageTenantUseCase', () => {
       new Date(),
     );
     const check = verifier(false);
-    const useCase = new ManageTenantUseCase(repository([done]), check, platform, signedRepo() as any);
+    const useCase = new ManageTenantUseCase(
+      repository([done]),
+      check,
+      platform,
+      signedRepo() as any,
+    );
 
     await useCase.verifyDomain(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -183,7 +211,12 @@ describe('ManageTenantUseCase', () => {
   });
 
   it('entrega instrucciones de DNS con CNAME para un subdominio y A para un dominio raíz', () => {
-    const useCase = new ManageTenantUseCase(repository(), verifier(true), platform, signedRepo() as any);
+    const useCase = new ManageTenantUseCase(
+      repository(),
+      verifier(true),
+      platform,
+      signedRepo() as any,
+    );
 
     const apex = useCase.instructionsFor(
       '018f6f1a-0000-7000-8000-000000000007',
@@ -223,7 +256,12 @@ describe('ManageTenantUseCase', () => {
       new Date(), // verified
     );
     const repo = repository([customDomain]);
-    const useCase = new ManageTenantUseCase(repo, verifier(true), platform, signedRepo([]) as any);
+    const useCase = new ManageTenantUseCase(
+      repo,
+      verifier(true),
+      platform,
+      signedRepo([]) as any,
+    );
 
     await expect(
       useCase.setStatus('018f6f1a-0000-7000-8000-000000000007', 'active'),
@@ -238,10 +276,84 @@ describe('ManageTenantUseCase', () => {
       new Date(), // verified
     );
     const repo = repository([customDomain]);
-    const docs = [{ document: 'contrato-de-servicio' }, { document: 'contrato-de-datos' }];
-    const useCase = new ManageTenantUseCase(repo, verifier(true), platform, signedRepo(docs) as any);
+    const docs = [
+      { document: 'contrato-de-servicio' },
+      { document: 'contrato-de-datos' },
+    ];
+    const useCase = new ManageTenantUseCase(
+      repo,
+      verifier(true),
+      platform,
+      signedRepo(docs) as any,
+    );
 
-    const active = await useCase.setStatus('018f6f1a-0000-7000-8000-000000000007', 'active');
+    const active = await useCase.setStatus(
+      '018f6f1a-0000-7000-8000-000000000007',
+      'active',
+    );
     expect(active.status).toBe('active');
+  });
+
+  describe('demos', () => {
+    const demo = new Tenant(
+      '018f6f1a-0000-7000-8000-000000000008',
+      'demo-pasteleria-luna',
+      'Pastelería Luna',
+      'demo-pasteleria-luna.webbuilder.co',
+      'demo',
+    );
+    const demoRepository = (): jest.Mocked<TenantRepository> => {
+      const repo = repository();
+      repo.findById.mockResolvedValue(demo);
+      return repo;
+    };
+
+    it.each(['active', 'paused', 'building'] as const)(
+      'no deja pasar una demo a %s desde el cambio de estado',
+      async (status) => {
+        const repo = demoRepository();
+        const useCase = new ManageTenantUseCase(
+          repo,
+          verifier(true),
+          platform,
+          signedRepo() as any,
+        );
+
+        await expect(useCase.setStatus(demo.id, status)).rejects.toBeInstanceOf(
+          UnprocessableEntityError,
+        );
+        expect(repo.setStatus).not.toHaveBeenCalled();
+      },
+    );
+
+    it('no deja poner un cliente en demo', async () => {
+      const repo = repository();
+      const useCase = new ManageTenantUseCase(
+        repo,
+        verifier(true),
+        platform,
+        signedRepo() as any,
+      );
+
+      await expect(useCase.setStatus(tenant.id, 'demo')).rejects.toBeInstanceOf(
+        UnprocessableEntityError,
+      );
+      expect(repo.setStatus).not.toHaveBeenCalled();
+    });
+
+    it('no deja agregarle un dominio propio a una demo y explica qué hacer', async () => {
+      const repo = demoRepository();
+      const useCase = new ManageTenantUseCase(
+        repo,
+        verifier(true),
+        platform,
+        signedRepo() as any,
+      );
+
+      await expect(useCase.addDomain(demo.id, 'pasteleria-luna.cl')).rejects.toThrow(
+        'Una demo no puede tener dominio propio; conviértela primero.',
+      );
+      expect(repo.addDomain).not.toHaveBeenCalled();
+    });
   });
 });

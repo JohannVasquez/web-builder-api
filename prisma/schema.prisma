@@ -13,7 +13,8 @@ model Tenant {
   id                 String                 @id @default(uuid(7)) @db.Uuid
   slug               String                 @unique @db.VarChar(100)
   name               String                 @db.VarChar(255)
-  /// `active` sirve el sitio; `paused` y `building` responden mantención.
+  /// `active` sirve el sitio; `paused` y `building` responden mantención; `demo` es el sitio
+  /// privado de un prospecto (ver `Demo`): solo se ve con su enlace.
   status             String                 @default("active") @db.VarChar(20)
   createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt          DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
@@ -42,6 +43,7 @@ model Tenant {
   signedDocuments    SignedDocument[]
   previewLinks       PreviewLink[]
   subscription       Subscription?
+  demo               Demo?
 
   @@map("tenants")
 }
@@ -846,4 +848,107 @@ model SignedDocument {
   @@index([tenantId, document])
   @@index([document, version])
   @@map("signed_documents")
+}
+
+/// Negocio al que la agencia le arma una demo antes de llamarlo. Son datos personales (quién
+/// atiende, su teléfono, su correo): se borran junto con sus demos.
+model Prospect {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  businessName String  @map("business_name") @db.VarChar(255)
+  contactName  String? @map("contact_name") @db.VarChar(160)
+  phone        String? @db.VarChar(40)
+  email        String? @db.VarChar(255)
+  /// Rubro, en palabras de quien lo cargó ("pastelería").
+  industry     String? @db.VarChar(120)
+  /// De dónde salió: "Google Maps", "Instagram", "referido"...
+  source       String? @db.VarChar(120)
+  notes        String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  demos     Demo[]
+
+  @@map("prospects")
+}
+
+/// Sitio privado de un prospecto: un tenant en estado `demo` más lo que hace falta para
+/// venderlo. La fila está pensada para sobrevivir al borrado del sitio como registro anónimo
+/// para métricas: por eso el tenant y el prospecto se sueltan (SetNull) en vez de arrastrarla,
+/// y el kit, el rubro y quién la creó son copias y no referencias.
+model Demo {
+  id         String  @id @default(uuid(7)) @db.Uuid
+  /// Una demo por tenant. Nulo cuando el sitio ya se borró.
+  tenantId   String? @unique @map("tenant_id") @db.Uuid
+  prospectId String? @map("prospect_id") @db.Uuid
+
+  /// Kit de origen, si nació de uno.
+  templateId String? @map("template_id") @db.VarChar(100)
+  /// Copia del rubro al crearla: la ficha del prospecto se borra, la métrica no.
+  industry   String? @db.VarChar(120)
+
+  /// Quién la creó, congelado como en `ActivityLog`: `admin` | `apiKey`.
+  actorType String  @map("actor_type") @db.VarChar(20)
+  actorId   String? @map("actor_id") @db.Uuid
+  actorName String  @map("actor_name") @db.VarChar(255)
+
+  /// Nulo = sin vencimiento (ej. una demo que se usa de portafolio).
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz()
+  /// Nulo mientras no haya resultado; `converted` | `discarded`.
+  outcome   String?   @db.VarChar(20)
+  outcomeAt DateTime? @map("outcome_at") @db.Timestamptz()
+
+  /// Contadores propios: se conservan aunque las visitas se borren con los datos personales.
+  visitCount   Int       @default(0) @map("visit_count")
+  firstVisitAt DateTime? @map("first_visit_at") @db.Timestamptz()
+  lastVisitAt  DateTime? @map("last_visit_at") @db.Timestamptz()
+
+  /// Cuándo se borró el sitio y los datos personales; la fila queda como rastro anónimo.
+  purgedAt DateTime? @map("purged_at") @db.Timestamptz()
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  tenant       Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  prospect     Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  accessTokens DemoAccessToken[]
+  visits       DemoVisit[]
+
+  @@index([prospectId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("demos")
+}
+
+/// Enlace mágico de una demo. `prospect` vale mientras la demo esté vigente y registra
+/// visitas; `team` vale mientras la demo exista y no registra nada. Se guarda el hash del
+/// token, nunca el token.
+model DemoAccessToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  demoId    String    @map("demo_id") @db.Uuid
+  kind      String    @db.VarChar(20)
+  /// SHA-256 del token entregado.
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  /// Regenerar anula el anterior al instante.
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  demo      Demo      @relation(fields: [demoId], references: [id], onDelete: Cascade)
+
+  @@index([demoId, kind])
+  @@map("demo_access_tokens")
+}
+
+/// Página que el prospecto abrió con su enlace. Es un dato personal del prospecto: se borra
+/// con la demo, y los contadores de `Demo` quedan.
+model DemoVisit {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  demoId    String   @map("demo_id") @db.Uuid
+  pageSlug  String   @map("page_slug") @db.VarChar(255)
+  /// Huella de la IP con el mismo criterio que el consentimiento; nunca la IP.
+  ipHash    String?  @map("ip_hash") @db.VarChar(64)
+  userAgent String?  @map("user_agent") @db.VarChar(255)
+  visitedAt DateTime @default(now()) @map("visited_at") @db.Timestamptz()
+  demo      Demo     @relation(fields: [demoId], references: [id], onDelete: Cascade)
+
+  @@index([demoId, visitedAt])
+  @@map("demo_visits")
 }

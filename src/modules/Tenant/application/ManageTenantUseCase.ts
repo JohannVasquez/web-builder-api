@@ -1,5 +1,6 @@
 import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityError';
 import type { DomainVerifier } from '../domain/DomainVerifier';
 import type { Tenant, TenantStatus } from '../domain/Tenant';
 import { verificationHostFor, type TenantDomainRecord } from '../domain/TenantDomain';
@@ -40,7 +41,19 @@ export class ManageTenantUseCase {
   ) {}
 
   public async setStatus(tenantId: string, status: TenantStatus): Promise<Tenant> {
-    await this.requireTenant(tenantId);
+    const tenant = await this.requireTenant(tenantId);
+    // Entrar y salir de `demo` tiene reglas propias (enlaces, vencimiento, conversión): por
+    // aquí se saltarían todas. Una demo nace al crearla y sale al convertirla o descartarla.
+    if (status === 'demo') {
+      throw new UnprocessableEntityError(
+        'Un cliente no se puede pasar a demo. Las demos se crean desde /api/admin/demos.',
+      );
+    }
+    if (tenant.isDemo()) {
+      throw new UnprocessableEntityError(
+        'Esta es una demo: su estado no se cambia a mano. Para publicarla hay que convertirla en cliente.',
+      );
+    }
     if (status === 'active') {
       await this.requireSignaturesForCustomDomain(tenantId);
     }
@@ -53,7 +66,14 @@ export class ManageTenantUseCase {
   }
 
   public async addDomain(tenantId: string, domain: string): Promise<TenantDomainRecord> {
-    await this.requireTenant(tenantId);
+    const tenant = await this.requireTenant(tenantId);
+    // La única dirección de una demo es `demo-<slug>.<plataforma>`: cualquier otra la dejaría
+    // alcanzable por un nombre que no delata que es una demo.
+    if (tenant.isDemo()) {
+      throw new UnprocessableEntityError(
+        'Una demo no puede tener dominio propio; conviértela primero.',
+      );
+    }
     return this.tenantRepository.addDomain(tenantId, domain, this.platform.owns(domain));
   }
 
@@ -147,7 +167,7 @@ export class ManageTenantUseCase {
     const signatures = await this.signedDocumentRepository.findByTenant(tenantId);
     const hasContract = signatures.some((s) => s.document === 'contrato-de-servicio');
     const hasData = signatures.some((s) => s.document === 'contrato-de-datos');
-    
+
     // Validamos solo dominios propios para no afectar la operación y demostraciones actuales (Issue #106)
     if (!hasContract || !hasData) {
       throw new BadRequestError(

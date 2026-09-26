@@ -1,0 +1,52 @@
+import { z } from 'zod';
+import { idSchema } from '@/shared/domain/identifier';
+import { DEMO_STATUSES } from './Demo';
+import { ProspectInputSchema } from './Prospect';
+
+// El slug del tenant será `demo-<slug>` y el sufijo sugerido ante un choque suma unos
+// caracteres más: 90 deja margen dentro de los 100 que admite la columna.
+export const DEMO_SLUG_MAX_LENGTH = 90;
+
+export const CreateDemoSchema = z
+  .strictObject({
+    slug: z
+      .string()
+      .min(2)
+      .max(DEMO_SLUG_MAX_LENGTH)
+      .regex(
+        /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+        'Usa minúsculas y guiones, por ejemplo "pasteleria-luna"',
+      ),
+    name: z.string().trim().min(2).max(255),
+    // Mismo origen que un cliente: un kit por rubro, una copia de otro sitio o vacía.
+    templateId: z.string().max(100).optional(),
+    duplicateFromTenantId: idSchema.optional(),
+    // Un prospecto nuevo, o el id de uno existente para una segunda propuesta de diseño.
+    prospect: ProspectInputSchema.optional(),
+    prospectId: idSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      value.templateId === undefined || value.duplicateFromTenantId === undefined,
+    'Elige un kit o un sitio a duplicar, no las dos cosas.',
+  )
+  .refine(
+    (value) => (value.prospect === undefined) !== (value.prospectId === undefined),
+    'Manda los datos del prospecto (prospect) o el id de uno que ya existe (prospectId), uno de los dos.',
+  );
+
+export type CreateDemoInput = z.infer<typeof CreateDemoSchema>;
+
+export const DemoListQuerySchema = z.object({
+  status: z.enum(DEMO_STATUSES).optional(),
+  prospectId: idSchema.optional(),
+  // Id de la persona o clave que la creó.
+  createdBy: idSchema.optional(),
+});
+
+export type DemoListQuery = z.infer<typeof DemoListQuerySchema>;
+
+export const DemoVisitsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  perPage: z.coerce.number().int().min(1).max(200).default(50),
+});

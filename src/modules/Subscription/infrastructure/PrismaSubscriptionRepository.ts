@@ -9,7 +9,12 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
 
   public async save(
     tenantId: string,
-    subscription: { planName: string; priceCents: number; startsAt: Date; billingDay: number },
+    subscription: {
+      planName: string;
+      priceCents: number;
+      startsAt: Date;
+      billingDay: number;
+    },
   ): Promise<Subscription> {
     const raw = await this.prisma.subscription.upsert({
       where: { tenantId },
@@ -45,6 +50,9 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
 
   public async findAll(): Promise<Subscription[]> {
     const raw = await this.prisma.subscription.findMany({
+      // Una demo no es un cliente que pague: si alguien le cargó una mensualidad por error,
+      // no tiene que aparecer en la cobranza ni en el CSV.
+      where: { tenant: { status: { not: 'demo' } } },
       include: { payments: { orderBy: { paidAt: 'asc' } } },
     });
 
@@ -84,4 +92,3 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
     );
   }
 }
-

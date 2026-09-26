@@ -1,0 +1,85 @@
+import type { SiteContent } from '@/modules/Tenant/domain/SiteContent';
+import type { Demo, DemoCreator, DemoLinkKind, DemoStatus } from './Demo';
+import type { Prospect, ProspectInput, ProspectPatch } from './Prospect';
+import type { DemoVisit } from './DemoVisit';
+
+// El sitio de la demo tal como lo necesita la agencia para ubicarla.
+export interface DemoSite {
+  readonly tenantId: string;
+  readonly slug: string;
+  readonly name: string;
+  // La única dirección de la demo (`demo-<slug>.<plataforma>`).
+  readonly address: string | null;
+}
+
+export interface DemoView {
+  readonly demo: Demo;
+  // Nulo cuando el sitio ya se borró y la fila quedó como rastro anónimo.
+  readonly site: DemoSite | null;
+  readonly prospect: { readonly id: string; readonly businessName: string } | null;
+}
+
+export interface NewDemo {
+  readonly site: {
+    readonly slug: string;
+    readonly name: string;
+    readonly address: string;
+    readonly content: SiteContent;
+  };
+  readonly prospect: { readonly id: string } | { readonly data: ProspectInput };
+  readonly templateId: string | null;
+  readonly industry: string | null;
+  readonly creator: DemoCreator;
+  readonly createdAt: Date;
+  readonly expiresAt: Date | null;
+  // Solo los hashes: el token en claro nunca llega a la base.
+  readonly tokenHashes: Readonly<Record<DemoLinkKind, string>>;
+}
+
+export interface DemoFilter {
+  readonly status?: DemoStatus;
+  readonly prospectId?: string;
+  readonly createdBy?: string;
+}
+
+export interface DemoAccess {
+  readonly kind: DemoLinkKind;
+  readonly revokedAt: Date | null;
+  readonly demo: Demo;
+}
+
+export interface NewDemoVisit {
+  readonly pageSlug: string;
+  readonly ipHash: string | null;
+  readonly userAgent: string | null;
+  readonly visitedAt: Date;
+}
+
+// Clase abstracta usada como token de inyección de dependencias (diod).
+export abstract class DemoRepository {
+  // Sitio, prospecto, demo y enlaces en UNA transacción: una demo sin enlaces no la puede ver
+  // nadie, y un sitio sin su fila de demo quedaría en estado `demo` para siempre.
+  public abstract create(input: NewDemo): Promise<string>;
+  public abstract isAddressTaken(tenantSlug: string, address: string): Promise<boolean>;
+  public abstract findById(demoId: string): Promise<DemoView | null>;
+  public abstract list(filter: DemoFilter, now: Date): Promise<DemoView[]>;
+  public abstract findProspect(prospectId: string): Promise<Prospect | null>;
+  public abstract updateProspect(
+    prospectId: string,
+    patch: ProspectPatch,
+  ): Promise<Prospect>;
+  // Anula el enlace vigente de ese tipo y deja el nuevo, en la misma operación.
+  public abstract replaceAccessToken(
+    demoId: string,
+    kind: DemoLinkKind,
+    tokenHash: string,
+  ): Promise<void>;
+  public abstract findAccess(tokenHash: string): Promise<DemoAccess | null>;
+  // Guarda la visita y mueve los contadores de la demo juntos.
+  public abstract recordVisit(demoId: string, visit: NewDemoVisit): Promise<void>;
+  public abstract listVisits(
+    demoId: string,
+    page: number,
+    perPage: number,
+  ): Promise<{ visits: DemoVisit[]; total: number }>;
+}
