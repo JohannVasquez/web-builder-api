@@ -403,6 +403,14 @@ describe('herramientas del MCP', () => {
         `/api/admin/demos/${DEMO}/convert`,
         { slug: undefined, owner: { name: 'Ana', email: 'ana@luna.cl' } },
       ],
+      ['demo_metrics', {}, 'GET', '/api/admin/demos/metrics', undefined],
+      [
+        'demo_metrics',
+        { from: '2026-01-01', to: '2026-03-31', groupBy: 'creator' },
+        'GET',
+        '/api/admin/demos/metrics?from=2026-01-01&to=2026-03-31&groupBy=creator',
+        undefined,
+      ],
     ])(
       '%s llama a la misma ruta que el panel',
       async (name, args, method, path, body) => {

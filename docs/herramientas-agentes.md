@@ -52,6 +52,7 @@ Todo el recorrido funciona con una clave `write` sin alcance limitado. Después,
 - `extend_demo` (14 días más) o `set_demo_expiry` (sin vencimiento).
 - Si dijo que no: `discard_demo` (permiso `full`, `confirm: true`). Si llama de vuelta dentro de 30 días: `restore_demo`.
 - Si compró: `convert_demo` (permiso `full`, `confirm: true`) con el `owner` para crearle su cuenta. El sitio pasa a ser público en su dirección definitiva.
+- Para saber cómo va la venta: `demo_metrics` (permiso `full`) con `groupBy` `industry`, `template`, `creator` o `month`. Las tasas vienen como fracción de 0 a 1 (`0.3333` es 33 %).
 
 Ninguna herramienta borra una demo: eso lo hace la tarea diaria o la persona dueña de la cuenta desde el panel.
 
@@ -65,7 +66,7 @@ Existen tres niveles de permiso en las API Keys:
 - **`write`**: Permite leer y editar contenido (ej. añadir un bloque, subir imagen). `POST`, `PATCH`, `PUT`.
 - **`full`**: Permite además acciones destructivas o de alto impacto como publicar (`publish_page`) o eliminar (`DELETE`).
 
-Las demos de prospecto siguen el mismo modelo: leerlas (`list_demos`, `get_demo`) pide `read`; crearlas y operarlas (`create_demo`, `update_prospect`, `regenerate_demo_link`, `extend_demo`, `set_demo_expiry`, `restore_demo`) pide `write`; descartarlas y convertirlas (`discard_demo`, `convert_demo`) pide `full`. Una clave con **alcance limitado** a algunos clientes no alcanza a ninguna demo, ni para crearla ni para verla: una demo es trabajo de la agencia sobre un negocio que todavía no es cliente.
+Las demos de prospecto siguen el mismo modelo: leerlas (`list_demos`, `get_demo`) pide `read`; crearlas y operarlas (`create_demo`, `update_prospect`, `regenerate_demo_link`, `extend_demo`, `set_demo_expiry`, `restore_demo`) pide `write`; descartarlas y convertirlas (`discard_demo`, `convert_demo`) pide `full`, y ver sus métricas (`demo_metrics`) también pide `full`, porque muestran cuánto vende cada persona del equipo. Una clave con **alcance limitado** a algunos clientes no alcanza a ninguna demo, ni para crearla ni para verla: una demo es trabajo de la agencia sobre un negocio que todavía no es cliente.
 
 Si un error de validación ocurre en las herramientas, se te devolverá como una lista explícita de campos incorrectos (y sus motivos), para que puedas corregir los argumentos y reintentar inmediatamente.
 
@@ -88,6 +89,7 @@ Para garantizar que la documentación nunca se desfase del código real, todas l
 - `discard_demo`: Descartar una demo (`full` y `confirm: true`).
 - `restore_demo`: Recuperar una demo descartada dentro de los 30 días.
 - `convert_demo`: Convertir una demo en cliente (`full` y `confirm: true`).
+- `demo_metrics`: Métricas de demos: creadas, abiertas, convertidas y resultados, por rubro, kit, vendedor o mes (`full`).
 - `create_page`: Crear una página.
 - `update_page`: Editar meta-datos de una página.
 - `publish_page`: Publicar borrador al sitio público.

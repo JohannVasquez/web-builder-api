@@ -502,6 +502,32 @@ describe('demos de punta a punta (API y base reales)', () => {
       expect(JSON.stringify(open.body)).toContain(`Flores frescas ${tag}`);
     });
 
+    it('con full ve las métricas: las demos de esta corrida cuentan para la clave que las creó', async () => {
+      const metrics = await agent(keys.full)<{
+        range: { from: string; to: string };
+        funnel: { created: number };
+        groups: { key: string; label: string; funnel: { created: number } }[];
+      }>('demo_metrics', { groupBy: 'creator' });
+
+      const byWriteKey = metrics.groups.find(
+        (group) => group.key === `apiKey:Agente write ${tag}`,
+      );
+      expect(byWriteKey?.label).toBe(`Agente write ${tag} (clave de acceso)`);
+      expect(byWriteKey?.funnel.created).toBeGreaterThanOrEqual(1);
+      expect(metrics.funnel.created).toBeGreaterThanOrEqual(
+        byWriteKey?.funnel.created ?? 1,
+      );
+
+      // Un rango sin demos (1975) responde ceros, no un error.
+      const empty = await agent(keys.full)<{
+        funnel: { created: number; openRate: number };
+      }>('demo_metrics', { from: '1975-01-01', to: '1975-12-31', groupBy: 'month' });
+      expect(empty.funnel).toMatchObject({ created: 0, openRate: 0 });
+
+      await expect(agent(keys.write)('demo_metrics')).rejects.toThrow(/permiso "full"/);
+      await expect(agent(keys.read)('demo_metrics')).rejects.toThrow(/permiso "full"/);
+    });
+
     it('una clave limitada a algunos clientes no crea ni ve demos; una de lectura no crea', async () => {
       const scoped = agent(keys.scoped);
       const args = {

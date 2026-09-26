@@ -4,6 +4,7 @@ import { MIME_EXTENSIONS } from '../modules/FileStorage/domain/AllowedMimeTypes'
 import { idSchema } from '../shared/domain/identifier';
 import { DEMO_DISCARD_REASONS, DEMO_LINK_KINDS } from '../modules/Demo/domain/Demo';
 import { DEMO_LIST_STATUSES } from '../modules/Demo/domain/DemoSchema';
+import { DEMO_METRICS_GROUPINGS } from '../modules/Demo/domain/DemoMetrics';
 
 export interface McpTool {
   readonly name: string;
@@ -300,6 +301,42 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           slug: args.slug,
           owner: args.owner,
         }),
+    ),
+
+    tool(
+      'demo_metrics',
+      'Métricas de demos',
+      'Cuántas demos se crearon en un rango de fechas, cuántas abrió el prospecto y cuántas se vendieron (con sus tasas, de 0 a 1), qué pasó con ellas hasta hoy (vigentes, vencidas, descartadas por motivo, convertidas, borradas), en cuántos días se abren y se venden, y con `groupBy` el mismo embudo por rubro, kit, vendedor o mes. Cuenta también las demos ya borradas. Por omisión, los últimos 90 días. Requiere permiso "full": muestra cuánto vende cada persona del equipo.',
+      {
+        from: z
+          .string()
+          .optional()
+          .describe('Primer día incluido, AAAA-MM-DD en hora de Chile, ej. "2026-01-01"'),
+        to: z
+          .string()
+          .optional()
+          .describe('Último día incluido, AAAA-MM-DD en hora de Chile, ej. "2026-12-31"'),
+        groupBy: z
+          .enum(DEMO_METRICS_GROUPINGS)
+          .optional()
+          .describe(
+            '"industry" (rubro), "template" (kit), "creator" (quién la creó) o "month" (mes de creación)',
+          ),
+      },
+      (args) => {
+        const params = new URLSearchParams();
+        for (const key of ['from', 'to', 'groupBy'] as const) {
+          const value = args[key];
+          if (typeof value === 'string') {
+            params.set(key, value);
+          }
+        }
+        const query = params.toString();
+        return api.request(
+          'GET',
+          `/api/admin/demos/metrics${query === '' ? '' : `?${query}`}`,
+        );
+      },
     ),
 
     tool(

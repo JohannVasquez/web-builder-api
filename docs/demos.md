@@ -516,9 +516,9 @@ de modo que las demos nunca pidan uno propio.
 
 Todo lo anterior salvo borrar existe como herramienta MCP, con los mismos permisos y el mismo
 registro de actividad: `create_demo`, `list_demos`, `get_demo`, `update_prospect`,
-`regenerate_demo_link`, `extend_demo`, `set_demo_expiry`, `discard_demo`, `restore_demo` y
-`convert_demo`. Descartar y convertir piden permiso `full` y `confirm: true`; ninguna herramienta
-borra una demo. Una clave limitada a algunos clientes no alcanza a ninguna demo (ni para crearla
+`regenerate_demo_link`, `extend_demo`, `set_demo_expiry`, `discard_demo`, `restore_demo`,
+`convert_demo` y `demo_metrics` (las [métricas](#métricas)). Descartar y convertir piden permiso
+`full` y `confirm: true`; las métricas, `full`. Ninguna herramienta borra una demo. Una clave limitada a algunos clientes no alcanza a ninguna demo (ni para crearla
 ni para verla). El recorrido para el agente está en
 [Armar una demo para un prospecto](herramientas-agentes.md#armar-una-demo-para-un-prospecto).
 
