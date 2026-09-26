@@ -8,7 +8,17 @@ import { DeleteFileUseCase } from '../application/DeleteFileUseCase';
 import { FileStorageConfig } from '../domain/FileStorageConfig';
 import type { StorageAssetRepository } from '../domain/StorageAssetRepository';
 import type { FileData, StorageProvider } from '../domain/StorageProvider';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
+
+jest.mock('sharp', () => {
+  return (): unknown => ({
+    resize: (): unknown => ({
+      webp: (): unknown => ({
+        toBuffer: (): Promise<Buffer> => Promise.resolve(Buffer.from('optimized')),
+      }),
+    }),
+  });
+});
 
 describe('FileController (HTTP)', () => {
   const maxFileSizeBytes = 1024;
@@ -23,11 +33,16 @@ describe('FileController (HTTP)', () => {
       .mockImplementation((key: string) =>
         Promise.resolve(`http://cdn.test/assets/${key}`),
       ),
+    healthCheck: jest.fn(),
   });
 
   const buildAssetRepository = (): jest.Mocked<StorageAssetRepository> => ({
     register: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
+    findByTenant: jest.fn().mockResolvedValue([]),
+    findKey: jest.fn().mockResolvedValue(null),
+    updateAlt: jest.fn().mockResolvedValue(null),
+    findUsage: jest.fn().mockResolvedValue([]),
   });
 
   const buildApp = (storageProvider: StorageProvider): Express => {
@@ -36,7 +51,7 @@ describe('FileController (HTTP)', () => {
       new UploadFileUseCase(
         storageProvider,
         buildAssetRepository(),
-        new FileStorageConfig(maxFileSizeBytes),
+        new FileStorageConfig(maxFileSizeBytes, 2000),
       ),
       new DeleteFileUseCase(storageProvider, buildAssetRepository()),
     );
@@ -56,16 +71,16 @@ describe('FileController (HTTP)', () => {
     const response = await request(app)
       .post('/api/files')
       .attach('file', Buffer.from('fake-png'), {
-        filename: '../../etc/passwd.png',
+        filename: '@/modules/etc/passwd.png',
         contentType: 'image/png',
       });
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
-      key: expect.stringMatching(/^[0-9a-f-]{36}\.png$/) as string,
+      key: expect.stringMatching(/^[0-9a-f-]{36}\.webp$/) as string,
       url: expect.stringContaining('http://cdn.test/assets/') as string,
-      mimeType: 'image/png',
-      size: 8,
+      mimeType: 'image/webp',
+      size: 9,
     });
     expect(storageProvider.upload).toHaveBeenCalledTimes(1);
   });
@@ -93,8 +108,8 @@ describe('FileController (HTTP)', () => {
     const response = await request(app)
       .post('/api/files')
       .attach('file', Buffer.alloc(maxFileSizeBytes + 1), {
-        filename: 'big.png',
-        contentType: 'image/png',
+        filename: 'big.pdf',
+        contentType: 'application/pdf',
       });
 
     expect(response.status).toBe(413);

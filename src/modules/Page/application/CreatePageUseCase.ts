@@ -5,7 +5,7 @@ import type { PageInput } from '../domain/PageSchema';
 export class CreatePageUseCase {
   constructor(private readonly pageRepository: PageRepository) {}
 
-  public async execute(tenantId: number, input: PageInput): Promise<Page> {
+  public async execute(tenantId: string, input: PageInput): Promise<Page> {
     return this.pageRepository.create(tenantId, input);
   }
 }

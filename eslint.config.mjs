@@ -19,7 +19,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['prisma/seed.ts', 'prisma/seeders/*.ts'],
+          allowDefaultProject: ['prisma/seed.ts', 'prisma/seeders/*.ts', 'scripts/*.ts'],
           // El default (8) ya no alcanza: prisma/seeders/ creció con cada
           // módulo nuevo (AdminUserSeeder sumó el noveno). Sigue siendo un
           // puñado de archivos de seed, no un problema de performance real.
@@ -49,6 +49,9 @@ export default tseslint.config(
     plugins: { boundaries },
     settings: {
       'import/resolver': {
+        // Sin el resolvedor de TypeScript, un import con alias (`@/...`) no se resolvería y la
+        // regla de capas dejaría de vigilarlo sin avisar.
+        typescript: { project: './tsconfig.json' },
         node: { extensions: ['.ts', '.js', '.json'] },
       },
       'boundaries/elements': [

@@ -1,3 +1,4 @@
+import type { BrandUpdate } from '@/modules/Brand/domain/BrandSchema';
 import type { NavigationLinkSeed } from './NavigationSeeder';
 import type { PageSeed } from './PageSeeder';
 import type { SeedAssetKeys } from './StorageAssetsSeeder';
@@ -904,8 +905,9 @@ export interface TenantTemplate {
   readonly tenant: TenantSeedParams;
   readonly settings: Readonly<Record<string, string>>;
   readonly navigation: readonly NavigationLinkSeed[];
-  /** Cada tenant decide sus páginas: el motor solo renderiza lo que la BD dicte. */
+  // Cada tenant decide sus páginas: el motor solo renderiza lo que la BD dicte.
   readonly buildPages: (assets: SeedAssetKeys | null) => readonly PageSeed[];
+  readonly brand: BrandUpdate;
 }
 
 export const TENANT_TEMPLATES: readonly TenantTemplate[] = [
@@ -927,6 +929,12 @@ export const TENANT_TEMPLATES: readonly TenantTemplate[] = [
     },
     navigation: NAVIGATION_LINKS,
     buildPages: (assets) => buildPages('Web Builder Co.', DEFAULT_PALETTE, assets),
+    brand: {
+      palette: { primary: '#1d4ed8', secondary: '#0f172a', accent: '#38bdf8' },
+      typography: { pairing: 'inter', scale: 'normal' },
+      colorMode: 'system',
+      visualStyle: 'classic',
+    },
   },
   {
     // Tenant de demostración: mismo motor, otra marca. En el navegador se
@@ -951,6 +959,12 @@ export const TENANT_TEMPLATES: readonly TenantTemplate[] = [
     },
     navigation: NAVIGATION_LINKS,
     buildPages: (assets) => buildPages('Acme Estudio', ACME_PALETTE, assets),
+    brand: {
+      palette: { primary: '#0f766e', secondary: '#134e4a', accent: '#f59e0b' },
+      typography: { pairing: 'dm-serif-dm-sans', scale: 'normal' },
+      colorMode: 'light',
+      visualStyle: 'classic',
+    },
   },
   {
     // Cliente real del rubro eléctrico: contenido, paleta y assets propios.
@@ -972,5 +986,11 @@ export const TENANT_TEMPLATES: readonly TenantTemplate[] = [
     },
     navigation: NAVIGATION_LINKS,
     buildPages: (assets) => buildElectricaPages(ELECTRICA_PALETTE, assets),
+    brand: {
+      palette: { primary: '#17104c', secondary: '#312e81', accent: '#fbbf24' },
+      typography: { pairing: 'oswald-lato', scale: 'normal' },
+      colorMode: 'light',
+      visualStyle: 'classic',
+    },
   },
 ];

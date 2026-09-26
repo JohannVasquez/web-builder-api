@@ -4,13 +4,33 @@ import { TenantNotFoundError } from '../domain/TenantNotFoundError';
 import type { TenantRepository } from '../domain/TenantRepository';
 
 describe('ResolveTenantUseCase', () => {
-  const defaultTenant = new Tenant(1, 'default', 'Web Builder Co.', 'localhost');
-  const acmeTenant = new Tenant(2, 'acme', 'Acme Estudio', 'acme.localhost');
+  const defaultTenant = new Tenant(
+    '018f6f1a-0000-7000-8000-000000000001',
+    'default',
+    'Web Builder Co.',
+    'localhost',
+  );
+  const acmeTenant = new Tenant(
+    '018f6f1a-0000-7000-8000-000000000002',
+    'acme',
+    'Acme Estudio',
+    'acme.localhost',
+  );
 
   const buildRepository = (): jest.Mocked<TenantRepository> => ({
     findByDomain: jest.fn().mockResolvedValue(null),
     findBySlug: jest.fn().mockResolvedValue(defaultTenant),
     findAll: jest.fn().mockResolvedValue([]),
+    findDomainsByTenantId: jest.fn().mockResolvedValue([]),
+    findById: jest.fn(),
+    createWithContent: jest.fn(),
+    readContent: jest.fn(),
+    setStatus: jest.fn(),
+    listDomains: jest.fn(),
+    addDomain: jest.fn(),
+    markDomainVerified: jest.fn(),
+    setPrimaryDomain: jest.fn(),
+    deleteDomain: jest.fn(),
   });
 
   it('resolves the tenant registered for the given domain', async () => {

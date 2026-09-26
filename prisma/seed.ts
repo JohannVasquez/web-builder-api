@@ -1,13 +1,15 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../src/shared/infrastructure/prisma/generated/client';
+import { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { StorageAssetsSeeder } from './seeders/StorageAssetsSeeder';
 import { TenantSeeder } from './seeders/TenantSeeder';
 import { GlobalSettingsSeeder } from './seeders/GlobalSettingsSeeder';
 import { NavigationSeeder } from './seeders/NavigationSeeder';
 import { PageSeeder } from './seeders/PageSeeder';
 import { AdminUserSeeder } from './seeders/AdminUserSeeder';
+import { BrandSeeder } from './seeders/BrandSeeder';
 import { TENANT_TEMPLATES } from './seeders/templates';
+import { DEMO_TEMPLATES } from './seeders/demo-templates';
 
 const connectionString = process.env.DATABASE_URL;
 if (connectionString === undefined) {
@@ -43,8 +45,9 @@ const seed = async (): Promise<void> => {
   const globalSettingsSeeder = new GlobalSettingsSeeder(prisma);
   const navigationSeeder = new NavigationSeeder(prisma);
   const pageSeeder = new PageSeeder(prisma);
+  const brandSeeder = new BrandSeeder(prisma);
 
-  for (const template of TENANT_TEMPLATES) {
+  for (const template of [...TENANT_TEMPLATES, ...DEMO_TEMPLATES]) {
     const tenant = await tenantSeeder.execute(template.tenant);
     await globalSettingsSeeder.execute({
       tenantId: tenant.id,
@@ -55,8 +58,9 @@ const seed = async (): Promise<void> => {
       tenantId: tenant.id,
       pages: template.buildPages(assets),
     });
+    await brandSeeder.execute({ tenantId: tenant.id, brand: template.brand });
     console.log(
-      `Seeded tenant "${tenant.slug}" (${template.tenant.domains.join(', ')}): settings, navigation and pages`,
+      `Seeded tenant "${tenant.slug}" (${template.tenant.domains.join(', ')}): settings, navigation, pages and brand`,
     );
   }
 

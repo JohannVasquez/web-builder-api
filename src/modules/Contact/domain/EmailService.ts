@@ -12,5 +12,6 @@ export abstract class EmailService {
   public abstract sendContactEmail(
     contact: ContactRequest,
     recipient?: string,
+    siteName?: string,
   ): Promise<void>;
 }

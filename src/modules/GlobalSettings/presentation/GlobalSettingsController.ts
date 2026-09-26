@@ -1,13 +1,28 @@
 import type { Request, Response } from 'express';
-import { getRequestTenant } from '../../Tenant/presentation/tenantResolver';
+import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import type { GetGlobalSettingsUseCase } from '../application/GetGlobalSettingsUseCase';
+import type { GetBrandUseCase } from '@/modules/Brand/application/GetBrandUseCase';
+import type { ResolveBrandAssetsUseCase } from '@/modules/Brand/application/ResolveBrandAssetsUseCase';
 
+// Devuelve datos del negocio y marca juntos: el frontend los necesita en el mismo render.
 export class GlobalSettingsController {
-  constructor(private readonly getGlobalSettingsUseCase: GetGlobalSettingsUseCase) {}
+  constructor(
+    private readonly getGlobalSettingsUseCase: GetGlobalSettingsUseCase,
+    private readonly getBrandUseCase: GetBrandUseCase,
+    private readonly resolveBrandAssetsUseCase: ResolveBrandAssetsUseCase,
+  ) {}
 
   public readonly get = async (_req: Request, res: Response): Promise<void> => {
     const tenant = getRequestTenant(res);
-    const settings = await this.getGlobalSettingsUseCase.execute(tenant.id);
-    res.json(settings.toPrimitives());
+    const [settings, brand] = await Promise.all([
+      this.getGlobalSettingsUseCase.execute(tenant.id),
+      this.getBrandUseCase.execute(tenant.id),
+    ]);
+    res.json({
+      ...settings.toPrimitives(),
+      // El dominio canónico, para que un tenant con varios dominios no se duplique en buscadores.
+      primaryDomain: tenant.primaryDomain,
+      brand: await this.resolveBrandAssetsUseCase.execute(brand),
+    });
   };
 }

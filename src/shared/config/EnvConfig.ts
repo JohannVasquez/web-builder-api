@@ -35,10 +35,45 @@ const envSchema = z.strictObject({
   STORAGE_ACCESS_KEY: z.string().default(''),
   STORAGE_SECRET_KEY: z.string().default(''),
   MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(5),
+  IMAGE_MAX_WIDTH: z.coerce.number().int().positive().default(2000),
   // Sin default: un secreto de firma JWT no debería tener un valor "de
   // fábrica" que alguien olvide cambiar en producción.
   AUTH_JWT_SECRET: z.string().min(32),
   AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(168),
+  // Base del enlace que se manda por correo para recuperar la contraseña (SPEC 9.1).
+  ADMIN_PANEL_URL: z.string().min(1).default('http://localhost:3000/admin'),
+  // Revalidación de la caché del frontend (SPEC 0.2); vacía = apagada.
+  WEBAPP_REVALIDATE_URL: z.string().default(''),
+  REVALIDATE_SECRET: z.string().default(''),
+  // Dominio de la plataforma: sus subdominios se dan por verificados (SPEC 9.3).
+  PLATFORM_DOMAIN: z.string().min(1).default('localhost'),
+  // A dónde tiene que apuntar el DNS del dominio propio de un cliente.
+  PLATFORM_SITE_TARGET: z.string().min(1).default('sitios.webbuilder.co'),
+  // Catálogo de bloques y estilos: vive en el frontend, la API solo lo reexpone (SPEC 10.5).
+  WEBAPP_CATALOG_URL: z.string().default(''),
+  // Plazos de conservación en días (ver `scripts/purge-expired-data.ts`). Vacíos = los
+  // valores por omisión del dominio.
+  RETENTION_CONTACT_DAYS: z.string().default(''),
+  RETENTION_SUBSCRIBER_DAYS: z.string().default(''),
+  RETENTION_ORDER_DAYS: z.string().default(''),
+  // Clave de 32 bytes en base64 con la que se cifran las credenciales de cobro de cada
+  // tienda. Sin default: una clave "de fábrica" que alguien olvide cambiar deja las
+  // credenciales tan expuestas como si no hubiera cifrado (mismo criterio que AUTH_JWT_SECRET).
+  CREDENTIALS_ENCRYPTION_KEY: z
+    .string()
+    .min(
+      1,
+      'Falta CREDENTIALS_ENCRYPTION_KEY: con ella se cifran las credenciales de cobro de cada ' +
+        'tienda. Genera una con `openssl rand -base64 32` y ponla en el .env. No tiene valor ' +
+        'por omisión a propósito: una clave de fábrica deja las credenciales tan expuestas ' +
+        'como si no hubiera cifrado.',
+    ),
+  // Claves retiradas, separadas por coma: solo descifran. Permiten rotar sin reescribir la
+  // tabla entera de una vez.
+  CREDENTIALS_ENCRYPTION_RETIRED_KEYS: z.string().default(''),
+  // Sal para la huella de IP del registro de consentimiento. Vacía = no se guarda huella
+  // alguna, que es preferible a guardar un sha256 de IP, reversible en segundos sin sal.
+  CONSENT_IP_SALT: z.string().default(''),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -66,8 +101,21 @@ export class EnvConfig {
       STORAGE_ACCESS_KEY: source.STORAGE_ACCESS_KEY,
       STORAGE_SECRET_KEY: source.STORAGE_SECRET_KEY,
       MAX_FILE_SIZE_MB: source.MAX_FILE_SIZE_MB,
+      IMAGE_MAX_WIDTH: source.IMAGE_MAX_WIDTH,
       AUTH_JWT_SECRET: source.AUTH_JWT_SECRET,
       AUTH_TOKEN_TTL_HOURS: source.AUTH_TOKEN_TTL_HOURS,
+      ADMIN_PANEL_URL: source.ADMIN_PANEL_URL,
+      WEBAPP_REVALIDATE_URL: source.WEBAPP_REVALIDATE_URL,
+      REVALIDATE_SECRET: source.REVALIDATE_SECRET,
+      WEBAPP_CATALOG_URL: source.WEBAPP_CATALOG_URL,
+      RETENTION_CONTACT_DAYS: source.RETENTION_CONTACT_DAYS,
+      RETENTION_SUBSCRIBER_DAYS: source.RETENTION_SUBSCRIBER_DAYS,
+      RETENTION_ORDER_DAYS: source.RETENTION_ORDER_DAYS,
+      CREDENTIALS_ENCRYPTION_KEY: source.CREDENTIALS_ENCRYPTION_KEY,
+      CREDENTIALS_ENCRYPTION_RETIRED_KEYS: source.CREDENTIALS_ENCRYPTION_RETIRED_KEYS,
+      PLATFORM_DOMAIN: source.PLATFORM_DOMAIN,
+      PLATFORM_SITE_TARGET: source.PLATFORM_SITE_TARGET,
+      CONSENT_IP_SALT: source.CONSENT_IP_SALT,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

@@ -14,6 +14,8 @@ export const ContactSchema = z.strictObject({
     .string()
     .min(10, 'El mensaje debe tener al menos 10 caracteres')
     .max(2000, 'El mensaje no puede superar los 2000 caracteres'),
+  // Trampa para bots: el formulario lo pinta oculto, una persona nunca lo llena.
+  website: z.string().max(0, 'Envío rechazado').optional(),
 });
 
 export type ContactInput = z.infer<typeof ContactSchema>;

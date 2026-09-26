@@ -2,13 +2,17 @@ import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { NotFoundError } from '../domain/NotFoundError';
 import { BadRequestError } from '../domain/BadRequestError';
+import { ConflictError } from '../domain/ConflictError';
+import { UnprocessableEntityError } from '../domain/UnprocessableEntityError';
 import { PayloadTooLargeError } from '../domain/PayloadTooLargeError';
 import { UnauthorizedError } from '../domain/UnauthorizedError';
+import { ForbiddenError } from '../domain/ForbiddenError';
+import { TooManyRequestsError } from '../domain/TooManyRequestsError';
 
 export class ErrorHandler {
   public readonly handle = (
     error: unknown,
-    _req: Request,
+    req: Request,
     res: Response,
     _next: NextFunction,
   ): void => {
@@ -33,6 +37,19 @@ export class ErrorHandler {
       return;
     }
 
+    if (error instanceof ConflictError) {
+      if (error.retryAfterSeconds !== null) {
+        res.setHeader('Retry-After', String(error.retryAfterSeconds));
+      }
+      res.status(409).json({ error: 'Conflict', message: error.message });
+      return;
+    }
+
+    if (error instanceof UnprocessableEntityError) {
+      res.status(422).json({ error: 'UnprocessableEntity', message: error.message });
+      return;
+    }
+
     if (error instanceof PayloadTooLargeError) {
       res.status(413).json({ error: 'PayloadTooLarge', message: error.message });
       return;
@@ -43,7 +60,30 @@ export class ErrorHandler {
       return;
     }
 
-    console.error('[UnhandledError]', error);
+    if (error instanceof ForbiddenError) {
+      res.status(403).json({ error: 'Forbidden', message: error.message });
+      return;
+    }
+
+    if (error instanceof TooManyRequestsError) {
+      res.setHeader('Retry-After', String(error.retryAfterSeconds));
+      res.status(429).json({
+        error: 'TooManyRequests',
+        message: error.message,
+        retryAfterSeconds: error.retryAfterSeconds,
+      });
+      return;
+    }
+
+    const tenantId =
+      (res.locals as { tenant?: { id: string } }).tenant?.id ??
+      req.params.tenantId ??
+      'unknown';
+      
+    console.error(
+      `[UnhandledError] ${req.method} ${req.originalUrl} (Client: ${String(tenantId)})`,
+      error instanceof Error ? error.stack || error.message : error,
+    );
     res.status(500).json({ error: 'InternalServerError' });
   };
 }

@@ -1,35 +1,141 @@
+import type { AdminSignedDocumentController } from "./modules/SignedDocuments/presentation/AdminSignedDocumentController";
+import { createAdminSignedDocumentRouter } from "./modules/SignedDocuments/presentation/adminSignedDocumentRouter";
+
+
 import express, { type Express, type RequestHandler } from 'express';
 import cors from 'cors';
+import { buildOriginMatcher } from './shared/presentation/corsOrigins';
 import type { PageController } from './modules/Page/presentation/PageController';
 import { createPageRouter } from './modules/Page/presentation/pageRouter';
 import type { GlobalSettingsController } from './modules/GlobalSettings/presentation/GlobalSettingsController';
 import { createGlobalSettingsRouter } from './modules/GlobalSettings/presentation/globalSettingsRouter';
+import type { AdminGlobalSettingsController } from './modules/GlobalSettings/presentation/AdminGlobalSettingsController';
+import { createAdminGlobalSettingsRouter } from './modules/GlobalSettings/presentation/adminGlobalSettingsRouter';
 import type { NavigationController } from './modules/Navigation/presentation/NavigationController';
+import type { AdminNavigationController } from './modules/Navigation/presentation/AdminNavigationController';
+import { createAdminNavigationRouter } from './modules/Navigation/presentation/adminNavigationRouter';
 import { createNavigationRouter } from './modules/Navigation/presentation/navigationRouter';
 import type { ContactController } from './modules/Contact/presentation/ContactController';
 import { createContactRouter } from './modules/Contact/presentation/contactRouter';
 import type { FileController } from './modules/FileStorage/presentation/FileController';
 import { createFileRouter } from './modules/FileStorage/presentation/fileRouter';
 import type { TenantController } from './modules/Tenant/presentation/TenantController';
+import { siteAvailability } from './modules/Tenant/presentation/siteAvailability';
 import { createTenantInternalRouter } from './modules/Tenant/presentation/tenantRouter';
 import type { AuthController } from './modules/Auth/presentation/AuthController';
+import type { AdminUserController } from './modules/Auth/presentation/AdminUserController';
+import { createAdminUserRouter } from './modules/Auth/presentation/adminUserRouter';
 import { createAuthRouter } from './modules/Auth/presentation/authRouter';
 import type { AdminTenantController } from './modules/Tenant/presentation/AdminTenantController';
 import { createAdminTenantRouter } from './modules/Tenant/presentation/adminTenantRouter';
 import type { AdminPageController } from './modules/Page/presentation/AdminPageController';
 import { createAdminPageRouter } from './modules/Page/presentation/adminPageRouter';
+import type { ApiKeyController } from './modules/ApiKey/presentation/ApiKeyController';
+import { createApiKeyRouter } from './modules/ApiKey/presentation/apiKeyRouter';
+import {
+  requireMethodPermission,
+  requireRole,
+  requireStaff,
+  requireTenantScope,
+} from './modules/ApiKey/presentation/actorMiddleware';
+import type { AdminContactMessageController } from './modules/Contact/presentation/AdminContactMessageController';
+import { createAdminContactMessageRouter } from './modules/Contact/presentation/adminContactMessageRouter';
+import type { MediaController } from './modules/FileStorage/presentation/MediaController';
+import { createMediaRouter } from './modules/FileStorage/presentation/mediaRouter';
+import type { StoreController } from './modules/Store/presentation/StoreController';
+import type { AdminStoreController } from './modules/Store/presentation/AdminStoreController';
+import type { CheckoutController } from './modules/Store/presentation/CheckoutController';
+import type { AdminOrderController } from './modules/Store/presentation/AdminOrderController';
+import type { AdminPreviewLinkController } from './modules/PreviewLink/presentation/AdminPreviewLinkController';
+import { createAdminPreviewLinkRouter } from './modules/PreviewLink/presentation/adminPreviewLinkRouter';
+import {
+  createAdminOrderRouter,
+  createCheckoutRouter,
+} from './modules/Store/presentation/checkoutRouter';
+import {
+  createAdminStoreRouter,
+  createProductCategoryRouter,
+  createStoreRouter,
+} from './modules/Store/presentation/storeRouter';
+import type { BlogController } from './modules/Blog/presentation/BlogController';
+import type { AdminBlogController } from './modules/Blog/presentation/AdminBlogController';
+import {
+  createAdminBlogRouter,
+  createBlogRouter,
+} from './modules/Blog/presentation/blogRouter';
+import type { NewsletterController } from './modules/Newsletter/presentation/NewsletterController';
+import {
+  createAdminNewsletterRouter,
+  createNewsletterRouter,
+  createUnsubscribeRouter,
+} from './modules/Newsletter/presentation/newsletterRouter';
+import {
+  createAdminDataRightsRouter,
+  createDataRightsRouter,
+} from './modules/DataRights/presentation/dataRightsRouter';
+import type { DataRightsController } from './modules/DataRights/presentation/DataRightsController';
+import { createMediaProxyRouter } from './modules/FileStorage/presentation/mediaProxyRouter';
+import type { MediaProxyController } from './modules/FileStorage/presentation/MediaProxyController';
+import {
+  createAdminConsumerClaimRouter,
+  createConsumerClaimRouter,
+} from './modules/ConsumerClaims/presentation/consumerClaimRouter';
+import type { ConsumerClaimController } from './modules/ConsumerClaims/presentation/ConsumerClaimController';
+import {
+  createAdminRedirectRouter,
+  createRedirectRouter,
+} from './modules/Redirect/presentation/redirectRouter';
+import type { RedirectController } from './modules/Redirect/presentation/RedirectController';
+import { createConsentRouter } from './modules/Consent/presentation/consentRouter';
+import type { ConsentController } from './modules/Consent/presentation/ConsentController';
+import type { LegalPageController } from './modules/LegalPages/presentation/LegalPageController';
+import type { CatalogController } from './modules/Catalog/presentation/CatalogController';
+import type { ActivityLogController } from './modules/ActivityLog/presentation/ActivityLogController';
+import { createActivityLogRouter } from './modules/ActivityLog/presentation/activityLogRouter';
+import type { AdminBrandController } from './modules/Brand/presentation/AdminBrandController';
+import { createAdminBrandRouter } from './modules/Brand/presentation/adminBrandRouter';
 import { ErrorHandler } from './shared/presentation/ErrorHandler';
+import type { AdminSiteQualityReviewController } from './modules/SiteQualityReview/presentation/AdminSiteQualityReviewController';
+import { createAdminSiteQualityReviewRouter } from './modules/SiteQualityReview/presentation/adminSiteQualityReviewRouter';
+import type { AdminSubscriptionController } from './modules/Subscription/presentation/AdminSubscriptionController';
+import { createAdminSubscriptionRouter, createAdminSubscriptionOverviewRouter } from './modules/Subscription/presentation/adminSubscriptionRouter';
 
 export interface AppControllers {
   readonly pageController: PageController;
   readonly globalSettingsController: GlobalSettingsController;
   readonly navigationController: NavigationController;
+  readonly adminNavigationController: AdminNavigationController;
   readonly contactController: ContactController;
   readonly fileController: FileController;
   readonly tenantController: TenantController;
   readonly authController: AuthController;
+  readonly adminUserController: AdminUserController;
   readonly adminTenantController: AdminTenantController;
   readonly adminPageController: AdminPageController;
+  readonly adminBrandController: AdminBrandController;
+  readonly apiKeyController: ApiKeyController;
+  readonly activityLogController: ActivityLogController;
+  readonly catalogController: CatalogController;
+  readonly adminContactMessageController: AdminContactMessageController;
+  readonly legalPageController: LegalPageController;
+  readonly newsletterController: NewsletterController;
+  readonly dataRightsController: DataRightsController;
+  readonly consumerClaimController: ConsumerClaimController;
+  readonly redirectController: RedirectController;
+  readonly consentController: ConsentController;
+  readonly mediaController: MediaController;
+  readonly mediaProxyController: MediaProxyController;
+  readonly blogController: BlogController;
+  readonly adminBlogController: AdminBlogController;
+  readonly storeController: StoreController;
+  readonly adminStoreController: AdminStoreController;
+  readonly checkoutController: CheckoutController;
+  readonly adminOrderController: AdminOrderController;
+  readonly adminGlobalSettingsController: AdminGlobalSettingsController;
+  readonly adminPreviewLinkController: AdminPreviewLinkController;
+  readonly adminSiteQualityReviewController: AdminSiteQualityReviewController;
+  readonly adminSubscriptionController: AdminSubscriptionController;
+  readonly adminSignedDocumentController: AdminSignedDocumentController;
 }
 
 export const buildApp = (
@@ -37,16 +143,37 @@ export const buildApp = (
   corsOrigin: string[],
   fileUploadMiddleware: RequestHandler,
   tenantResolver: RequestHandler,
-  adminAuthMiddleware: RequestHandler,
+  actorMiddleware: RequestHandler,
+  cacheInvalidation: RequestHandler,
+  activityRecording: RequestHandler,
+  previewMiddleware: RequestHandler,
+  // Sin clave de idempotencia la compra se comporta igual; por defecto no hace nada.
+  checkoutIdempotency: RequestHandler = (_req, _res, next) => {
+    next();
+  },
+  healthCheck: () => Promise<void> = async () => {},
 ): Express => {
   const app = express();
   const errorHandler = new ErrorHandler();
 
-  app.use(cors({ origin: corsOrigin }));
+  const isAllowedOrigin = buildOriginMatcher(corsOrigin);
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Sin `Origin` es una llamada del mismo sitio o de servidor a servidor: CORS no aplica.
+        callback(null, origin === undefined || isAllowedOrigin(origin));
+      },
+    }),
+  );
   app.use(express.json());
 
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
+  app.get('/health', async (_req, res) => {
+    try {
+      await healthCheck();
+      res.json({ status: 'ok' });
+    } catch {
+      res.status(503).json({ status: 'error', detail: 'Service unavailable' });
+    }
   });
 
   // Capa de borde (Caddy), no el frontend: no lleva prefijo /api y no debe
@@ -54,43 +181,275 @@ export const buildApp = (
   app.use('/internal', createTenantInternalRouter(controllers.tenantController));
 
   // Rutas scoped por tenant: el resolver deja el tenant en res.locals.
-  app.use('/api/pages', tenantResolver, createPageRouter(controllers.pageController));
+  app.use(
+    '/api/pages',
+    tenantResolver,
+    previewMiddleware,
+    siteAvailability,
+    createPageRouter(controllers.pageController),
+  );
   app.use(
     '/api/settings',
     tenantResolver,
+    siteAvailability,
     createGlobalSettingsRouter(controllers.globalSettingsController),
   );
   app.use(
     '/api/navigation',
     tenantResolver,
+    siteAvailability,
     createNavigationRouter(controllers.navigationController),
   );
   app.use(
     '/api/contact',
     tenantResolver,
+    previewMiddleware,
+    siteAvailability,
     createContactRouter(controllers.contactController),
+  );
+  // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
+  app.use(
+    '/api/blog',
+    tenantResolver,
+    siteAvailability,
+    createBlogRouter(controllers.blogController),
+  );
+  app.use(
+    '/api/products',
+    tenantResolver,
+    siteAvailability,
+    createStoreRouter(controllers.storeController),
+  );
+  app.use(
+    '/api/store',
+    tenantResolver,
+    siteAvailability,
+    createCheckoutRouter(controllers.checkoutController, checkoutIdempotency),
+  );
+  app.use(
+    '/api/product-categories',
+    tenantResolver,
+    siteAvailability,
+    createProductCategoryRouter(controllers.storeController),
+  );
+  app.use(
+    '/api/newsletter',
+    tenantResolver,
+    siteAvailability,
+    createNewsletterRouter(controllers.newsletterController),
+  );
+  // Sin `tenantResolver`: el enlace de baja llega por correo y el token vale por sí solo.
+  app.use(
+    '/api/newsletter-baja',
+    createUnsubscribeRouter(controllers.newsletterController),
+  );
+  app.use(
+    '/api/solicitudes-datos',
+    tenantResolver,
+    siteAvailability,
+    activityRecording,
+    createDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
+    '/api/media',
+    tenantResolver,
+    siteAvailability,
+    createMediaProxyRouter(controllers.mediaProxyController),
+  );
+  app.use(
+    '/api/reclamos',
+    tenantResolver,
+    siteAvailability,
+    createConsumerClaimRouter(controllers.consumerClaimController),
+  );
+  app.use(
+    '/api/redirecciones',
+    tenantResolver,
+    siteAvailability,
+    createRedirectRouter(controllers.redirectController),
+  );
+  app.use(
+    '/api/consents',
+    tenantResolver,
+    siteAvailability,
+    createConsentRouter(controllers.consentController),
   );
   app.use(
     '/api/files',
+    actorMiddleware,
+    requireMethodPermission,
+    activityRecording,
     createFileRouter(controllers.fileController, fileUploadMiddleware),
   );
 
   // Auth: /login es público (sería absurdo protegerlo con el propio token
   // que emite); /me exige sesión válida, como cualquier ruta admin futura.
   app.use('/api/admin/auth', createAuthRouter(controllers.authController));
-  app.get('/api/admin/me', adminAuthMiddleware, controllers.authController.me);
+  app.get('/api/admin/me', actorMiddleware, controllers.authController.me);
+
+  // Panel y agentes comparten estas rutas: mismas validaciones, mismos permisos,
+  // mismo registro de actividad. Es lo que exige el principio de la Épica 10.
+  const adminGuards: RequestHandler[] = [
+    actorMiddleware,
+    requireTenantScope,
+    requireMethodPermission,
+    activityRecording,
+  ];
 
   // Resto de /api/admin/**: mismo middleware, scoped por :tenantId en la ruta
   // (no por dominio — un admin gestiona todos los tenants desde un login).
+  // Emitir claves y administrar personas son las dos formas de repartir acceso: ambas
+  // quedan detrás de `requireRole('owner')`, y una clave de agente nunca pasa (rol null).
   app.use(
-    '/api/admin/tenants',
-    adminAuthMiddleware,
-    createAdminTenantRouter(controllers.adminTenantController),
+    '/api/admin/api-keys',
+    actorMiddleware,
+    requireRole('owner'),
+    activityRecording,
+    createApiKeyRouter(controllers.apiKeyController),
   );
   app.use(
+    '/api/admin/users',
+    actorMiddleware,
+    requireRole('owner'),
+    activityRecording,
+    createAdminUserRouter(controllers.adminUserController),
+  );
+  app.use(
+    '/api/admin/activity',
+    actorMiddleware,
+    createActivityLogRouter(controllers.activityLogController),
+  );
+  app.get('/api/admin/catalog', actorMiddleware, controllers.catalogController.get);
+  app.get(
+    '/api/admin/site-templates',
+    actorMiddleware,
+    controllers.adminTenantController.listTemplates,
+  );
+  app.get(
+    '/api/admin/legal-templates',
+    actorMiddleware,
+    controllers.legalPageController.list,
+  );
+  app.post(
+    '/api/admin/tenants/:tenantId/legal-pages',
+    ...adminGuards,
+    cacheInvalidation,
+    controllers.legalPageController.create,
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/preview-links',
+    ...adminGuards,
+    createAdminPreviewLinkRouter(controllers.adminPreviewLinkController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/products',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminStoreRouter(controllers.adminStoreController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/navigation',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminNavigationRouter(controllers.adminNavigationController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/store',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminOrderRouter(controllers.adminOrderController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/posts',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminBlogRouter(controllers.adminBlogController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/media',
+    ...adminGuards,
+    createMediaRouter(controllers.mediaController, fileUploadMiddleware),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/solicitudes-datos',
+    ...adminGuards,
+    createAdminDataRightsRouter(controllers.dataRightsController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/reclamos',
+    ...adminGuards,
+    createAdminConsumerClaimRouter(controllers.consumerClaimController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/redirecciones',
+    ...adminGuards,
+    createAdminRedirectRouter(controllers.redirectController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/subscribers',
+    ...adminGuards,
+    createAdminNewsletterRouter(controllers.newsletterController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/messages',
+    ...adminGuards,
+    createAdminContactMessageRouter(controllers.adminContactMessageController),
+  );
+
+  app.use(
+    '/api/admin/tenants',
+    ...adminGuards,
+    createAdminTenantRouter(controllers.adminTenantController, requireStaff),
+  );
+  // `cacheInvalidation` aquí y no en cada caso de uso: cubre toda ruta admin futura (SPEC 0.2).
+  app.use(
     '/api/admin/tenants/:tenantId/pages',
-    adminAuthMiddleware,
+    ...adminGuards,
+    cacheInvalidation,
     createAdminPageRouter(controllers.adminPageController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/brand',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminBrandRouter(controllers.adminBrandController),
+  );
+  app.use(
+    '/api/admin/tenants/:tenantId/settings',
+    ...adminGuards,
+    cacheInvalidation,
+    createAdminGlobalSettingsRouter(controllers.adminGlobalSettingsController),
+  );
+  app.get(
+    '/api/admin/font-pairings',
+    actorMiddleware,
+    controllers.adminBrandController.listFontPairings,
+  );
+  
+  app.use(
+    '/api/admin/tenants/:tenantId/quality-review',
+    ...adminGuards,
+    createAdminSiteQualityReviewRouter(controllers.adminSiteQualityReviewController),
+  );
+
+  app.use(
+    '/api/admin/subscriptions',
+    actorMiddleware,
+    requireStaff,
+    activityRecording,
+    createAdminSubscriptionOverviewRouter(controllers.adminSubscriptionController),
+  );
+
+  app.use(
+    '/api/admin/tenants/:tenantId/subscription',
+    ...adminGuards,
+    createAdminSubscriptionRouter(controllers.adminSubscriptionController),
+  );
+
+  app.use(
+    '/api/admin/signed-documents',
+    ...adminGuards,
+    createAdminSignedDocumentRouter(controllers.adminSignedDocumentController)
   );
 
   app.use(errorHandler.handle);

@@ -17,56 +17,259 @@ formulario de contacto vía SMTP.
 
 ## Arquitectura
 
-Screaming Architecture por módulos de negocio, con Clean Architecture intramódulo:
-
-```
-src/
-├── modules/
-│   ├── Page/            # Motor de renderizado dinámico
-│   │   ├── domain/          # Entidades, errores e interfaces de repositorio
-│   │   ├── application/     # GetPageBySlugUseCase (+ .spec.ts)
-│   │   ├── infrastructure/  # PrismaPageRepository
-│   │   └── presentation/    # Controller + router
-│   ├── GlobalSettings/  # Variables globales de marca
-│   ├── Navigation/      # Menú del sitio (páginas y/o anclas de secciones)
-│   └── Contact/         # Formulario de contacto + SMTP
-├── shared/              # Kernel compartido (config, DB, error handler)
-├── app.ts               # Ensamblado de Express
-├── container.ts         # Raíz de composición (inyección de dependencias)
-└── server.ts            # Punto de entrada
-```
-
-Las dependencias entre capas están protegidas por `eslint-plugin-boundaries`:
-`domain` no conoce a nadie, `application` solo conoce a `domain`, e
-`infrastructure`/`presentation` nunca se importan entre sí.
-
-## Inyección de dependencias (diod)
-
-`domain` define los contratos como **clases abstractas** (`PageRepository`,
-`GlobalSettingsRepository`, `EmailService`) — TypeScript borra las `interface` en
-runtime, así que diod necesita un token real para resolver dependencias. Las clases
-de `application`/`presentation`/`infrastructure` reciben esos contratos por
-constructor, sin conocer la implementación concreta.
-
-`src/container.ts` es la única raíz de composición: usa el `ContainerBuilder` de diod
-para asociar cada abstracción con su implementación de Prisma/SMTP y arma el grafo de
-dependencias con **wiring explícito** (`withDependencies([...])`) en vez de autowiring
-por decoradores. Se eligió así porque el autowiring de diod depende de
-`emitDecoratorMetadata`, que requiere chequeo de tipos de todo el `Program` para
-resolver clases importadas de otros archivos — algo que un transpilador de un solo
-archivo como esbuild (usado por `tsx` en `pnpm dev`) no puede garantizar. El wiring
-explícito es una función de primera clase de diod, sin esa fragilidad, y se comporta
-igual en `pnpm dev`, `pnpm test` y `pnpm build`.
+Consulta la [Guía de Arquitectura](docs/arquitectura.md) para detalles sobre las capas, dependencias y la inyección con `diod`.
 
 ## Endpoints
 
 | Método | Ruta               | Descripción                                                 |
 | ------ | ------------------ | ----------------------------------------------------------- |
-| GET    | `/api/pages/:slug` | Página con sus secciones JSONB ordenadas (404 si no existe) |
+| GET    | `/api/pages/:slug` | Página con sus secciones JSONB ordenadas (envía el header `X-Preview-Token` para ver el borrador) |
 | GET    | `/api/settings`    | Configuraciones globales de marca                           |
 | GET    | `/api/navigation`  | Enlaces del menú del sitio, ordenados                       |
 | POST   | `/api/contact`     | Valida con `ContactSchema` (400 si falla) y envía correo    |
 | GET    | `/health`          | Health check                                                |
+
+### Rutas que exigen sesión de administración
+
+Todo lo que escribe va detrás de `Authorization: Bearer <token>` (el token lo
+emite `POST /api/admin/auth/login`). Sin cabecera, o con un token inválido o
+vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
+
+| Método  | Ruta                                         | Descripción                       |
+| ------- | -------------------------------------------- | --------------------------------- |
+| POST    | `/api/files`                                 | Sube un archivo al bucket privado |
+| DELETE  | `/api/files/:key`                            | Borra un archivo del bucket       |
+| GET     | `/api/admin/me`                              | Confirma la sesión vigente        |
+| GET     | `/api/admin/tenants`                         | Lista los clientes                |
+| POST    | `/api/admin/signed-documents`                | Registra firma de contrato (exige full) |
+| GET     | `/api/admin/signed-documents/tenant/:id`     | Lista documentos firmados por un cliente |
+| GET     | `/api/admin/signed-documents/outdated`       | Clientes en versión anterior de un contrato |
+
+| GET     | `/api/admin/subscriptions`                   | Vista global de cobros y MRR      |
+| GET     | `/api/admin/subscriptions/export`            | Exportar cobros en CSV            |
+| CRUD    | `/api/admin/tenants/:tenantId/pages`         | Páginas y secciones del cliente   |
+| GET/PUT | `/api/admin/tenants/:tenantId/settings`      | Datos del negocio y medición      |
+| GET/PUT | `/api/admin/tenants/:tenantId/subscription`  | Consulta y cambia plan de cliente |
+| POST    | `/api/admin/tenants/:tenantId/subscription/payments` | Registra pago recibido (exige full)|
+| GET    | `/api/admin/tenants/:tenantId/quality-review`| Revisa la calidad antes de entregar |
+| POST/DEL | `/api/admin/tenants/:tenantId/preview-links` | Genera o anula un enlace de revisión |
+
+Leer las imágenes **no** exige sesión: las URLs firmadas se resuelven en el
+servidor al armar cada página, así que los sitios publicados siguen viéndose
+para cualquier visitante.
+
+## Crear clientes: kits por rubro y duplicado
+
+`POST /api/admin/tenants` crea un cliente. Puede nacer vacío, desde un kit por
+rubro (`templateId`) o copiando el sitio de otro cliente
+(`duplicateFromTenantId`). Las dos últimas opciones son excluyentes.
+Al crearse, recibe automáticamente su dirección dentro del dominio de la plataforma (ej. `slug.plataforma.com`), si está configurado, para que funcione de inmediato sin intervención manual.
+
+Los kits viven en `src/modules/Template/domain/kits/`, uno por archivo, y se
+registran con una línea en `registry.ts`. Traen páginas, bloques, textos de
+ejemplo en español de Chile, paleta, tipografía y estilo visual, y **ninguna
+imagen**: las sube el cliente después, así que cada bloque tiene que verse bien
+sin ellas.
+
+El módulo `Tenant` no conoce los kits: pide "el contenido del kit X" a través
+del puerto `SiteContentSource`. Lo mismo que se usa para duplicar un sitio.
+
+Un sitio creado desde un kit nace **publicado** —el punto de la spec es que
+quede listo en minutos—, pero una copia de otro cliente nace **despublicada**:
+no tiene dominios propios todavía y publicarla debería ser una decisión.
+
+`GET /api/admin/site-templates` lista los kits para el panel y para el MCP.
+
+## Tienda (etapa 1)
+
+Catálogo con pedido por WhatsApp: se vende desde el primer día sin procesar
+pagos. Opcional por cliente, sin flag — un tenant sin productos devuelve
+listados vacíos.
+
+**El dinero va en enteros de pesos**, nunca en coma flotante: es un error que
+aparece tarde y en la factura. El formateo a `$29.990` vive en el dominio, no
+en el frontend, porque la misma regla la usan el catálogo, el detalle y el
+mensaje de WhatsApp.
+
+`buildWhatsAppOrderUrl` arma el enlace con el pedido ya escrito: normaliza el
+número a solo dígitos (un `+56 9 1234 5678` pegado tal cual no abre la
+conversación), incluye las opciones elegidas, la cantidad cuando es más de una,
+y el precio vigente. Sin WhatsApp configurado devuelve `null` y el sitio decide
+qué mostrar, en vez de generar un enlace roto.
+
+Un producto inactivo no existe para el visitante, aunque adivine su dirección.
+Una oferta que no es más barata que el precio normal se rechaza: o es un error
+de carga, o engaña a quien compra.
+
+- `GET /api/products?search=&category=&page=&perPage=`, `GET /api/products/destacados`,
+  `GET /api/products/:slug` y `GET /api/product-categories` (públicos).
+- CRUD en `/api/admin/tenants/:tenantId/products`, que sí incluye los inactivos.
+
+## Blog
+
+Opcional por cliente: un tenant sin publicaciones devuelve listados vacíos, sin
+flag que activar. La ausencia ya lo dice.
+
+Una publicación es visible para el público si está `published`, o si está
+`scheduled` y su fecha ya llegó. **Eso se resuelve en la cláusula WHERE, no con
+un cron**: una publicación programada aparece sola al llegar su hora, y la
+consulta cuesta lo mismo con 10 que con 10.000 publicaciones. Un borrador
+responde 404 aunque se adivine su slug.
+
+El tiempo de lectura **no se guarda**: se recalcula en cada lectura a partir del
+contenido. Guardarlo significa que editar el texto y olvidar el número lo deja
+mal para siempre.
+
+- `GET /api/blog?page=&perPage=&tag=` y `GET /api/blog/:slug` (públicos, con
+  las imágenes ya firmadas y hasta 3 publicaciones relacionadas por etiqueta).
+- CRUD en `/api/admin/tenants/:tenantId/posts`, que sí incluye los borradores.
+
+## Borrador, publicación e historial
+
+Las filas de `page_sections` son el **borrador**. El público lee
+`pages.published_content`, una foto del contenido tomada al publicar. Editar un
+bloque no cambia el sitio hasta que alguien llama a
+`POST /api/admin/tenants/:t/pages/:p/publish`.
+
+Esto es lo que hace segura la Épica 10: un agente puede reescribir una página
+entera y nadie lo ve hasta que una persona revisa y publica.
+
+Cada escritura del borrador guarda una versión con quién la hizo y qué cambió.
+Se registra en el controller y no dentro de cada caso de uso porque es el único
+punto que conoce al actor y ya tiene la página resultante; escribir la versión
+nunca hace fallar la edición que la originó.
+
+- `GET .../pages/:p/versions` lista el historial.
+- `POST .../pages/:p/versions/:v/restore` devuelve el **borrador** a esa
+  versión. No publica, y **crea una versión nueva** en vez de borrar lo
+  posterior: restaurar por error tiene que poder deshacerse también.
+
+Se conservan las últimas 50 versiones por página, más la publicada. Un
+historial infinito crece sin límite y nadie mira más allá de las últimas
+decenas, pero perder la versión publicada sí rompería el "volver atrás".
+
+## Biblioteca de imágenes
+
+Cada cliente tiene la suya: `storage_assets` lleva `tenant_id`, y toda consulta
+va con él, así que una `key` adivinada no alcanza la biblioteca de otro.
+
+- `GET /api/admin/tenants/:tenantId/media?search=` lista con URLs firmadas
+  frescas (el bucket es privado).
+- `POST .../media` sube conservando el nombre original, para poder buscarlo. Las imágenes (excepto SVG) se optimizan y convierten a WebP automáticamente, redimensionándose al ancho máximo configurado (`IMAGE_MAX_WIDTH`, por omisión 2000px).
+- `PATCH .../media/:key` guarda el texto alternativo. Se edita aparte de la
+  subida porque casi nunca se escribe en el momento, y sin él la imagen es
+  invisible para un lector de pantalla.
+- `DELETE .../media/:key` **avisa si la imagen está en uso** y se niega a
+  borrarla; hay que reintentar con `?force=true`. Sin eso, borrar deja huecos
+  en páginas publicadas sin que nadie se entere.
+
+La búsqueda de uso es textual sobre el JSON de los bloques, la marca y los
+ajustes. Es deliberado: la `key` es un UUID, así que un falso positivo es
+prácticamente imposible, y recorrer el schema de cada tipo de bloque sería más
+frágil y más lento.
+
+## Suscripción a novedades
+
+`POST /api/newsletter` (público, scoped por el dominio del visitante) guarda un
+correo. Es idempotente: suscribirse dos veces no crea dos filas, y volver a
+suscribirse reactiva una baja previa. El correo se normaliza en minúsculas, así
+que `Ana@Ejemplo.CL` y `ana@ejemplo.cl` son la misma persona.
+
+Comparte con el formulario de contacto el campo trampa y el límite por IP.
+
+`GET /api/admin/tenants/:tenantId/subscribers` y `.../subscribers/export.csv`
+para leerlos y exportarlos.
+
+## Páginas legales
+
+`POST /api/admin/tenants/:tenantId/legal-pages` con `{ kind }` crea la política
+de privacidad o los términos y condiciones a partir de una plantilla, ya
+rellenada con los datos del negocio. Nacen despublicadas: un texto legal lo
+revisa una persona antes de publicarlo.
+
+Los marcadores que no se pueden rellenar se dejan visibles (`{{address}}`) en
+vez de borrarse, para que se note qué falta completar.
+
+## Formulario de contacto
+
+El mensaje se **guarda antes** de intentar el correo. Si el SMTP está caído, el
+negocio no pierde el contacto: la respuesta al visitante es exitosa igual y el
+mensaje queda en `contact_messages` con el motivo del fallo, para reintentar.
+Devolver un error habría hecho que el visitante reenviara y se duplicara el
+contacto, sin arreglar nada.
+
+- Honeypot: el schema tiene un campo `website` que debe venir vacío. El
+  formulario lo pinta fuera de pantalla; una persona nunca lo llena.
+- Límite por IP y tenant: 5 envíos por minuto, con `Retry-After`.
+- Destinatarios: el `contactEmail` del tenant acepta varios correos separados
+  por coma.
+- `GET/PATCH /api/admin/tenants/:tenantId/messages` y
+  `GET .../messages/export.csv` para leerlos, marcarlos y exportarlos.
+
+## Guías
+
+| Guía                                                                   | De qué trata                                               |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [Guía para Agentes (Punto de entrada)](AGENTS.md)                       | Qué leer y qué no leer al modificar este código            |
+| [Arquitectura](docs/arquitectura.md)                                    | Capas, módulos, dependencias e inyección                   |
+| [Convenciones](docs/convenciones.md)                                    | Nomenclatura, comentarios y reglas de código               |
+| [Herramientas MCP](docs/herramientas-agentes.md)                        | Lista y uso de herramientas para agentes IA                |
+| [Cómo agregar funciones](docs/como-agregar-nuevas-funciones.md)         | Paso a paso para extender el proyecto                      |
+| [Dar de alta un cliente](docs/dar-de-alta-un-cliente.md)               | El paso a paso completo, de cero a sitio publicado         |
+| [Datos del negocio](docs/datos-del-negocio.md)                         | Información global, contacto, horarios y analítica         |
+| [Armar una página](docs/armar-una-pagina.md)                           | Bloques, borrador y publicado, versiones y el menú         |
+| [Dominios y estado del sitio](docs/dominios-y-estado-del-sitio.md)     | Conectar el dominio propio de un cliente y pausar un sitio |
+| [Gestionar el equipo del panel](docs/gestionar-el-equipo-del-panel.md) | Roles, invitaciones y recuperación de contraseña           |
+| [Vender en línea](docs/vender-en-linea.md)                             | Tienda, carrito, cobro, cupones, pedidos y reportes        |
+
+## Claves de acceso y agentes de IA
+
+Consulta la [Guía de Herramientas para Agentes](docs/herramientas-agentes.md) para detalles sobre el servidor MCP, permisos, reglas de uso y la lista de herramientas disponibles.
+
+## Identidad de marca (módulo Brand)
+
+Cada tenant tiene una fila opcional en `tenant_brands` con su paleta,
+tipografía, logos, modo claro/oscuro y estilo visual. Todo es opcional: sin
+fila, o con la fila a medio llenar, el sitio se ve con la paleta neutra y la
+tipografía por defecto. Una fila inválida también cae al valor por defecto en
+vez de tumbar el sitio.
+
+- `GET /api/settings` (público) devuelve los datos del negocio **y** `brand`,
+  con los logos ya resueltos a URLs firmadas.
+- `GET/PATCH /api/admin/tenants/:tenantId/brand` lo edita. El PATCH hace
+  merge por sección: mandar `palette` la reemplaza entera, no mandarla la deja
+  intacta.
+- `GET /api/admin/font-pairings` devuelve el catálogo curado de combinaciones
+  tipográficas, para el panel y para el MCP.
+
+Los colores se guardan en hex y nada derivado se persiste: los tonos claros y
+oscuros, y el color de texto legible sobre cada color, los calcula el frontend
+al renderizar. Guardarlos obligaría a recalcular toda la tabla cada vez que
+cambie la fórmula.
+
+El id de estilo visual se valida como string en minúsculas con guiones, no
+como `enum`: el catálogo de estilos vive en el frontend, que ante un id
+desconocido cae al clásico. Encerrarlo aquí obligaría a migrar la API cada vez
+que se agrega un estilo.
+
+## Caché del sitio publicado
+
+Los sitios públicos se sirven cacheados en el frontend (Next), con una
+etiqueta por **dominio** de tenant. Después de cada escritura bajo
+`/api/admin/tenants/:tenantId/**`, la API le avisa al frontend qué dominios
+invalidar, para que el cambio se vea publicado de inmediato sin reiniciar
+nada.
+
+- El aviso lo dispara `createCacheInvalidationMiddleware`, montado junto a los
+  routers admin. Va en un middleware y no dentro de cada caso de uso para que
+  toda ruta admin nueva quede cubierta sin que nadie tenga que acordarse.
+- `InvalidateTenantCacheUseCase` traduce el `tenantId` a **todos** sus
+  dominios: un tenant puede llegar por su subdominio de plataforma y por su
+  dominio propio, y cada uno es una clave de caché distinta.
+- La llamada sale en segundo plano y nunca lanza: si el frontend está caído,
+  el cambio igual quedó guardado; lo que se pierde es la frescura inmediata.
+- Con `WEBAPP_REVALIDATE_URL` vacía la invalidación queda apagada y la API
+  funciona igual.
 
 ## Páginas vs secciones: multi-página o one-page
 

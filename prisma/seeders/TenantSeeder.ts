@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../../src/shared/infrastructure/prisma/generated/client';
+import type { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import type { Seeder } from './Seeder';
 
 export interface TenantSeedParams {
@@ -14,7 +14,7 @@ export interface TenantSeedParams {
 }
 
 export interface SeededTenant {
-  readonly id: number;
+  readonly id: string;
   readonly slug: string;
 }
 

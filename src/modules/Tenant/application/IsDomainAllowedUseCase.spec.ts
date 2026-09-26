@@ -3,12 +3,27 @@ import { Tenant } from '../domain/Tenant';
 import type { TenantRepository } from '../domain/TenantRepository';
 
 describe('IsDomainAllowedUseCase', () => {
-  const acmeTenant = new Tenant(2, 'acme', 'Acme Estudio', 'acme.cl');
+  const acmeTenant = new Tenant(
+    '018f6f1a-0000-7000-8000-000000000002',
+    'acme',
+    'Acme Estudio',
+    'acme.cl',
+  );
 
   const buildRepository = (): jest.Mocked<TenantRepository> => ({
     findByDomain: jest.fn().mockResolvedValue(null),
     findBySlug: jest.fn().mockResolvedValue(null),
     findAll: jest.fn().mockResolvedValue([]),
+    findDomainsByTenantId: jest.fn().mockResolvedValue([]),
+    findById: jest.fn(),
+    createWithContent: jest.fn(),
+    readContent: jest.fn(),
+    setStatus: jest.fn(),
+    listDomains: jest.fn(),
+    addDomain: jest.fn(),
+    markDomainVerified: jest.fn(),
+    setPrimaryDomain: jest.fn(),
+    deleteDomain: jest.fn(),
   });
 
   it('allows a domain registered and verified for some tenant', async () => {

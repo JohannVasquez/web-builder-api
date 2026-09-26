@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../../shared/domain/BadRequestError';
+import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { ALLOWED_MIME_TYPES } from './AllowedMimeTypes';
 
 export class InvalidFileTypeError extends BadRequestError {

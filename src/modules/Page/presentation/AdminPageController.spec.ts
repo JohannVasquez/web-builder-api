@@ -1,3 +1,4 @@
+import type { StoreSettingsRepository } from '../../Store/domain/StoreSettingsRepository';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { AdminPageController } from './AdminPageController';
@@ -6,18 +7,26 @@ import { ListPagesUseCase } from '../application/ListPagesUseCase';
 import { GetPageByIdUseCase } from '../application/GetPageByIdUseCase';
 import { CreatePageUseCase } from '../application/CreatePageUseCase';
 import { UpdatePageUseCase } from '../application/UpdatePageUseCase';
+import type { RecordSlugChangeUseCase } from '@/modules/Redirect/application/RecordSlugChangeUseCase';
 import { DeletePageUseCase } from '../application/DeletePageUseCase';
 import { AddSectionUseCase } from '../application/AddSectionUseCase';
 import { UpdateSectionUseCase } from '../application/UpdateSectionUseCase';
+import { DuplicateSectionUseCase } from '../application/DuplicateSectionUseCase';
 import { DeleteSectionUseCase } from '../application/DeleteSectionUseCase';
 import { ReorderSectionsUseCase } from '../application/ReorderSectionsUseCase';
+import { PublishPageUseCase } from '../application/PublishPageUseCase';
+import { ListPageVersionsUseCase } from '../application/ListPageVersionsUseCase';
+import { RestorePageVersionUseCase } from '../application/RestorePageVersionUseCase';
+import { RecordPageVersionUseCase } from '../application/RecordPageVersionUseCase';
+import type { PageVersionRepository } from '../domain/PageVersionRepository';
+import { setRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
 import { Page, PageSection } from '../domain/Page';
 import { PageIdNotFoundError } from '../domain/PageIdNotFoundError';
 import { PageSlugConflictError } from '../domain/PageSlugConflictError';
 import { SectionPositionConflictError } from '../domain/SectionPositionConflictError';
 import { ReorderMismatchError } from '../domain/ReorderMismatchError';
 import type { PageRepository } from '../domain/PageRepository';
-import { ErrorHandler } from '../../../shared/presentation/ErrorHandler';
+import { ErrorHandler } from '@/shared/presentation/ErrorHandler';
 
 describe('AdminPageController (HTTP)', () => {
   const buildPage = (): Page =>
@@ -25,38 +34,80 @@ describe('AdminPageController (HTTP)', () => {
       'home',
       'Inicio',
       null,
-      [new PageSection('Hero', 1, { title: 'Hola' }, null, 10)],
-      5,
+      [
+        new PageSection(
+          'Hero',
+          1,
+          { title: 'Hola' },
+          null,
+          '018f6f1a-0000-7000-8000-000000000010',
+        ),
+      ],
+      '018f6f1a-0000-7000-8000-000000000005',
       true,
     );
 
   const buildRepository = (): jest.Mocked<PageRepository> => ({
+    findPublishedAt: jest.fn().mockResolvedValue(null),
     findBySlug: jest.fn(),
+    findDraftBySlug: jest.fn(),
     findAllByTenant: jest.fn().mockResolvedValue([buildPage()]),
     findById: jest.fn().mockResolvedValue(buildPage()),
     create: jest.fn().mockResolvedValue(buildPage()),
     update: jest.fn().mockResolvedValue(buildPage()),
     delete: jest.fn().mockResolvedValue(undefined),
+    publish: jest.fn(),
+    replaceDraft: jest.fn(),
     addSection: jest.fn().mockResolvedValue(buildPage()),
     updateSection: jest.fn().mockResolvedValue(buildPage()),
+    duplicateSection: jest.fn().mockResolvedValue(buildPage()),
     deleteSection: jest.fn().mockResolvedValue(buildPage()),
     reorderSections: jest.fn().mockResolvedValue(buildPage()),
   });
+
+  const versionRepository: jest.Mocked<PageVersionRepository> = {
+    record: jest.fn().mockResolvedValue(undefined),
+    list: jest.fn().mockResolvedValue([]),
+    findSnapshot: jest.fn().mockResolvedValue(null),
+    markPublished: jest.fn().mockResolvedValue(undefined),
+  };
+
+  // Las redirecciones por cambio de slug tienen su propio spec; aquí solo estorbarían.
+  const noSlugChanges = {
+    execute: (): Promise<void> => Promise.resolve(),
+  } as unknown as RecordSlugChangeUseCase;
 
   const buildApp = (repository: PageRepository): Express => {
     const controller = new AdminPageController(
       new ListPagesUseCase(repository),
       new GetPageByIdUseCase(repository),
       new CreatePageUseCase(repository),
-      new UpdatePageUseCase(repository),
-      new DeletePageUseCase(repository),
+      new UpdatePageUseCase(repository, noSlugChanges, { find: async () => { await Promise.resolve(); return { isEnabled: false, termsPageSlug: null }; } } as unknown as StoreSettingsRepository),
+      new DeletePageUseCase(repository, { find: async () => { await Promise.resolve(); return { isEnabled: false, termsPageSlug: null }; } } as unknown as StoreSettingsRepository),
       new AddSectionUseCase(repository),
       new UpdateSectionUseCase(repository),
+      new DuplicateSectionUseCase(repository),
       new DeleteSectionUseCase(repository),
       new ReorderSectionsUseCase(repository),
+      new PublishPageUseCase(repository, versionRepository),
+      new ListPageVersionsUseCase(versionRepository),
+      new RestorePageVersionUseCase(repository, versionRepository),
+      new RecordPageVersionUseCase(versionRepository),
     );
     const app = express();
     app.use(express.json());
+    app.use((_req, res, next) => {
+      setRequestActor(res, {
+        type: 'admin',
+        id: '018f6f1a-0000-7000-8000-000000000001',
+        name: 'Admin',
+        role: 'owner',
+        permission: 'full',
+        tenantScope: null,
+        rateLimitPerMinute: null,
+      });
+      next();
+    });
     app.use('/api/admin/tenants/:tenantId/pages', createAdminPageRouter(controller));
     app.use(new ErrorHandler().handle);
     return app;
@@ -66,16 +117,25 @@ describe('AdminPageController (HTTP)', () => {
     const repository = buildRepository();
     const app = buildApp(repository);
 
-    const response = await request(app).get('/api/admin/tenants/3/pages');
+    const response = await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages',
+    );
 
     expect(response.status).toBe(200);
-    expect(repository.findAllByTenant).toHaveBeenCalledWith(3);
+    expect(repository.findAllByTenant).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000003',
+    );
     expect(response.body).toMatchObject({
       pages: [
         expect.objectContaining({
-          id: 5,
+          id: '018f6f1a-0000-7000-8000-000000000005',
           slug: 'home',
-          sections: [expect.objectContaining({ id: 10, type: 'Hero' })],
+          sections: [
+            expect.objectContaining({
+              id: '018f6f1a-0000-7000-8000-000000000010',
+              type: 'Hero',
+            }),
+          ],
         }),
       ],
     });
@@ -86,12 +146,12 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .post('/api/admin/tenants/3/pages')
+      .post('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages')
       .send({ slug: 'nueva-pagina', title: 'Nueva página' });
 
     expect(response.status).toBe(201);
     expect(repository.create).toHaveBeenCalledWith(
-      3,
+      '018f6f1a-0000-7000-8000-000000000003',
       expect.objectContaining({ slug: 'nueva-pagina', title: 'Nueva página' }),
     );
   });
@@ -102,7 +162,7 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .post('/api/admin/tenants/3/pages')
+      .post('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages')
       .send({ slug: 'home', title: 'Duplicada' });
 
     expect(response.status).toBe(400);
@@ -113,7 +173,7 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .post('/api/admin/tenants/3/pages')
+      .post('/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages')
       .send({ slug: 'Slug Inválido', title: 'x' });
 
     expect(response.status).toBe(400);
@@ -122,10 +182,14 @@ describe('AdminPageController (HTTP)', () => {
 
   it('returns 404 when the page does not belong to this tenant', async () => {
     const repository = buildRepository();
-    repository.findById.mockRejectedValue(new PageIdNotFoundError(999));
+    repository.findById.mockRejectedValue(
+      new PageIdNotFoundError('018f6f1a-0000-7000-8000-000000000999'),
+    );
     const app = buildApp(repository);
 
-    const response = await request(app).get('/api/admin/tenants/3/pages/999');
+    const response = await request(app).get(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000999',
+    );
 
     expect(response.status).toBe(404);
   });
@@ -135,21 +199,32 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .patch('/api/admin/tenants/3/pages/5')
+      .patch(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005',
+      )
       .send({ title: 'Nuevo título' });
 
     expect(response.status).toBe(200);
-    expect(repository.update).toHaveBeenCalledWith(3, 5, { title: 'Nuevo título' });
+    expect(repository.update).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000003',
+      '018f6f1a-0000-7000-8000-000000000005',
+      { title: 'Nuevo título' },
+    );
   });
 
   it('deletes a page and returns 204', async () => {
     const repository = buildRepository();
     const app = buildApp(repository);
 
-    const response = await request(app).delete('/api/admin/tenants/3/pages/5');
+    const response = await request(app).delete(
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005',
+    );
 
     expect(response.status).toBe(204);
-    expect(repository.delete).toHaveBeenCalledWith(3, 5);
+    expect(repository.delete).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000003',
+      '018f6f1a-0000-7000-8000-000000000005',
+    );
   });
 
   it('adds a section with arbitrary props, validated only structurally', async () => {
@@ -157,13 +232,15 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .post('/api/admin/tenants/3/pages/5/sections')
+      .post(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005/sections',
+      )
       .send({ type: 'Hero', position: 1, props: { title: 'Hola', nested: { a: 1 } } });
 
     expect(response.status).toBe(201);
     expect(repository.addSection).toHaveBeenCalledWith(
-      3,
-      5,
+      '018f6f1a-0000-7000-8000-000000000003',
+      '018f6f1a-0000-7000-8000-000000000005',
       expect.objectContaining({ type: 'Hero', position: 1 }),
     );
   });
@@ -174,7 +251,9 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .post('/api/admin/tenants/3/pages/5/sections')
+      .post(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005/sections',
+      )
       .send({ type: 'Hero', position: 1, props: {} });
 
     expect(response.status).toBe(400);
@@ -185,11 +264,15 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app).delete(
-      '/api/admin/tenants/3/pages/5/sections/10',
+      '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005/sections/018f6f1a-0000-7000-8000-000000000010',
     );
 
     expect(response.status).toBe(200);
-    expect(repository.deleteSection).toHaveBeenCalledWith(3, 5, 10);
+    expect(repository.deleteSection).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000003',
+      '018f6f1a-0000-7000-8000-000000000005',
+      '018f6f1a-0000-7000-8000-000000000010',
+    );
   });
 
   it('reorders sections by id list', async () => {
@@ -197,11 +280,27 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .put('/api/admin/tenants/3/pages/5/sections/reorder')
-      .send({ sectionIds: [10, 20, 30] });
+      .put(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005/sections/reorder',
+      )
+      .send({
+        sectionIds: [
+          '018f6f1a-0000-7000-8000-000000000010',
+          '018f6f1a-0000-7000-8000-000000000020',
+          '018f6f1a-0000-7000-8000-000000000030',
+        ],
+      });
 
     expect(response.status).toBe(200);
-    expect(repository.reorderSections).toHaveBeenCalledWith(3, 5, [10, 20, 30]);
+    expect(repository.reorderSections).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000003',
+      '018f6f1a-0000-7000-8000-000000000005',
+      [
+        '018f6f1a-0000-7000-8000-000000000010',
+        '018f6f1a-0000-7000-8000-000000000020',
+        '018f6f1a-0000-7000-8000-000000000030',
+      ],
+    );
   });
 
   it('returns 400 when the reorder list does not match the page sections', async () => {
@@ -210,8 +309,10 @@ describe('AdminPageController (HTTP)', () => {
     const app = buildApp(repository);
 
     const response = await request(app)
-      .put('/api/admin/tenants/3/pages/5/sections/reorder')
-      .send({ sectionIds: [10] });
+      .put(
+        '/api/admin/tenants/018f6f1a-0000-7000-8000-000000000003/pages/018f6f1a-0000-7000-8000-000000000005/sections/reorder',
+      )
+      .send({ sectionIds: ['018f6f1a-0000-7000-8000-000000000010'] });
 
     expect(response.status).toBe(400);
   });

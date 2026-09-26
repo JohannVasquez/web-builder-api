@@ -1,50 +1,55 @@
-export interface GlobalSettingsPrimitives {
-  readonly siteName: string;
-  readonly tagline: string;
-  readonly contactEmail: string;
-  readonly contactPhone: string;
-  readonly whatsappNumber: string;
-  readonly address: string;
-  readonly instagramUrl: string;
-  readonly facebookUrl: string;
-}
+// Claves de `global_settings` que el sitio público expone tal cual, en orden de lectura.
+const SETTING_KEYS = [
+  'siteName',
+  'tagline',
+  'contactEmail',
+  'contactPhone',
+  'whatsappNumber',
+  'address',
+  'instagramUrl',
+  'facebookUrl',
+  'tiktokUrl',
+  'linkedinUrl',
+  'youtubeUrl',
+  'xUrl',
+  'customLinkUrl',
+  'customLinkLabel',
+  'googleAnalyticsId',
+  'metaPixelId',
+  'googleTagManagerId',
+  'cookieBanner',
+  'openingHours',
+  // Código que Search Console pide pegar en el `<head>` para verificar el dominio. Es
+  // público por definición: sale en el marcado de cada página.
+  'googleSiteVerification',
+  'bingSiteVerification',
+  // 'true' saca del índice el sitio entero mientras se construye. Es una cadena como el
+  // resto de las claves; quien la lee decide cómo interpretarla.
+  'siteUnderConstruction',
+] as const;
+
+type SettingKey = (typeof SETTING_KEYS)[number];
+
+export type GlobalSettingsPrimitives = Readonly<Record<SettingKey, string>>;
 
 export class GlobalSettings {
-  constructor(
-    public readonly siteName: string,
-    public readonly tagline: string,
-    public readonly contactEmail: string,
-    public readonly contactPhone: string,
-    public readonly whatsappNumber: string,
-    public readonly address: string,
-    public readonly instagramUrl: string,
-    public readonly facebookUrl: string,
-  ) {}
+  private constructor(private readonly values: GlobalSettingsPrimitives) {}
 
+  // Una clave ausente vale cadena vacía: el sitio decide qué ocultar, no falla.
   public static fromRecord(record: Readonly<Record<string, string>>): GlobalSettings {
-    const read = (key: string): string => record[key] ?? '';
-    return new GlobalSettings(
-      read('siteName'),
-      read('tagline'),
-      read('contactEmail'),
-      read('contactPhone'),
-      read('whatsappNumber'),
-      read('address'),
-      read('instagramUrl'),
-      read('facebookUrl'),
-    );
+    const values = Object.fromEntries(
+      SETTING_KEYS.map((key) => [key, record[key] ?? '']),
+    ) as GlobalSettingsPrimitives;
+    return new GlobalSettings(values);
+  }
+
+  public get(key: SettingKey): string {
+    return this.values[key];
   }
 
   public toPrimitives(): GlobalSettingsPrimitives {
-    return {
-      siteName: this.siteName,
-      tagline: this.tagline,
-      contactEmail: this.contactEmail,
-      contactPhone: this.contactPhone,
-      whatsappNumber: this.whatsappNumber,
-      address: this.address,
-      instagramUrl: this.instagramUrl,
-      facebookUrl: this.facebookUrl,
-    };
+    return this.values;
   }
 }
+
+export const GLOBAL_SETTING_KEYS: readonly SettingKey[] = SETTING_KEYS;

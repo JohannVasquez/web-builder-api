@@ -6,12 +6,16 @@ describe('DeleteFileUseCase', () => {
   const buildStorageProvider = (): jest.Mocked<StorageProvider> => ({
     upload: jest.fn(),
     delete: jest.fn().mockResolvedValue(undefined),
-    getPresignedUrl: jest.fn(),
+    getPresignedUrl: jest.fn(), healthCheck: jest.fn(),
   });
 
   const buildAssetRepository = (): jest.Mocked<StorageAssetRepository> => ({
     register: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
+    findByTenant: jest.fn().mockResolvedValue([]),
+    findKey: jest.fn().mockResolvedValue(null),
+    updateAlt: jest.fn().mockResolvedValue(null),
+    findUsage: jest.fn().mockResolvedValue([]),
   });
 
   it('delegates the deletion to the storage provider and removes the asset record', async () => {

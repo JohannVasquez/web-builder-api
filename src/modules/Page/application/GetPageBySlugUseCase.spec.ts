@@ -2,7 +2,7 @@ import { GetPageBySlugUseCase } from './GetPageBySlugUseCase';
 import { Page, PageSection } from '../domain/Page';
 import { PageNotFoundError } from '../domain/PageNotFoundError';
 import type { PageRepository } from '../domain/PageRepository';
-import type { ResolveImageUrlsUseCase } from '../../FileStorage/application/ResolveImageUrlsUseCase';
+import type { ResolveImageUrlsUseCase } from '@/modules/FileStorage/application/ResolveImageUrlsUseCase';
 
 describe('GetPageBySlugUseCase', () => {
   const buildPage = (): Page =>
@@ -12,14 +12,19 @@ describe('GetPageBySlugUseCase', () => {
     ]);
 
   const buildRepository = (page: Page | null): jest.Mocked<PageRepository> => ({
+    findPublishedAt: jest.fn().mockResolvedValue(null),
     findBySlug: jest.fn().mockResolvedValue(page),
+    findDraftBySlug: jest.fn().mockResolvedValue(page),
     findAllByTenant: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    publish: jest.fn(),
+    replaceDraft: jest.fn(),
     addSection: jest.fn(),
     updateSection: jest.fn(),
+    duplicateSection: jest.fn(),
     deleteSection: jest.fn(),
     reorderSections: jest.fn(),
   });
@@ -32,6 +37,9 @@ describe('GetPageBySlugUseCase', () => {
       execute: jest
         .fn()
         .mockImplementation((props: Record<string, unknown>) => Promise.resolve(props)),
+      signKey: jest
+        .fn()
+        .mockImplementation((key: string | null) => Promise.resolve(key)),
     }) as unknown as jest.Mocked<ResolveImageUrlsUseCase>;
 
   it('returns the page when the slug exists', async () => {
@@ -40,9 +48,15 @@ describe('GetPageBySlugUseCase', () => {
     const resolveImageUrls = buildResolveImageUrlsUseCase();
     const useCase = new GetPageBySlugUseCase(repository, resolveImageUrls);
 
-    const result = await useCase.execute(1, 'nosotros');
+    const result = await useCase.execute(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'nosotros',
+    );
 
-    expect(repository.findBySlug).toHaveBeenCalledWith(1, 'nosotros');
+    expect(repository.findBySlug).toHaveBeenCalledWith(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'nosotros',
+    );
     expect(result.slug).toBe(page.slug);
     expect(result.sections).toHaveLength(page.sections.length);
   });
@@ -60,7 +74,10 @@ describe('GetPageBySlugUseCase', () => {
     );
     const useCase = new GetPageBySlugUseCase(repository, resolveImageUrls);
 
-    const result = await useCase.execute(1, 'nosotros');
+    const result = await useCase.execute(
+      '018f6f1a-0000-7000-8000-000000000001',
+      'nosotros',
+    );
 
     expect(resolveImageUrls.execute).toHaveBeenCalledTimes(2);
     const heroSection = result.sections.find((section) => section.type === 'Hero');
@@ -71,7 +88,9 @@ describe('GetPageBySlugUseCase', () => {
     const repository = buildRepository(null);
     const useCase = new GetPageBySlugUseCase(repository, buildResolveImageUrlsUseCase());
 
-    await expect(useCase.execute(1, 'no-existe')).rejects.toThrow(PageNotFoundError);
+    await expect(
+      useCase.execute('018f6f1a-0000-7000-8000-000000000001', 'no-existe'),
+    ).rejects.toThrow(PageNotFoundError);
   });
 
   it('serializes sections ordered by position', () => {

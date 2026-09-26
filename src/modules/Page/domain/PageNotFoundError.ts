@@ -1,4 +1,4 @@
-import { NotFoundError } from '../../../shared/domain/NotFoundError';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
 
 export class PageNotFoundError extends NotFoundError {
   constructor(public readonly slug: string) {

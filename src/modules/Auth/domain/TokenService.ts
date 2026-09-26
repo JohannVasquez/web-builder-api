@@ -1,5 +1,5 @@
 export interface AdminTokenPayload {
-  readonly adminUserId: number;
+  readonly adminUserId: string;
 }
 
 /**

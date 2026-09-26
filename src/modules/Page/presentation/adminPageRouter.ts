@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { AdminPageController } from './AdminPageController';
 
-/** Montado bajo `/api/admin/tenants/:tenantId/pages`, detrás de `adminAuthMiddleware`. */
+// Montado bajo `/api/admin/tenants/:tenantId/pages`, detrás del middleware de actor.
 export const createAdminPageRouter = (controller: AdminPageController): Router => {
   const router = Router({ mergeParams: true });
 
@@ -13,8 +13,13 @@ export const createAdminPageRouter = (controller: AdminPageController): Router =
 
   router.post('/:pageId/sections', controller.addSection);
   router.patch('/:pageId/sections/:sectionId', controller.updateSection);
+  router.post('/:pageId/sections/:sectionId/duplicate', controller.duplicateSection);
   router.delete('/:pageId/sections/:sectionId', controller.deleteSection);
   router.put('/:pageId/sections/reorder', controller.reorderSections);
+
+  router.post('/:pageId/publish', controller.publish);
+  router.get('/:pageId/versions', controller.listVersions);
+  router.post('/:pageId/versions/:versionId/restore', controller.restoreVersion);
 
   return router;
 };
