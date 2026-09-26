@@ -195,6 +195,7 @@ describe('buildApp (rutas protegidas)', () => {
       adminDemoController: {
         create: ok(201),
         list: ok(200),
+        metrics: ok(200),
         get: ok(200),
         updateProspect: ok(200),
         regenerateProspectLink: ok(201),

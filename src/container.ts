@@ -252,6 +252,9 @@ import { DemoLifecycleConfig } from './modules/Demo/domain/DemoLifecycleConfig';
 import { ManageDemoExpiryUseCase } from './modules/Demo/application/ManageDemoExpiryUseCase';
 import { PurgeDemoUseCase } from './modules/Demo/application/PurgeDemoUseCase';
 import { PrismaDemoRepository } from './modules/Demo/infrastructure/PrismaDemoRepository';
+import { DemoMetricsRepository } from './modules/Demo/domain/DemoMetricsRepository';
+import { PrismaDemoMetricsRepository } from './modules/Demo/infrastructure/PrismaDemoMetricsRepository';
+import { GetDemoMetricsUseCase } from './modules/Demo/application/GetDemoMetricsUseCase';
 import { CreateDemoUseCase } from './modules/Demo/application/CreateDemoUseCase';
 import { ConvertDemoUseCase } from './modules/Demo/application/ConvertDemoUseCase';
 import { DiscardDemoUseCase } from './modules/Demo/application/DiscardDemoUseCase';
@@ -1055,6 +1058,11 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(QueryDemosUseCase)
     .withDependencies([DemoRepository, DemoLifecycleConfig]);
   builder
+    .register(DemoMetricsRepository)
+    .use(PrismaDemoMetricsRepository)
+    .withDependencies([PrismaClient]);
+  builder.registerAndUse(GetDemoMetricsUseCase).withDependencies([DemoMetricsRepository]);
+  builder
     .registerAndUse(ManageDemoExpiryUseCase)
     .withDependencies([DemoRepository, DemoLifecycleConfig, RecordActivityUseCase]);
   // El mismo borrado que la tarea diaria, para el botón del owner.
@@ -1108,6 +1116,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       PurgeDemoUseCase,
       ConvertDemoUseCase,
       DiscardDemoUseCase,
+      GetDemoMetricsUseCase,
     ]);
 
   return builder.build();

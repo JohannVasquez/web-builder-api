@@ -22,6 +22,9 @@ import { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase'
 import { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
 import { ConvertDemoUseCase } from '../application/ConvertDemoUseCase';
 import { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
+import { GetDemoMetricsUseCase } from '../application/GetDemoMetricsUseCase';
+import type { DemoMetricsRepository } from '../domain/DemoMetricsRepository';
+import type { DemoMetricsRow } from '../domain/DemoMetrics';
 import type { ManageAdminUsersUseCase } from '@/modules/Auth/application/ManageAdminUsersUseCase';
 import type { AdminUserRepository } from '@/modules/Auth/domain/AdminUserRepository';
 import type { PasswordHasher } from '@/modules/Auth/domain/PasswordHasher';
@@ -158,12 +161,20 @@ describe('AdminDemoController (HTTP)', () => {
     readonly cache: jest.Mocked<SiteCacheInvalidator>;
   }
 
+  const buildMetricsRepository = (
+    rows: DemoMetricsRow[] = [],
+  ): jest.Mocked<DemoMetricsRepository> => ({
+    findCreatedBetween: jest.fn().mockResolvedValue(rows),
+  });
+
   const build = (
     actor: Actor,
     repository = buildRepository(),
+    metricsRepository = buildMetricsRepository(),
   ): {
     app: Express;
     repository: jest.Mocked<DemoRepository>;
+    metricsRepository: jest.Mocked<DemoMetricsRepository>;
     logs: jest.Mock;
     storage: jest.Mocked<StorageProvider>;
   } & Collaborators => {
@@ -207,6 +218,7 @@ describe('AdminDemoController (HTTP)', () => {
         activity,
       ),
       new DiscardDemoUseCase(repository, config, cache, activity),
+      new GetDemoMetricsUseCase(metricsRepository),
     );
     const fakeActor: RequestHandler = (_req, res, next) => {
       setRequestActor(res, actor);
@@ -223,7 +235,16 @@ describe('AdminDemoController (HTTP)', () => {
       createAdminDemoRouter(controller),
     );
     app.use(new ErrorHandler().handle);
-    return { app, repository, logs, storage, users, adminUsers, cache };
+    return {
+      app,
+      repository,
+      metricsRepository,
+      logs,
+      storage,
+      users,
+      adminUsers,
+      cache,
+    };
   };
 
   const body = {
@@ -1203,6 +1224,173 @@ describe('AdminDemoController (HTTP)', () => {
 
       expect(response.status).toBe(403);
       expect((response.body as { message: string }).message).toContain('descártala');
+    });
+  });
+
+  describe('métricas', () => {
+    const metricsRow = (overrides: Partial<DemoMetricsRow> = {}): DemoMetricsRow => ({
+      industry: 'pastelería',
+      templateId: 'pasteleria',
+      creator: { type: 'admin', name: 'Pau' },
+      createdAt: new Date('2026-03-10T15:00:00Z'),
+      expiresAt: new Date('2026-03-24T15:00:00Z'),
+      outcome: null,
+      outcomeAt: null,
+      discardReason: null,
+      extensionCount: 0,
+      visitCount: 0,
+      firstVisitAt: null,
+      purgedAt: null,
+      ...overrides,
+    });
+
+    // 10 creadas, 6 abiertas y 2 convertidas; dos de ellas ya borradas.
+    const tenDemos = (): DemoMetricsRow[] =>
+      Array.from({ length: 10 }, (_unused, index) =>
+        metricsRow({
+          visitCount: index < 6 ? 2 : 0,
+          firstVisitAt: index < 6 ? new Date('2026-03-11T15:00:00Z') : null,
+          outcome: index < 2 ? 'converted' : null,
+          outcomeAt: index < 2 ? new Date('2026-03-15T15:00:00Z') : null,
+          purgedAt: index >= 8 ? new Date('2026-05-01T00:00:00Z') : null,
+        }),
+      );
+
+    it('el owner ve el embudo del rango, leído en hora de Chile', async () => {
+      const metricsRepository = buildMetricsRepository(tenDemos());
+      const { app } = build(owner, buildRepository(), metricsRepository);
+
+      const response = await request(app).get(
+        '/api/admin/demos/metrics?from=2026-01-01&to=2026-12-31',
+      );
+
+      expect(response.status).toBe(200);
+      expect(metricsRepository.findCreatedBetween).toHaveBeenCalledWith(
+        new Date('2026-01-01T03:00:00.000Z'),
+        new Date('2027-01-01T03:00:00.000Z'),
+      );
+      expect(response.body).toMatchObject({
+        range: { from: '2026-01-01', to: '2026-12-31', timeZone: 'America/Santiago' },
+        funnel: {
+          created: 10,
+          opened: 6,
+          converted: 2,
+          openRate: 0.6,
+          conversionRate: 0.2,
+          conversionRateOfOpened: 0.3333,
+        },
+        outcomes: { converted: 2, purged: 2 },
+        groupBy: null,
+        groups: [],
+      });
+    });
+
+    it('agrupa con groupBy y cada grupo trae su embudo', async () => {
+      const { app } = build(
+        fullKey,
+        buildRepository(),
+        buildMetricsRepository([
+          ...tenDemos(),
+          metricsRow({ industry: 'construcción', visitCount: 1 }),
+        ]),
+      );
+
+      const response = await request(app).get(
+        '/api/admin/demos/metrics?from=2026-01-01&to=2026-12-31&groupBy=industry',
+      );
+
+      expect(response.status).toBe(200);
+      const { groups } = response.body as {
+        groups: { key: string; funnel: { created: number; opened: number } }[];
+      };
+      expect(groups.map((group) => [group.key, group.funnel.created])).toEqual([
+        ['pastelería', 10],
+        ['construcción', 1],
+      ]);
+    });
+
+    it('un rango sin demos responde ceros, no un error', async () => {
+      const { app } = build(owner);
+
+      const response = await request(app).get(
+        '/api/admin/demos/metrics?from=2031-01-01&to=2031-01-31&groupBy=template',
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        funnel: {
+          created: 0,
+          opened: 0,
+          converted: 0,
+          openRate: 0,
+          conversionRate: 0,
+          conversionRateOfOpened: 0,
+        },
+        timing: { medianDaysToFirstVisit: null, medianDaysToConversion: null },
+        engagement: { avgVisitsPerOpenedDemo: 0, avgExtensions: 0 },
+        groups: [],
+      });
+    });
+
+    it('sin fechas, los últimos 90 días hasta hoy', async () => {
+      const metricsRepository = buildMetricsRepository();
+      const { app } = build(owner, buildRepository(), metricsRepository);
+
+      const response = await request(app).get('/api/admin/demos/metrics');
+
+      expect(response.status).toBe(200);
+      const [start, end] = metricsRepository.findCreatedBetween.mock.calls[0];
+      const days = (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
+      // 90 días de calendario; uno más o menos si el rango cruza un cambio de hora.
+      expect(Math.round(days)).toBe(90);
+      expect(end.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it.each([
+      ['from posterior a to', 'from=2026-02-01&to=2026-01-01'],
+      ['un formato que no es AAAA-MM-DD', 'from=01-02-2026'],
+      ['una fecha que no existe', 'to=2026-02-30'],
+      ['una agrupación desconocida', 'groupBy=prospect'],
+    ])('400 con %s', async (_label, query) => {
+      const { app, metricsRepository } = build(owner);
+
+      const response = await request(app).get(`/api/admin/demos/metrics?${query}`);
+
+      expect(response.status).toBe(400);
+      expect(metricsRepository.findCreatedBetween).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['el owner', owner, 200],
+      ['una clave full', fullKey, 200],
+      ['un editor', staff, 403],
+      ['una clave write', writeKey, 403],
+      ['una clave de solo lectura', readKey, 403],
+      ['un usuario client', client, 403],
+      [
+        'una clave full limitada a algunos clientes',
+        { ...fullKey, tenantScope: [TENANT_ID] },
+        403,
+      ],
+    ])('%s: %i', async (_label, actor, status) => {
+      const { app, metricsRepository } = build(actor);
+
+      const response = await request(app).get('/api/admin/demos/metrics');
+
+      expect(response.status).toBe(status);
+      if (status === 403) {
+        expect(metricsRepository.findCreatedBetween).not.toHaveBeenCalled();
+      }
+    });
+
+    it('al editor se le dice por qué, sin confundirlo con una demo que no existe', async () => {
+      const { app } = build(staff);
+
+      const response = await request(app).get('/api/admin/demos/metrics');
+
+      expect((response.body as { message: string }).message).toContain(
+        'persona dueña de la cuenta',
+      );
     });
   });
 });

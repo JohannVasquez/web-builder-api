@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { idSchema } from '@/shared/domain/identifier';
 import { tenantSlugSchema } from '@/modules/Tenant/domain/TenantSchema';
 import { DEMO_DISCARD_REASONS } from './Demo';
+import { DEMO_METRICS_GROUPINGS } from './DemoMetrics';
 import { DEMO_SLUG_PREFIX } from './demoSlug';
 import { ProspectInputSchema } from './Prospect';
 
@@ -97,3 +98,33 @@ export type ConvertDemoInput = z.infer<typeof ConvertDemoSchema>;
 export const DiscardDemoSchema = z.strictObject({
   reason: z.enum(DEMO_DISCARD_REASONS).optional(),
 });
+
+// Un día de calendario en hora de Chile. El siglo acotado evita que un año absurdo arme miles
+// de meses vacíos al agrupar por mes.
+const metricsDaySchema = z
+  .string()
+  .regex(
+    /^(19|20)\d{2}-\d{2}-\d{2}$/,
+    'Usa el formato AAAA-MM-DD, por ejemplo "2026-01-31".',
+  )
+  .refine(
+    (value) => {
+      const date = new Date(`${value}T00:00:00.000Z`);
+      return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+    },
+    { error: 'Esa fecha no existe en el calendario.' },
+  );
+
+export const DemoMetricsQuerySchema = z
+  .object({
+    from: metricsDaySchema.optional(),
+    to: metricsDaySchema.optional(),
+    groupBy: z.enum(DEMO_METRICS_GROUPINGS).optional(),
+  })
+  .refine(
+    (value) =>
+      value.from === undefined || value.to === undefined || value.from <= value.to,
+    { error: 'La fecha "from" no puede ser posterior a "to".', path: ['from'] },
+  );
+
+export type DemoMetricsQuery = z.infer<typeof DemoMetricsQuerySchema>;

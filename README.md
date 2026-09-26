@@ -38,29 +38,30 @@ Todo lo que escribe va detrás de `Authorization: Bearer <token>` (el token lo
 emite `POST /api/admin/auth/login`). Sin cabecera, o con un token inválido o
 vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 
-| Método | Ruta                                     | Descripción                                                      |
-| ------ | ---------------------------------------- | ---------------------------------------------------------------- |
-| POST   | `/api/files`                             | Sube un archivo al bucket privado                                |
-| DELETE | `/api/files/:key`                        | Borra un archivo del bucket                                      |
-| GET    | `/api/admin/me`                          | Confirma la sesión vigente                                       |
-| GET    | `/api/admin/tenants`                     | Lista los clientes (sin demos; `?includeDemos=true` las incluye) |
-| POST   | `/api/admin/demos`                       | Crea una demo de prospecto y entrega sus dos enlaces             |
-| GET    | `/api/admin/demos`                       | Lista demos (`status`, `prospectId`, `createdBy`)                |
-| GET    | `/api/admin/demos?status=por-vencer`     | Demos vigentes que vencen en los próximos 3 días                 |
-| GET    | `/api/admin/demos/:demoId`               | Demo, ficha del prospecto y sus otras demos                      |
-| PATCH  | `/api/admin/demos/:demoId/prospect`      | Edita la ficha del prospecto                                     |
-| POST   | `/api/admin/demos/:demoId/prospect-link` | Regenera el enlace del prospecto                                 |
-| POST   | `/api/admin/demos/:demoId/team-link`     | Regenera el enlace del equipo                                    |
-| GET    | `/api/admin/demos/:demoId/visits`        | Visitas del prospecto, paginadas                                 |
-| POST   | `/api/admin/demos/:demoId/extend`        | Extiende la demo 14 días (`DEMO_DURATION_DAYS`)                  |
-| PATCH  | `/api/admin/demos/:demoId/expiry`        | `{ neverExpires }`: la deja sin vencimiento o se lo devuelve     |
-| POST   | `/api/admin/demos/:demoId/discard`       | `{ reason? }`: la descarta; el prospecto deja de entrar          |
-| POST   | `/api/admin/demos/:demoId/restore`       | Recupera una descartada (dentro de la gracia) por 14 días        |
-| POST   | `/api/admin/demos/:demoId/convert`       | `{ slug?, owner? }`: la convierte en cliente (clave `full`)      |
-| DELETE | `/api/admin/demos/:demoId`               | `{ confirm: true }`: la borra ya y deja el registro anónimo      |
-| POST   | `/api/admin/signed-documents`            | Registra firma de contrato (exige full)                          |
-| GET    | `/api/admin/signed-documents/tenant/:id` | Lista documentos firmados por un cliente                         |
-| GET    | `/api/admin/signed-documents/outdated`   | Clientes en versión anterior de un contrato                      |
+| Método | Ruta                                     | Descripción                                                       |
+| ------ | ---------------------------------------- | ----------------------------------------------------------------- |
+| POST   | `/api/files`                             | Sube un archivo al bucket privado                                 |
+| DELETE | `/api/files/:key`                        | Borra un archivo del bucket                                       |
+| GET    | `/api/admin/me`                          | Confirma la sesión vigente                                        |
+| GET    | `/api/admin/tenants`                     | Lista los clientes (sin demos; `?includeDemos=true` las incluye)  |
+| POST   | `/api/admin/demos`                       | Crea una demo de prospecto y entrega sus dos enlaces              |
+| GET    | `/api/admin/demos`                       | Lista demos (`status`, `prospectId`, `createdBy`)                 |
+| GET    | `/api/admin/demos?status=por-vencer`     | Demos vigentes que vencen en los próximos 3 días                  |
+| GET    | `/api/admin/demos/metrics`               | Métricas: embudo, resultados y grupos (solo owner o clave `full`) |
+| GET    | `/api/admin/demos/:demoId`               | Demo, ficha del prospecto y sus otras demos                       |
+| PATCH  | `/api/admin/demos/:demoId/prospect`      | Edita la ficha del prospecto                                      |
+| POST   | `/api/admin/demos/:demoId/prospect-link` | Regenera el enlace del prospecto                                  |
+| POST   | `/api/admin/demos/:demoId/team-link`     | Regenera el enlace del equipo                                     |
+| GET    | `/api/admin/demos/:demoId/visits`        | Visitas del prospecto, paginadas                                  |
+| POST   | `/api/admin/demos/:demoId/extend`        | Extiende la demo 14 días (`DEMO_DURATION_DAYS`)                   |
+| PATCH  | `/api/admin/demos/:demoId/expiry`        | `{ neverExpires }`: la deja sin vencimiento o se lo devuelve      |
+| POST   | `/api/admin/demos/:demoId/discard`       | `{ reason? }`: la descarta; el prospecto deja de entrar           |
+| POST   | `/api/admin/demos/:demoId/restore`       | Recupera una descartada (dentro de la gracia) por 14 días         |
+| POST   | `/api/admin/demos/:demoId/convert`       | `{ slug?, owner? }`: la convierte en cliente (clave `full`)       |
+| DELETE | `/api/admin/demos/:demoId`               | `{ confirm: true }`: la borra ya y deja el registro anónimo       |
+| POST   | `/api/admin/signed-documents`            | Registra firma de contrato (exige full)                           |
+| GET    | `/api/admin/signed-documents/tenant/:id` | Lista documentos firmados por un cliente                          |
+| GET    | `/api/admin/signed-documents/outdated`   | Clientes en versión anterior de un contrato                       |
 
 | GET | `/api/admin/subscriptions` | Vista global de cobros y MRR |
 | GET | `/api/admin/subscriptions/export` | Exportar cobros en CSV |

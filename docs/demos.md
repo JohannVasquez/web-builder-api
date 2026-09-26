@@ -522,8 +522,125 @@ borra una demo. Una clave limitada a algunos clientes no alcanza a ninguna demo 
 ni para verla). El recorrido para el agente está en
 [Armar una demo para un prospecto](herramientas-agentes.md#armar-una-demo-para-un-prospecto).
 
-### Etapas siguientes
+### Métricas
 
-Métricas (etapa 4): cuántas se crean, se abren y se convierten, por rubro, por kit y por
-vendedor. Lo que necesitan (`outcome`, `outcomeAt`, `discardReason`, `industry`, `templateId`,
-quién la creó y los contadores de visitas) ya se guarda y sobrevive al borrado.
+Cuántas demos se hacen, cuántas se abren y cuántas se venden, por rubro, por kit, por vendedor o
+por mes: `GET /api/admin/demos/metrics?from=2026-01-01&to=2026-12-31&groupBy=industry`.
+
+- Solo **owner** o clave con permiso `full` (y sin alcance limitado). Un **editor recibe 403**
+  aunque en el panel tenga `full`: las métricas por vendedor son información del negocio, no
+  del equipo. Una clave `write` o `read`, un usuario `client` o una clave limitada: 403.
+- `from` y `to` son días `AAAA-MM-DD` en **hora de Chile** (`America/Santiago`), ambos
+  incluidos: `to=2026-01-31` alcanza hasta las 23:59 del 31 en Chile. Sin `from` ni `to`, los
+  **últimos 90 días contando hoy**; solo con `to`, los 90 días que terminan ese día; solo con
+  `from`, hasta hoy (o solo ese día si es futuro). `from` posterior a `to`, un formato distinto,
+  una fecha que no existe (`2026-02-30`), un año fuera de 1900–2099 o un `groupBy` desconocido: 400.
+- `groupBy` (opcional): `industry`, `template`, `creator` o `month`.
+- No escribe nada ni deja entrada en el registro de actividad.
+
+**Qué demos cuenta:** las **creadas** en el rango (por `createdAt`), **incluidas las ya
+borradas**: su fila anónima conserva todo lo que se mide (ver [Borrado](#borrado)). También
+cuentan las descartadas con `otra-propuesta`: fueron trabajo del vendedor, aunque el prospecto
+haya comprado otra.
+
+```json
+{
+  "range": { "from": "2026-06-29", "to": "2026-09-26", "timeZone": "America/Santiago" },
+  "asOf": "2026-09-26T15:00:00.000Z",
+  "funnel": {
+    "created": 5,
+    "opened": 3,
+    "converted": 1,
+    "openRate": 0.6,
+    "conversionRate": 0.2,
+    "conversionRateOfOpened": 0.3333
+  },
+  "outcomes": {
+    "active": 1,
+    "expired": 1,
+    "discarded": 1,
+    "discardReasons": {
+      "no-interesado": 0,
+      "precio": 1,
+      "ya-tiene-sitio": 0,
+      "no-responde": 0,
+      "otro": 0,
+      "sin-motivo": 0
+    },
+    "otraPropuesta": 1,
+    "converted": 1,
+    "purged": 2
+  },
+  "timing": { "medianDaysToFirstVisit": 1, "medianDaysToConversion": 7.04 },
+  "engagement": { "avgVisitsPerOpenedDemo": 3.33, "avgExtensions": 0.4 },
+  "groupBy": "industry",
+  "groups": [
+    {
+      "key": "pastelería",
+      "label": "pastelería",
+      "funnel": {
+        "created": 3,
+        "opened": 2,
+        "converted": 1,
+        "openRate": 0.6667,
+        "conversionRate": 0.3333,
+        "conversionRateOfOpened": 0.5
+      }
+    },
+    {
+      "key": "spa",
+      "label": "spa",
+      "funnel": {
+        "created": 1,
+        "opened": 1,
+        "converted": 0,
+        "openRate": 1,
+        "conversionRate": 0,
+        "conversionRateOfOpened": 0
+      }
+    }
+  ]
+}
+```
+
+| Número                              | Qué significa                                                                                                                                                   |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `funnel.created`                    | Demos creadas en el rango                                                                                                                                       |
+| `funnel.opened`                     | De ellas, las que el prospecto abrió al menos una vez (`visits.count > 0`; el enlace del equipo no cuenta visitas)                                              |
+| `funnel.converted`                  | De ellas, las convertidas en cliente, hayan tenido visitas o no                                                                                                 |
+| `openRate`                          | `opened / created`                                                                                                                                              |
+| `conversionRate`                    | `converted / created`: cuántas demos hacen falta para una venta                                                                                                 |
+| `conversionRateOfOpened`            | Convertidas **que el prospecto abrió** / `opened`. Una vendida en persona, sin visitas, está en `converted` pero no en esta tasa, que así nunca pasa de 1       |
+| `outcomes.active`                   | Vigentes **ahora** (sin resultado y sin vencer, o sin vencimiento)                                                                                              |
+| `outcomes.expired`                  | Vencidas sin resultado. Incluye las borradas sin resultado (también una borrada a mano estando vigente: se cerró sin venderse)                                  |
+| `outcomes.discarded`                | Descartadas porque el prospecto dijo que no; `discardReasons` las desglosa por motivo (`sin-motivo`: descartada sin elegir uno). Suman `discarded`              |
+| `outcomes.otraPropuesta`            | Descartadas solas al convertir otra propuesta del mismo prospecto. No son un "no": no entran en `discarded` ni en `discardReasons`                              |
+| `outcomes.converted`                | Convertidas                                                                                                                                                     |
+| `outcomes.purged`                   | Cuántas ya se borraron. Es un conteo **aparte**: cada borrada cuenta además en `expired`, `discarded`, `otraPropuesta` o `converted` según lo que le pasó antes |
+| `timing.medianDaysToFirstVisit`     | Mediana de días (con decimales) entre crear la demo y la primera visita del prospecto, entre las abiertas                                                       |
+| `timing.medianDaysToConversion`     | Mediana de días entre crear la demo y convertirla, entre las convertidas                                                                                        |
+| `engagement.avgVisitsPerOpenedDemo` | Visitas promedio por demo abierta                                                                                                                               |
+| `engagement.avgExtensions`          | Extensiones promedio por demo creada                                                                                                                            |
+
+- `active + expired + discarded + otraPropuesta + converted = created`.
+- Los estados son los de **hoy** (`asOf`): la misma consulta mañana puede mover una demo de
+  `active` a `expired`. El embudo, en cambio, no cambia por el paso del tiempo.
+- Tasas como fracción de 0 a 1 con 4 decimales (`0.3333` = 33 %); promedios y medianas con 2.
+- **Sin datos**, todo en 0, las medianas en `null` y `groups` vacío: nunca un error ni `NaN`.
+
+**Grupos** (`groups`, vacío sin `groupBy`): cada uno con `key`, `label` y su propio `funnel`.
+Los grupos suman el total.
+
+| `groupBy`  | Agrupa por                                                      | `key` / `label`                                                                                     | Orden                              |
+| ---------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `industry` | Rubro copiado de la ficha al crearla, sin distinguir mayúsculas | El rubro en minúsculas / como se escribió la primera vez. Sin rubro: `null` / `Sin rubro`           | Más demos primero; `null` al final |
+| `template` | Kit de origen                                                   | El `templateId`. Vacía o duplicada: `null` / `Sin kit (vacía o duplicada)`                          | Más demos primero; `null` al final |
+| `creator`  | Quién la creó, con el nombre congelado al crearla               | `admin:<nombre>` o `apiKey:<nombre>` / el nombre (una clave: `<nombre> (clave de acceso)`)          | Más demos primero                  |
+| `month`    | Mes de creación en hora de Chile                                | `AAAA-MM` / igual. Están **todos los meses del rango**, también los que no tuvieron demos (en cero) | Cronológico                        |
+
+El vendedor se identifica por el nombre guardado en la demo, no por su id: sigue contando
+aunque la persona o la clave se borren, y una clave de acceso cuenta como su nombre. Si alguien
+cambia de nombre, sus demos anteriores quedan en otro grupo.
+
+El cálculo trae las filas del rango (solo columnas de `demos`, nada del prospecto) y agrega en
+memoria con funciones puras (`src/modules/Demo/domain/DemoMetrics.ts`).

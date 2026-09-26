@@ -38,12 +38,35 @@ export const requireDemoDeleter = (
   next();
 };
 
+// Las métricas dicen cuánto vende cada persona del equipo: son información del negocio, no del
+// equipo. Solo el owner o una clave `full`; un editor tiene `full` en el panel, así que a las
+// personas se les mira el rol y a las claves el permiso.
+export const requireDemoMetricsViewer = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const actor = getRequestActor(res);
+  if (actor.type === 'apiKey') {
+    requirePermission('full')(req, res, next);
+    return;
+  }
+  if (actor.role !== 'owner') {
+    throw new ForbiddenError(
+      'Las métricas de demos son solo para la persona dueña de la cuenta: muestran cuánto vende cada persona del equipo.',
+    );
+  }
+  next();
+};
+
 // Montado bajo `/api/admin/demos`, detrás del actor, `requireStaff` y el permiso por método.
 export const createAdminDemoRouter = (controller: AdminDemoController): Router => {
   const router = Router();
   router.use(requireUnscopedActor);
   router.post('/', controller.create);
   router.get('/', controller.list);
+  // Antes de `/:demoId`, que si no lo tomaría como el id de una demo.
+  router.get('/metrics', requireDemoMetricsViewer, controller.metrics);
   router.get('/:demoId', controller.get);
   router.patch('/:demoId/prospect', controller.updateProspect);
   router.post('/:demoId/prospect-link', controller.regenerateProspectLink);

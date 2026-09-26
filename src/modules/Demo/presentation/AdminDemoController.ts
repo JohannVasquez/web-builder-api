@@ -9,6 +9,7 @@ import type { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUse
 import type { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
 import type { ConvertDemoUseCase } from '../application/ConvertDemoUseCase';
 import type { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
+import type { GetDemoMetricsUseCase } from '../application/GetDemoMetricsUseCase';
 import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoView } from '../domain/DemoRepository';
 import {
@@ -18,6 +19,7 @@ import {
   DiscardDemoSchema,
   DemoExpirySchema,
   DemoListQuerySchema,
+  DemoMetricsQuerySchema,
   DemoVisitsQuerySchema,
 } from '../domain/DemoSchema';
 import { ProspectPatchSchema } from '../domain/Prospect';
@@ -61,6 +63,7 @@ export class AdminDemoController {
     private readonly purgeDemoUseCase: PurgeDemoUseCase,
     private readonly convertDemoUseCase: ConvertDemoUseCase,
     private readonly discardDemoUseCase: DiscardDemoUseCase,
+    private readonly getDemoMetricsUseCase: GetDemoMetricsUseCase,
   ) {}
 
   public readonly create = async (req: Request, res: Response): Promise<void> => {
@@ -88,6 +91,11 @@ export class AdminDemoController {
     const now = new Date();
     const demos = await this.queryDemosUseCase.list(filter, now);
     res.json({ demos: demos.map((view) => presentDemo(view, now)) });
+  };
+
+  public readonly metrics = async (req: Request, res: Response): Promise<void> => {
+    const query = DemoMetricsQuerySchema.parse(req.query);
+    res.json(await this.getDemoMetricsUseCase.execute(query, new Date()));
   };
 
   public readonly get = async (req: Request, res: Response): Promise<void> => {
