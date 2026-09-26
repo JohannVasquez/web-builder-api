@@ -907,7 +907,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .withDependencies([PrismaClient]);
   builder
     .registerAndUse(SubscribeToNewsletterUseCase)
-    .withDependencies([NewsletterRepository]);
+    .withDependencies([NewsletterRepository, ConsentRepository]);
   builder.registerAndUse(ListSubscribersUseCase).withDependencies([NewsletterRepository]);
   // Consentimiento
   builder
@@ -939,7 +939,10 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       UnsubscribeFromNewsletterUseCase,
       RateLimiter,
     ]);
-  builder.register(PreviewLinkRepository).use(PrismaPreviewLinkRepository);
+  builder
+    .register(PreviewLinkRepository)
+    .use(PrismaPreviewLinkRepository)
+    .withDependencies([PrismaClient]);
   builder
     .registerAndUse(GeneratePreviewLinkUseCase)
     .withDependencies([PreviewLinkRepository]);
