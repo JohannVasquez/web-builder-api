@@ -152,6 +152,7 @@ export const buildApp = (
   cacheInvalidation: RequestHandler,
   activityRecording: RequestHandler,
   previewMiddleware: RequestHandler,
+  demoGuard: RequestHandler,
   // Sin clave de idempotencia la compra se comporta igual; por defecto no hace nada.
   checkoutIdempotency: RequestHandler = (_req, _res, next) => {
     next();
@@ -185,29 +186,32 @@ export const buildApp = (
   // publicarse a internet. Ver createTenantInternalRouter.
   app.use('/internal', createTenantInternalRouter(controllers.tenantController));
 
-  // Rutas scoped por tenant: el resolver deja el tenant en res.locals.
+  // Rutas scoped por tenant: el resolver deja el tenant en res.locals, y la guarda de demos va
+  // pegada a él en TODAS, antes de `siteAvailability`: un tenant en estado `demo` responde 404
+  // a quien no trae su enlace, por la ruta que sea. app.spec.ts falla si una ruta nueva la omite.
+  const publicSite: RequestHandler[] = [tenantResolver, demoGuard];
   app.use(
     '/api/pages',
-    tenantResolver,
+    ...publicSite,
     previewMiddleware,
     siteAvailability,
     createPageRouter(controllers.pageController),
   );
   app.use(
     '/api/settings',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createGlobalSettingsRouter(controllers.globalSettingsController),
   );
   app.use(
     '/api/navigation',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createNavigationRouter(controllers.navigationController),
   );
   app.use(
     '/api/contact',
-    tenantResolver,
+    ...publicSite,
     previewMiddleware,
     siteAvailability,
     createContactRouter(controllers.contactController),
@@ -215,31 +219,31 @@ export const buildApp = (
   // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
   app.use(
     '/api/blog',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createBlogRouter(controllers.blogController),
   );
   app.use(
     '/api/products',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createStoreRouter(controllers.storeController),
   );
   app.use(
     '/api/store',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createCheckoutRouter(controllers.checkoutController, checkoutIdempotency),
   );
   app.use(
     '/api/product-categories',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createProductCategoryRouter(controllers.storeController),
   );
   app.use(
     '/api/newsletter',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createNewsletterRouter(controllers.newsletterController),
   );
@@ -250,32 +254,32 @@ export const buildApp = (
   );
   app.use(
     '/api/solicitudes-datos',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     activityRecording,
     createDataRightsRouter(controllers.dataRightsController),
   );
   app.use(
     '/api/media',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createMediaProxyRouter(controllers.mediaProxyController),
   );
   app.use(
     '/api/reclamos',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createConsumerClaimRouter(controllers.consumerClaimController),
   );
   app.use(
     '/api/redirecciones',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createRedirectRouter(controllers.redirectController),
   );
   app.use(
     '/api/consents',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createConsentRouter(controllers.consentController),
   );

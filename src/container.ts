@@ -251,7 +251,10 @@ import { PrismaDemoRepository } from './modules/Demo/infrastructure/PrismaDemoRe
 import { CreateDemoUseCase } from './modules/Demo/application/CreateDemoUseCase';
 import { QueryDemosUseCase } from './modules/Demo/application/QueryDemosUseCase';
 import { UpdateProspectUseCase } from './modules/Demo/application/UpdateProspectUseCase';
+import { RegenerateDemoLinkUseCase } from './modules/Demo/application/RegenerateDemoLinkUseCase';
+import { ValidateDemoAccessUseCase } from './modules/Demo/application/ValidateDemoAccessUseCase';
 import { AdminDemoController } from './modules/Demo/presentation/AdminDemoController';
+import { createDemoGuard } from './modules/Demo/presentation/demoGuard';
 import { buildApp } from './app';
 
 /**
@@ -1030,8 +1033,17 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(UpdateProspectUseCase)
     .withDependencies([DemoRepository, RecordActivityUseCase]);
   builder
+    .registerAndUse(RegenerateDemoLinkUseCase)
+    .withDependencies([DemoRepository, RecordActivityUseCase]);
+  builder.registerAndUse(ValidateDemoAccessUseCase).withDependencies([DemoRepository]);
+  builder
     .registerAndUse(AdminDemoController)
-    .withDependencies([CreateDemoUseCase, QueryDemosUseCase, UpdateProspectUseCase]);
+    .withDependencies([
+      CreateDemoUseCase,
+      QueryDemosUseCase,
+      UpdateProspectUseCase,
+      RegenerateDemoLinkUseCase,
+    ]);
 
   return builder.build();
 };
@@ -1095,6 +1107,7 @@ export class Container {
       createCacheInvalidationMiddleware(this.services.get(InvalidateTenantCacheUseCase)),
       createActivityRecordingMiddleware(this.services.get(RecordActivityUseCase)),
       createPreviewMiddleware(this.services.get(ValidatePreviewTokenUseCase)),
+      createDemoGuard(this.services.get(ValidateDemoAccessUseCase)),
       createIdempotency(this.services.get(IdempotencyStore), 'store.checkout'),
       async () => {
         // Ping DB (ligero)

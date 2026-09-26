@@ -17,6 +17,7 @@ import { EMPTY_SITE_CONTENT } from '@/modules/Tenant/domain/SiteContent';
 import { CreateDemoUseCase } from '../application/CreateDemoUseCase';
 import { QueryDemosUseCase } from '../application/QueryDemosUseCase';
 import { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
+import { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import { Demo } from '../domain/Demo';
 import type { DemoRepository, DemoView } from '../domain/DemoRepository';
 import { Prospect } from '../domain/Prospect';
@@ -128,6 +129,7 @@ describe('AdminDemoController (HTTP)', () => {
       ),
       new QueryDemosUseCase(repository),
       new UpdateProspectUseCase(repository, activity),
+      new RegenerateDemoLinkUseCase(repository, activity),
     );
     const fakeActor: RequestHandler = (_req, res, next) => {
       setRequestActor(res, actor);
@@ -316,5 +318,35 @@ describe('AdminDemoController (HTTP)', () => {
     const response = await request(app).get('/api/admin/demos');
 
     expect(response.status).toBe(403);
+  });
+
+  it.each([
+    ['prospect-link', 'prospect'],
+    ['team-link', 'team'],
+  ] as const)('POST /%s entrega el enlace nuevo una sola vez', async (path, kind) => {
+    const { app, repository } = build(staff);
+
+    const response = await request(app).post(`/api/admin/demos/${DEMO_ID}/${path}`);
+
+    expect(response.status).toBe(201);
+    const { link } = response.body as { link: { kind: string; url: string } };
+    expect(link.kind).toBe(kind);
+    expect(link.url).toMatch(
+      /^https:\/\/demo-pasteleria-luna\.webbuilder\.co\/demo\/demo_/,
+    );
+    expect(repository.replaceAccessToken).toHaveBeenCalledWith(
+      DEMO_ID,
+      kind,
+      expect.stringMatching(/^[0-9a-f]{64}$/),
+    );
+  });
+
+  it('una clave de solo lectura no regenera enlaces', async () => {
+    const { app, repository } = build(readKey);
+
+    const response = await request(app).post(`/api/admin/demos/${DEMO_ID}/team-link`);
+
+    expect(response.status).toBe(403);
+    expect(repository.replaceAccessToken).not.toHaveBeenCalled();
   });
 });

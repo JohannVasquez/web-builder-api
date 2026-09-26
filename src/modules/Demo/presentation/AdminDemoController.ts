@@ -4,7 +4,8 @@ import { getRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
 import type { CreateDemoUseCase, IssuedDemoLink } from '../application/CreateDemoUseCase';
 import type { QueryDemosUseCase } from '../application/QueryDemosUseCase';
 import type { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
-import type { DemoCreator } from '../domain/Demo';
+import type { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
+import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoView } from '../domain/DemoRepository';
 import { CreateDemoSchema, DemoListQuerySchema } from '../domain/DemoSchema';
 import { ProspectPatchSchema } from '../domain/Prospect';
@@ -29,6 +30,7 @@ export class AdminDemoController {
     private readonly createDemoUseCase: CreateDemoUseCase,
     private readonly queryDemosUseCase: QueryDemosUseCase,
     private readonly updateProspectUseCase: UpdateProspectUseCase,
+    private readonly regenerateDemoLinkUseCase: RegenerateDemoLinkUseCase,
   ) {}
 
   public readonly create = async (req: Request, res: Response): Promise<void> => {
@@ -85,6 +87,33 @@ export class AdminDemoController {
     );
     res.json({ prospect: prospect.toPrimitives() });
   };
+
+  public readonly regenerateProspectLink = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    await this.regenerate(req, res, 'prospect');
+  };
+
+  public readonly regenerateTeamLink = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    await this.regenerate(req, res, 'team');
+  };
+
+  private async regenerate(
+    req: Request,
+    res: Response,
+    kind: DemoLinkKind,
+  ): Promise<void> {
+    const link = await this.regenerateDemoLinkUseCase.execute(
+      this.demoIdOf(req),
+      kind,
+      this.actorOf(res),
+    );
+    res.status(201).json({ link: presentLink(link) });
+  }
 
   private demoIdOf(req: Request): string {
     return parseId(req.params.demoId, 'demoId');

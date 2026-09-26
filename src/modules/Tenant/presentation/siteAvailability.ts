@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
+import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { isDemoRequest, NOT_FOUND_MESSAGE } from '@/shared/presentation/demoRequest';
 import { TENANT_STATUS_MESSAGES } from '../domain/Tenant';
 import { getRequestTenant } from './tenantResolver';
 
@@ -14,6 +16,17 @@ export const siteAvailability = (
   if (tenant.isServable()) {
     next();
     return;
+  }
+
+  // Una demo se sirve solo si la guarda de demos ya validó el enlace. Si una ruta llegara aquí
+  // sin pasar por ella, la respuesta sigue siendo el 404 de algo que no existe: nunca el 503,
+  // que diría el nombre del negocio.
+  if (tenant.isDemo()) {
+    if (isDemoRequest(res)) {
+      next();
+      return;
+    }
+    throw new NotFoundError(NOT_FOUND_MESSAGE);
   }
 
   res.status(503).json({
