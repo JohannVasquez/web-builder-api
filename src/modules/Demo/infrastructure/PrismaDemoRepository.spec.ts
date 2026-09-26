@@ -2,23 +2,32 @@ import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@/shared/infrastructure/prisma/generated/client';
 import { EMPTY_SITE_CONTENT } from '@/modules/Tenant/domain/SiteContent';
+import type { RecordActivityUseCase } from '@/modules/ActivityLog/application/RecordActivityUseCase';
+import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { NotifyExpiringDemosUseCase } from '../application/NotifyExpiringDemosUseCase';
+import { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
+import { PurgeExpiredDemosUseCase } from '../application/PurgeExpiredDemosUseCase';
+import { DemoClosedError } from '../domain/errors';
 import { addDays, DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoExpiryWarningMail } from '../domain/DemoMailer';
 import { hashDemoToken } from '../domain/demoToken';
 import { PrismaDemoRepository } from './PrismaDemoRepository';
 import 'dotenv/config';
 
-// Contra la base real. Todas las fechas son del año 2000: ninguna demo de verdad (ni de otra
-// prueba) cae en esas ventanas, así que las consultas globales solo alcanzan lo de esta prueba,
-// y al final se borra solo lo que la prueba creó.
+// Contra la base real. Todas las fechas son de 1990 o del 2000: ninguna demo de verdad cae en
+// esas ventanas, así que las consultas globales (por vencer, avisos, borrado) solo alcanzan lo
+// de esta prueba, y al final se borra solo lo que la prueba creó.
 describe('PrismaDemoRepository (base real)', () => {
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
   });
   const repository = new PrismaDemoRepository(prisma);
   const NOW = new Date('2000-03-01T12:00:00Z');
-  const created = { demos: [] as string[], prospects: [] as string[] };
+  const created = {
+    demos: [] as string[],
+    prospects: [] as string[],
+    tenants: [] as string[],
+  };
 
   interface DemoFixture {
     readonly expiresAt: Date | null;
@@ -26,6 +35,8 @@ describe('PrismaDemoRepository (base real)', () => {
     readonly outcomeAt?: Date;
     readonly email?: string | null;
     readonly businessName?: string;
+    readonly phone?: string;
+    readonly industry?: string;
     // Una segunda propuesta al mismo prospecto.
     readonly prospectId?: string;
   }
@@ -45,11 +56,13 @@ describe('PrismaDemoRepository (base real)', () => {
               data: {
                 businessName: fixture.businessName ?? 'Negocio de prueba',
                 email: fixture.email ?? null,
+                phone: fixture.phone ?? null,
+                notes: 'Notas de prueba',
               },
             }
           : { id: fixture.prospectId },
-      templateId: null,
-      industry: null,
+      templateId: 'pasteleria',
+      industry: fixture.industry ?? null,
       creator: { type: 'admin', id: null, name: 'Prueba' },
       createdAt: addDays(fixture.expiresAt ?? NOW, -14),
       expiresAt: fixture.expiresAt,
@@ -67,6 +80,9 @@ describe('PrismaDemoRepository (base real)', () => {
       },
     });
     created.demos.push(demoId);
+    if (demo.tenantId !== null) {
+      created.tenants.push(demo.tenantId);
+    }
     if (demo.prospectId !== null) {
       created.prospects.push(demo.prospectId);
     }
@@ -74,13 +90,9 @@ describe('PrismaDemoRepository (base real)', () => {
   };
 
   afterAll(async () => {
-    const demos = await prisma.demo.findMany({
-      where: { id: { in: created.demos } },
-      select: { tenantId: true },
-    });
-    const tenantIds = demos.flatMap((demo) => demo.tenantId ?? []);
+    // Las ids de sitio se guardaron al crearlos: una demo borrada ya no apunta al suyo.
     await prisma.demo.deleteMany({ where: { id: { in: created.demos } } });
-    await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
+    await prisma.tenant.deleteMany({ where: { id: { in: created.tenants } } });
     await prisma.prospect.deleteMany({ where: { id: { in: created.prospects } } });
     await prisma.$disconnect();
   });
@@ -250,6 +262,345 @@ describe('PrismaDemoRepository (base real)', () => {
       expect(sentTo([email])).toEqual([email]);
       expect(record?.expiryWarningError).toBeNull();
       expect(record?.expiryWarningFor).toEqual(addDays(TODAY, 2));
+    });
+  });
+
+  describe('borrado', () => {
+    // Otra época más: para este reloj, las demos de 2000 todavía no existen.
+    const TODAY = new Date('1990-06-01T12:00:00Z');
+    const config = new DemoLifecycleConfig();
+    const tag = randomUUID().slice(0, 8);
+
+    // El bucket es un doble en memoria: lo que se prueba es qué se pide borrar, no S3.
+    const bucket = new Set<string>();
+    let bucketDown = new Set<string>();
+    const storage = {
+      delete: (key: string): Promise<void> => {
+        if (bucketDown.has(key)) {
+          return Promise.reject(new Error('503 Slow Down'));
+        }
+        bucket.delete(key);
+        return Promise.resolve();
+      },
+    } as unknown as StorageProvider;
+    const activity = {
+      execute: jest.fn().mockResolvedValue(undefined),
+    } as unknown as RecordActivityUseCase;
+
+    const buildTask = (demoRepository = repository): PurgeExpiredDemosUseCase =>
+      new PurgeExpiredDemosUseCase(
+        demoRepository,
+        new NotifyExpiringDemosUseCase(
+          demoRepository,
+          { sendExpiryWarning: () => Promise.resolve() },
+          config,
+        ),
+        new PurgeDemoUseCase(demoRepository, storage, activity),
+        config,
+      );
+
+    const tenantOf = async (demoId: string): Promise<string> => {
+      const demo = await prisma.demo.findUniqueOrThrow({ where: { id: demoId } });
+      if (demo.tenantId === null) {
+        throw new Error('La demo ya no tiene sitio');
+      }
+      return demo.tenantId;
+    };
+
+    // Un sitio con contenido de verdad: una página con una imagen, archivos en la biblioteca y
+    // en el bucket, visitas del prospecto.
+    const furnish = async (
+      demoId: string,
+      options: { readonly imageKey?: string; readonly files?: number } = {},
+    ): Promise<string[]> => {
+      const tenantId = await tenantOf(demoId);
+      const keys = Array.from(
+        { length: options.files ?? 2 },
+        () => `${randomUUID()}.png`,
+      );
+      for (const key of keys) {
+        await prisma.storageAsset.create({
+          data: {
+            key,
+            mimeType: 'image/png',
+            size: 10,
+            tenantId,
+            originalName: 'luna.png',
+          },
+        });
+        bucket.add(key);
+      }
+      await prisma.page.create({
+        data: {
+          tenantId,
+          slug: 'home',
+          title: 'Inicio',
+          sections: {
+            create: [
+              {
+                type: 'hero',
+                position: 0,
+                props: { image: options.imageKey ?? keys[0] },
+              },
+            ],
+          },
+        },
+      });
+      for (const pageSlug of ['home', 'precios']) {
+        await repository.recordVisit(demoId, {
+          pageSlug,
+          ipHash: 'huella',
+          userAgent: 'Mozilla/5.0 (iPhone)',
+          visitedAt: addDays(TODAY, -45),
+        });
+      }
+      return keys;
+    };
+
+    const expiredDaysAgo = (days: number): Date => addDays(TODAY, -days);
+
+    it('borra las vencidas o descartadas hace más de 30 días y nunca las convertidas ni las sin vencimiento', async () => {
+      const email = `luna-${tag}@prueba.invalid`;
+      const businessName = `Pastelería Secreta ${tag}`;
+      const phone = `+56 9 ${tag}`;
+      const expired31 = await createDemo({
+        expiresAt: expiredDaysAgo(31),
+        email,
+        businessName,
+        phone,
+        industry: 'pastelería',
+      });
+      const prospectId = (
+        await prisma.demo.findUniqueOrThrow({ where: { id: expired31 } })
+      ).prospectId;
+      if (prospectId === null) {
+        throw new Error('Sin prospecto');
+      }
+      // Otra propuesta al mismo prospecto, todavía vigente: el prospecto se queda.
+      const sibling = await createDemo({ expiresAt: addDays(TODAY, 5), prospectId });
+      const expired29 = await createDemo({ expiresAt: expiredDaysAgo(29) });
+      const discarded31 = await createDemo({
+        expiresAt: addDays(TODAY, 60),
+        outcome: 'discarded',
+        outcomeAt: expiredDaysAgo(31),
+      });
+      const discarded29 = await createDemo({
+        expiresAt: expiredDaysAgo(90),
+        outcome: 'discarded',
+        outcomeAt: expiredDaysAgo(29),
+      });
+      const converted = await createDemo({
+        expiresAt: expiredDaysAgo(365),
+        outcome: 'converted',
+        outcomeAt: expiredDaysAgo(365),
+      });
+      const neverExpires = await createDemo({ expiresAt: null });
+      const alone = await createDemo({ expiresAt: expiredDaysAgo(40) });
+
+      const tenant31 = await tenantOf(expired31);
+      const keys31 = await furnish(expired31);
+      const keysAlone = await furnish(alone);
+      const keysDiscarded = await furnish(discarded31);
+      const aloneProspect = (
+        await prisma.demo.findUniqueOrThrow({ where: { id: alone } })
+      ).prospectId;
+      const before31 = await prisma.demo.findUniqueOrThrow({ where: { id: expired31 } });
+
+      const run = await buildTask().execute(TODAY);
+
+      expect(run).toMatchObject({
+        demosPurged: 3,
+        demosFailed: 0,
+        failedDemos: [],
+        errors: [],
+      });
+      const purged = await prisma.demo.findMany({
+        where: { id: { in: created.demos }, purgedAt: { not: null } },
+        select: { id: true },
+      });
+      expect(purged.map((demo) => demo.id).sort()).toEqual(
+        [expired31, discarded31, alone].sort(),
+      );
+      for (const kept of [sibling, expired29, discarded29, converted, neverExpires]) {
+        const demo = await prisma.demo.findUniqueOrThrow({ where: { id: kept } });
+        expect(demo.purgedAt).toBeNull();
+        expect(demo.tenantId).not.toBeNull();
+      }
+
+      // No queda el sitio, ni sus páginas, ni sus archivos, ni sus visitas, ni sus enlaces.
+      expect(await prisma.tenant.findUnique({ where: { id: tenant31 } })).toBeNull();
+      expect(await prisma.page.count({ where: { tenantId: tenant31 } })).toBe(0);
+      expect(await prisma.storageAsset.count({ where: { key: { in: keys31 } } })).toBe(0);
+      for (const key of [...keys31, ...keysAlone, ...keysDiscarded]) {
+        expect(bucket.has(key)).toBe(false);
+      }
+      expect(await prisma.demoVisit.count({ where: { demoId: expired31 } })).toBe(0);
+      expect(await prisma.demoAccessToken.count({ where: { demoId: expired31 } })).toBe(
+        0,
+      );
+      expect(await repository.findPendingFiles(expired31)).toEqual([]);
+
+      // El prospecto con otra demo vigente se queda; el que se quedó sin demos, no.
+      expect(
+        await prisma.prospect.findUnique({ where: { id: prospectId } }),
+      ).not.toBeNull();
+      expect(
+        await prisma.prospect.findUnique({ where: { id: aloneProspect ?? '' } }),
+      ).toBeNull();
+
+      // La fila anónima: contadores y fechas intactos, nada que identifique al prospecto.
+      const row = await prisma.demo.findUniqueOrThrow({ where: { id: expired31 } });
+      expect(row).toMatchObject({
+        tenantId: null,
+        prospectId: null,
+        purgedAt: TODAY,
+        templateId: 'pasteleria',
+        industry: 'pastelería',
+        actorName: 'Prueba',
+        createdAt: before31.createdAt,
+        expiresAt: expiredDaysAgo(31),
+        outcome: null,
+        visitCount: 2,
+        firstVisitAt: addDays(TODAY, -45),
+        lastVisitAt: addDays(TODAY, -45),
+        discardReason: null,
+        expiryWarningSentAt: null,
+        expiryWarningFor: null,
+        expiryWarningError: null,
+      });
+      const anonymous = JSON.stringify(row);
+      for (const personal of [
+        businessName,
+        email,
+        phone,
+        'Notas de prueba',
+        tenant31,
+        tag,
+      ]) {
+        expect(anonymous).not.toContain(personal);
+      }
+      // Tampoco en la vista: una demo borrada no se consulta ni se lista como demo.
+      expect(await repository.findById(expired31)).toBeNull();
+
+      // Cuando se borra la última propuesta, el prospecto se va también.
+      await new PurgeDemoUseCase(repository, storage, activity).execute(sibling, TODAY);
+      expect(await prisma.prospect.findUnique({ where: { id: prospectId } })).toBeNull();
+    });
+
+    it('correr la tarea dos veces seguidas no hace nada la segunda vez', async () => {
+      await createDemo({ expiresAt: expiredDaysAgo(35) });
+
+      const first = await buildTask().execute(TODAY);
+      const second = await buildTask().execute(TODAY);
+
+      expect(first.demosPurged).toBe(1);
+      expect(second).toEqual({
+        warningsSent: 0,
+        warningsFailed: 0,
+        failedWarnings: [],
+        demosPurged: 0,
+        demosFailed: 0,
+        failedDemos: [],
+        filesDeleted: 0,
+        filesPending: 0,
+        errors: [],
+      });
+    });
+
+    it('si falla el borrado de una demo, las demás se borran igual y el fallo queda en el resumen', async () => {
+      const failing = await createDemo({ expiresAt: expiredDaysAgo(50) });
+      const fine = await createDemo({ expiresAt: expiredDaysAgo(50) });
+      class FlakyRepository extends PrismaDemoRepository {
+        public override purge(
+          demoId: string,
+          now: Date,
+        ): ReturnType<PrismaDemoRepository['purge']> {
+          return demoId === failing
+            ? Promise.reject(new Error('deadlock detected'))
+            : super.purge(demoId, now);
+        }
+      }
+
+      const run = await buildTask(new FlakyRepository(prisma)).execute(TODAY);
+
+      expect(run.demosPurged).toBe(1);
+      expect(run.failedDemos).toEqual([{ demoId: failing, error: 'deadlock detected' }]);
+      expect(
+        (await prisma.demo.findUniqueOrThrow({ where: { id: fine } })).purgedAt,
+      ).toEqual(TODAY);
+      expect(
+        (await prisma.demo.findUniqueOrThrow({ where: { id: failing } })).purgedAt,
+      ).toBeNull();
+
+      // La pasada siguiente la vuelve a intentar.
+      expect((await buildTask().execute(TODAY)).demosPurged).toBe(1);
+    });
+
+    it('un archivo que no se puede borrar queda anotado y sale en la pasada siguiente', async () => {
+      const demoId = await createDemo({ expiresAt: expiredDaysAgo(31) });
+      const [stuck, other] = await furnish(demoId);
+      bucketDown = new Set([stuck ?? '']);
+
+      const first = await buildTask().execute(TODAY);
+
+      expect(first).toMatchObject({ demosPurged: 1, filesDeleted: 1, filesPending: 1 });
+      expect(bucket.has(other ?? '')).toBe(false);
+      expect(bucket.has(stuck ?? '')).toBe(true);
+      const pending = await prisma.demoPendingFile.findUniqueOrThrow({
+        where: { key: stuck },
+      });
+      expect(pending).toMatchObject({ demoId, attempts: 1, lastError: '503 Slow Down' });
+
+      bucketDown = new Set();
+      const second = await buildTask().execute(TODAY);
+
+      expect(second).toMatchObject({ demosPurged: 0, filesDeleted: 1, filesPending: 0 });
+      expect(bucket.has(stuck ?? '')).toBe(false);
+    });
+
+    it('un archivo que usa otro sitio no se borra del bucket: pasa a su biblioteca', async () => {
+      const shared = `${randomUUID()}.png`;
+      const purgedDemo = await createDemo({ expiresAt: expiredDaysAgo(31) });
+      await prisma.storageAsset.create({
+        data: {
+          key: shared,
+          mimeType: 'image/png',
+          size: 10,
+          tenantId: await tenantOf(purgedDemo),
+        },
+      });
+      bucket.add(shared);
+      // Una segunda propuesta armada duplicando la primera: su página apunta al mismo archivo.
+      const copy = await createDemo({ expiresAt: addDays(TODAY, 10) });
+      await furnish(copy, { imageKey: shared, files: 0 });
+
+      await new PurgeDemoUseCase(repository, storage, activity).execute(
+        purgedDemo,
+        TODAY,
+      );
+
+      expect(bucket.has(shared)).toBe(true);
+      expect(
+        (await prisma.storageAsset.findUniqueOrThrow({ where: { key: shared } }))
+          .tenantId,
+      ).toBe(await tenantOf(copy));
+    });
+
+    it('el borrado manual no espera la gracia, pero nunca borra una convertida', async () => {
+      const current = await createDemo({ expiresAt: addDays(TODAY, 10) });
+      const converted = await createDemo({ expiresAt: null, outcome: 'converted' });
+      const purge = new PurgeDemoUseCase(repository, storage, activity);
+
+      const result = await purge.execute(current, TODAY);
+
+      expect(result.demo.status(TODAY)).toBe('borrada');
+      await expect(purge.execute(converted, TODAY)).rejects.toBeInstanceOf(
+        DemoClosedError,
+      );
+      await expect(purge.execute(current, TODAY)).rejects.toBeInstanceOf(DemoClosedError);
+      expect(
+        (await prisma.demo.findUniqueOrThrow({ where: { id: converted } })).tenantId,
+      ).not.toBeNull();
     });
   });
 });

@@ -892,12 +892,14 @@ model Demo {
   actorName String  @map("actor_name") @db.VarChar(255)
 
   /// Nulo = sin vencimiento (ej. una demo que se usa de portafolio).
-  expiresAt DateTime? @map("expires_at") @db.Timestamptz()
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz()
   /// Nulo mientras no haya resultado; `converted` | `discarded`.
-  outcome   String?   @db.VarChar(20)
-  outcomeAt DateTime? @map("outcome_at") @db.Timestamptz()
+  outcome        String?   @db.VarChar(20)
+  outcomeAt      DateTime? @map("outcome_at") @db.Timestamptz()
+  /// Por qué se descartó (etapa 3). Texto libre del equipo: se borra con la demo.
+  discardReason  String?   @map("discard_reason") @db.VarChar(1000)
   /// Cuántas veces se extendió; cada extensión suma `DEMO_DURATION_DAYS`.
-  extensionCount Int @default(0) @map("extension_count")
+  extensionCount Int       @default(0) @map("extension_count")
 
   /// Aviso de vencimiento al prospecto: cuándo salió y para qué vencimiento. Si la demo se
   /// extiende, `expiryWarningFor` deja de coincidir con `expiresAt` y el aviso vuelve a correr.
@@ -921,6 +923,7 @@ model Demo {
   prospect     Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
   accessTokens DemoAccessToken[]
   visits       DemoVisit[]
+  pendingFiles DemoPendingFile[]
 
   @@index([prospectId])
   @@index([actorId])
@@ -945,6 +948,23 @@ model DemoAccessToken {
 
   @@index([demoId, kind])
   @@map("demo_access_tokens")
+}
+
+/// Archivo del bucket de una demo borrada que todavía falta borrar. Se anota en la misma
+/// transacción que borra el sitio (la biblioteca del tenant se va con él y con ella la lista
+/// de sus archivos), y la tarea diaria lo reintenta hasta que sale.
+model DemoPendingFile {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  demoId        String    @map("demo_id") @db.Uuid
+  key           String    @unique @db.VarChar(500)
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+  lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz()
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  demo          Demo      @relation(fields: [demoId], references: [id], onDelete: Cascade)
+
+  @@index([demoId])
+  @@map("demo_pending_files")
 }
 
 /// Página que el prospecto abrió con su enlace. Es un dato personal del prospecto: se borra

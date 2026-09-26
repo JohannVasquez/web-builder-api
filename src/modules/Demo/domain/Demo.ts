@@ -6,7 +6,14 @@ export type DemoLinkKind = (typeof DEMO_LINK_KINDS)[number];
 
 // Estado derivado, no guardado: vencer depende de la hora de la consulta, y guardarlo obligaría
 // a una tarea que lo mantenga al día.
-export const DEMO_STATUSES = ['vigente', 'vencida', 'convertida', 'descartada'] as const;
+// `borrada` es el rastro anónimo que queda para métricas: ya no se lista ni se consulta.
+export const DEMO_STATUSES = [
+  'vigente',
+  'vencida',
+  'convertida',
+  'descartada',
+  'borrada',
+] as const;
 export type DemoStatus = (typeof DEMO_STATUSES)[number];
 
 export const DEMO_OUTCOMES = ['converted', 'discarded'] as const;
@@ -52,6 +59,7 @@ export interface DemoPrimitives {
   readonly expiresAt: string | null;
   readonly outcome: DemoOutcome | null;
   readonly outcomeAt: string | null;
+  readonly purgedAt: string | null;
   readonly neverExpires: boolean;
   readonly extensionCount: number;
   readonly expiryWarning: {
@@ -87,6 +95,9 @@ export class Demo {
 
   // El resultado manda sobre el vencimiento: una demo convertida no "vence" después.
   public status(now: Date = new Date()): DemoStatus {
+    if (this.purgedAt !== null) {
+      return 'borrada';
+    }
     if (this.outcome === 'converted') {
       return 'convertida';
     }
@@ -151,6 +162,34 @@ export class Demo {
     );
   }
 
+  // Desde cuándo corresponde borrarla: el período de gracia cuenta desde el vencimiento, o
+  // desde el descarte. Nula si nunca: convertida (es un cliente), sin vencimiento o ya borrada.
+  public purgeDueAt(graceDays: number): Date | null {
+    if (this.purgedAt !== null || this.outcome === 'converted') {
+      return null;
+    }
+    const from = this.outcome === 'discarded' ? this.outcomeAt : this.expiresAt;
+    return from === null ? null : addDays(from, graceDays);
+  }
+
+  public isPurgeDue(now: Date, graceDays: number): boolean {
+    const dueAt = this.purgeDueAt(graceDays);
+    return dueAt !== null && dueAt.getTime() < now.getTime();
+  }
+
+  // El borrado manual no espera la gracia, pero una convertida ya es un cliente: se borra, si
+  // acaso, como cliente.
+  public assertCanBePurged(): void {
+    if (this.purgedAt !== null) {
+      throw new DemoClosedError('Esa demo ya se borró.');
+    }
+    if (this.outcome === 'converted') {
+      throw new DemoClosedError(
+        'Esa demo ya es un cliente: no se puede borrar como demo.',
+      );
+    }
+  }
+
   // Con resultado o ya borrada, el vencimiento no se toca: convertida es un cliente, y
   // descartada o borrada es una decisión que no se revierte extendiéndola.
   private assertOpen(): void {
@@ -180,6 +219,7 @@ export class Demo {
       expiresAt: this.expiresAt?.toISOString() ?? null,
       outcome: this.outcome,
       outcomeAt: this.outcomeAt?.toISOString() ?? null,
+      purgedAt: this.purgedAt?.toISOString() ?? null,
       neverExpires: this.expiresAt === null,
       extensionCount: this.extensionCount,
       expiryWarning: {

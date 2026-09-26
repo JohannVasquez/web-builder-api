@@ -19,6 +19,8 @@ import { QueryDemosUseCase } from '../application/QueryDemosUseCase';
 import { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
 import { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
+import { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
+import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { Demo, type DemoOutcome } from '../domain/Demo';
 import { DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoRepository, DemoView } from '../domain/DemoRepository';
@@ -58,6 +60,12 @@ describe('AdminDemoController (HTTP)', () => {
     permission: 'read',
   };
   const writeKey: Actor = { ...readKey, name: 'Agente', permission: 'write' };
+  const fullKey: Actor = { ...readKey, name: 'Agente total', permission: 'full' };
+  const owner: Actor = {
+    ...staff,
+    id: '018f6f1a-0000-7000-8000-0000000000a4',
+    role: 'owner',
+  };
   const scopedKey: Actor = { ...writeKey, tenantScope: [TENANT_ID] };
 
   const prospect = new Prospect(
@@ -126,12 +134,22 @@ describe('AdminDemoController (HTTP)', () => {
     findExpiryWarningCandidates: jest.fn(),
     markExpiryWarningSent: jest.fn(),
     markExpiryWarningFailed: jest.fn(),
+    findDueForPurge: jest.fn(),
+    purge: jest.fn(),
+    findPendingFiles: jest.fn(),
+    resolvePendingFile: jest.fn(),
+    failPendingFile: jest.fn(),
   });
 
   const build = (
     actor: Actor,
     repository = buildRepository(),
-  ): { app: Express; repository: jest.Mocked<DemoRepository>; logs: jest.Mock } => {
+  ): {
+    app: Express;
+    repository: jest.Mocked<DemoRepository>;
+    logs: jest.Mock;
+    storage: jest.Mocked<StorageProvider>;
+  } => {
     const logs = jest.fn().mockResolvedValue(undefined);
     const activity = new RecordActivityUseCase({
       record: logs,
@@ -142,6 +160,9 @@ describe('AdminDemoController (HTTP)', () => {
     };
     const platform = new PlatformDomainConfig('webbuilder.co', 'sitios.webbuilder.co');
     const config = new DemoLifecycleConfig();
+    const storage = {
+      delete: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<StorageProvider>;
     const controller = new AdminDemoController(
       new CreateDemoUseCase(
         repository,
@@ -155,6 +176,7 @@ describe('AdminDemoController (HTTP)', () => {
       new UpdateProspectUseCase(repository, activity),
       new RegenerateDemoLinkUseCase(repository, activity),
       new ManageDemoExpiryUseCase(repository, config, activity),
+      new PurgeDemoUseCase(repository, storage, activity),
     );
     const fakeActor: RequestHandler = (_req, res, next) => {
       setRequestActor(res, actor);
@@ -171,7 +193,7 @@ describe('AdminDemoController (HTTP)', () => {
       createAdminDemoRouter(controller),
     );
     app.use(new ErrorHandler().handle);
-    return { app, repository, logs };
+    return { app, repository, logs, storage };
   };
 
   const body = {
@@ -540,6 +562,117 @@ describe('AdminDemoController (HTTP)', () => {
       const threeDays = 3 * 24 * 60 * 60 * 1000;
       expect(until).toBeGreaterThanOrEqual(before + threeDays);
       expect(until).toBeLessThanOrEqual(Date.now() + threeDays);
+    });
+  });
+
+  describe('borrar', () => {
+    const purged = new Demo(
+      DEMO_ID,
+      null,
+      null,
+      null,
+      'pastelería',
+      { type: 'admin', id: staff.id, name: 'Pau' },
+      NOW,
+      FAR_EXPIRY,
+      null,
+      null,
+      { count: 3, firstAt: NOW, lastAt: NOW },
+      NOW,
+    );
+    const withPurge = (): jest.Mocked<DemoRepository> => {
+      const repository = buildRepository();
+      repository.purge.mockResolvedValue({
+        demo: purged,
+        pendingFileKeys: ['018f6f1a-0000-7000-8000-0000000000b1.png'],
+        prospectDeleted: true,
+      });
+      return repository;
+    };
+    const remove = (app: Express, body: object = { confirm: true }): request.Test =>
+      request(app).delete(`/api/admin/demos/${DEMO_ID}`).send(body);
+
+    it('el owner la borra al instante con confirmación y queda el registro anónimo', async () => {
+      const { app, repository, logs, storage } = build(owner, withPurge());
+
+      const response = await remove(app);
+
+      expect(response.status).toBe(200);
+      expect(repository.purge).toHaveBeenCalledWith(DEMO_ID, expect.any(Date));
+      expect(storage.delete).toHaveBeenCalledWith(
+        '018f6f1a-0000-7000-8000-0000000000b1.png',
+      );
+      expect(response.body).toMatchObject({
+        demo: {
+          id: DEMO_ID,
+          status: 'borrada',
+          tenantId: null,
+          prospectId: null,
+          visits: { count: 3 },
+        },
+        files: { deleted: 1, pending: 0 },
+        prospectDeleted: true,
+      });
+      // El registro sobrevive a la demo: sin tenant ni nombre del negocio.
+      expect(logs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'demo.delete',
+          tenantId: null,
+          entityId: DEMO_ID,
+        }),
+      );
+      expect(JSON.stringify(logs.mock.calls)).not.toContain('Pastelería');
+    });
+
+    it('una clave full también borra', async () => {
+      const { app } = build(fullKey, withPurge());
+
+      expect((await remove(app)).status).toBe(200);
+    });
+
+    it.each([
+      ['un editor', staff],
+      ['una clave con write', writeKey],
+      ['un usuario client', client],
+    ])('%s recibe 403', async (_label, actor) => {
+      const { app, repository } = build(actor, withPurge());
+
+      const response = await remove(app);
+
+      expect(response.status).toBe(403);
+      expect(repository.purge).not.toHaveBeenCalled();
+    });
+
+    it('sin { confirm: true } no borra nada', async () => {
+      const { app, repository } = build(owner, withPurge());
+
+      const [none, no] = await Promise.all([
+        request(app).delete(`/api/admin/demos/${DEMO_ID}`),
+        remove(app, { confirm: false }),
+      ]);
+
+      expect(none.status).toBe(400);
+      expect(no.status).toBe(400);
+      expect(repository.purge).not.toHaveBeenCalled();
+    });
+
+    it('una demo convertida no se borra: 422', async () => {
+      const repository = withPurge();
+      repository.findDemo.mockResolvedValue(buildDemo(FAR_EXPIRY, 'converted'));
+      const { app } = build(owner, repository);
+
+      const response = await remove(app);
+
+      expect(response.status).toBe(422);
+      expect(repository.purge).not.toHaveBeenCalled();
+    });
+
+    it('una demo que no existe: 404', async () => {
+      const repository = withPurge();
+      repository.findDemo.mockResolvedValue(null);
+      const { app } = build(owner, repository);
+
+      expect((await remove(app)).status).toBe(404);
     });
   });
 });

@@ -6,10 +6,12 @@ import type { QueryDemosUseCase } from '../application/QueryDemosUseCase';
 import type { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
 import type { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import type { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
+import type { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
 import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoView } from '../domain/DemoRepository';
 import {
   CreateDemoSchema,
+  DeleteDemoSchema,
   DemoExpirySchema,
   DemoListQuerySchema,
   DemoVisitsQuerySchema,
@@ -38,6 +40,7 @@ export class AdminDemoController {
     private readonly updateProspectUseCase: UpdateProspectUseCase,
     private readonly regenerateDemoLinkUseCase: RegenerateDemoLinkUseCase,
     private readonly manageDemoExpiryUseCase: ManageDemoExpiryUseCase,
+    private readonly purgeDemoUseCase: PurgeDemoUseCase,
   ) {}
 
   public readonly create = async (req: Request, res: Response): Promise<void> => {
@@ -129,6 +132,22 @@ export class AdminDemoController {
       now,
     );
     res.json({ demo: presentDemo(view, now) });
+  };
+
+  // Borra ya, sin esperar el período de gracia. Responde la fila anónima que queda.
+  public readonly remove = async (req: Request, res: Response): Promise<void> => {
+    DeleteDemoSchema.parse(req.body ?? {});
+    const now = new Date();
+    const result = await this.purgeDemoUseCase.deleteNow(
+      this.demoIdOf(req),
+      this.actorOf(res),
+      now,
+    );
+    res.json({
+      demo: result.demo.toPrimitives(now),
+      files: result.files,
+      prospectDeleted: result.prospectDeleted,
+    });
   };
 
   // Lo que el prospecto abrió, lo más reciente primero: la señal para decidir si volver a

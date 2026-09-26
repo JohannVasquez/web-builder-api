@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { idSchema } from '@/shared/domain/identifier';
-import { DEMO_STATUSES } from './Demo';
 import { ProspectInputSchema } from './Prospect';
 
 // El slug del tenant será `demo-<slug>` y el sufijo sugerido ante un choque suma unos
@@ -39,7 +38,14 @@ export type CreateDemoInput = z.infer<typeof CreateDemoSchema>;
 
 // `por-vencer` no es un estado más: son las vigentes que vencen dentro de la ventana de aviso,
 // la lista para llamar a los prospectos a los que no les llega el correo.
-export const DEMO_LIST_STATUSES = [...DEMO_STATUSES, 'por-vencer'] as const;
+// Las borradas no se listan: son un número en las métricas, no una demo.
+export const DEMO_LIST_STATUSES = [
+  'vigente',
+  'vencida',
+  'convertida',
+  'descartada',
+  'por-vencer',
+] as const;
 
 export const DemoListQuerySchema = z.object({
   status: z.enum(DEMO_LIST_STATUSES).optional(),
@@ -57,4 +63,11 @@ export const DemoVisitsQuerySchema = z.object({
 
 export const DemoExpirySchema = z.strictObject({
   neverExpires: z.boolean(),
+});
+
+// Borrar no se deshace: la confirmación va en la misma petición, igual que en el MCP.
+export const DeleteDemoSchema = z.object({
+  confirm: z.literal(true, {
+    error: 'Borrar una demo no se puede deshacer: confirma con { "confirm": true }.',
+  }),
 });

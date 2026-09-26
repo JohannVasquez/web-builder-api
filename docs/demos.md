@@ -174,18 +174,22 @@ las lista, lo más reciente primero.
 - `GET /api/admin/demos/:demoId` — la demo, la ficha del prospecto y sus otras demos.
 - `PATCH /api/admin/demos/:demoId/prospect` — edita la ficha (al menos un campo).
 
-Crear, editar la ficha, regenerar enlaces y cambiar el vencimiento queda en el registro de
-actividad (`demo.create`, `demo.prospect.update`, `demo.link.regenerate`, `demo.extend`,
-`demo.expiry.update`) con quién lo hizo y **sin** tokens.
+Una demo borrada no se lista ni se consulta (404): es un número en las métricas.
+
+Crear, editar la ficha, regenerar enlaces, cambiar el vencimiento y borrar queda en el registro
+de actividad (`demo.create`, `demo.prospect.update`, `demo.link.regenerate`, `demo.extend`,
+`demo.expiry.update`, `demo.delete`) con quién lo hizo y **sin** tokens. Las entradas que
+llevan el tenant de la demo (con su dirección y el nombre del negocio) se borran con ella;
+`demo.delete` queda sin tenant y sin nada del prospecto.
 
 ### Ciclo de vida
 
 ```text
-crear ──▶ vigente ──(pasa expiresAt)──▶ vencida
-             ▲                             │
+crear ──▶ vigente ──(pasa expiresAt)──▶ vencida ──(30 días más)──▶ borrada
+             ▲                             │                   (rastro anónimo)
              └───────── extender ──────────┘
 
-"sin vencimiento" (expiresAt nulo): se queda vigente
+"sin vencimiento" (expiresAt nulo): se queda vigente y nunca se borra sola
 ```
 
 El estado es **derivado**, no una columna: se calcula con la hora de cada consulta, así que
@@ -197,6 +201,7 @@ nadie tiene que acordarse de actualizarlo.
 | `vencida`    | Sin resultado y `expiresAt` ya pasó         | 404       | Entra y edita       |
 | `convertida` | `outcome = converted` (etapa 3)             | 404       | Es un cliente       |
 | `descartada` | `outcome = discarded` (etapa 3)             | 404       | Entra               |
+| `borrada`    | `purgedAt` puesto (ver [Borrado](#borrado)) | 404       | No existe           |
 
 - **Vence sola** a los `DEMO_DURATION_DAYS` (14) de crearse. El enlace del prospecto responde
   404 **en el mismo instante** en que vence: la guarda compara con la hora de la petición y no
@@ -237,11 +242,78 @@ escribe al prospecto `DEMO_EXPIRY_WARNING_DAYS` (3) días antes de que su demo v
   trae el contacto, el teléfono y `prospect.hasEmail`, para llamarlo o escribirle por WhatsApp.
   Cada demo trae también `expiryWarning: { sentAt, expiresAt, error }`.
 
+### Borrado
+
+Con llamadas en frío a volumen se acumulan cientos de demos que nadie compró, cada una con su
+sitio, sus imágenes en el bucket y los datos personales del prospecto. Pasado un tiempo se
+borra todo eso y **queda una fila anónima** por demo, para las métricas.
+
+**Cuándo:** la tarea diaria borra las demos cuyo `expiresAt` —o, si está descartada, su fecha
+de descarte (`outcomeAt`)— tiene más de `DEMO_PURGE_GRACE_DAYS` (30) días. Una vencida hace
+31 días se borra; una vencida hace 29, no. Una **convertida** (es un cliente) o **sin
+vencimiento** nunca se borra sola. Extenderla antes de que pase la gracia la salva.
+
+**Qué se borra**, en una sola transacción:
+
+- El **tenant** entero, en cascada: páginas, versiones, marca, navegación, ajustes, mensajes,
+  pedidos de prueba, productos, blog, biblioteca de medios y el registro de actividad del sitio.
+- Los **archivos del bucket** de su biblioteca. Se anotan en `demo_pending_files` dentro de la
+  misma transacción (con el tenant se va la biblioteca, que es la única lista de sus archivos)
+  y se borran del bucket después. Si alguno no sale, queda anotado con el error y la tarea lo
+  reintenta cada día hasta que salga; el resto se borra igual.
+- Las **visitas** y los **enlaces** de la demo.
+- El **prospecto**, si no le queda otra demo sin borrar ni una convertida. Si tiene otra
+  propuesta vigente, se queda hasta que se borre la última.
+
+Un archivo que **otro sitio también usa** (una segunda propuesta armada duplicando esta, por
+ejemplo) no se borra del bucket: pasa a la biblioteca de ese sitio. La búsqueda es textual
+sobre todo lo que puede guardar una key (bloques, páginas publicadas, versiones, marca,
+ajustes, blog y productos) y ante la duda conserva el archivo.
+
+**Qué queda** en `demos`: `tenantId` y `prospectId` en nulo, `purgedAt` puesto, y solo lo que
+sirve para medir: rubro, kit de origen, quién la creó (persona del equipo, no el prospecto),
+fechas de creación, vencimiento, resultado y borrado, `extensionCount`, `visitCount` y fechas
+de primera y última visita. Se vacían `discardReason` (texto libre que puede nombrarlo) y los
+datos del aviso (`expiryWarning*`: el error de un correo rebotado trae la dirección). No quedan
+nombre del negocio, contacto, teléfono, correo, notas, dirección ni IPs.
+
+**Borrado manual:** `DELETE /api/admin/demos/:demoId` con `{ "confirm": true }` hace lo mismo
+ya, sin esperar la gracia (también a una vigente).
+
+- Solo **owner** o clave con permiso `full`. Un editor recibe 403 aunque en el panel tenga
+  `full`: los vendedores crean, extienden y descartan, pero no borran.
+- Sin `{ "confirm": true }`: 400. Una demo convertida: 422 (ya es un cliente). Ya borrada: 422.
+- Responde la fila anónima y qué pasó con los archivos:
+
+```json
+{
+  "demo": {
+    "id": "…",
+    "status": "borrada",
+    "tenantId": null,
+    "prospectId": null,
+    "purgedAt": "2026-09-26T15:00:00.000Z",
+    "visits": { "count": 3, "firstAt": "…", "lastAt": "…" }
+  },
+  "files": { "deleted": 4, "pending": 0 },
+  "prospectDeleted": true
+}
+```
+
 ### Tarea diaria
 
-`scripts/purge-expired-demos.ts` (`pnpm purge:demos`) corre una vez al día desde cron y es
-idempotente: una segunda pasada no encuentra nada que hacer. Hoy manda los avisos de
-vencimiento e imprime una línea JSON por stdout:
+`scripts/purge-expired-demos.ts` (`pnpm purge:demos`) corre una vez al día desde cron (ver
+[Borrado de datos vencidos](operacion/borrado-de-datos-vencidos.md#5-demos-de-prospecto)) y es
+idempotente: una segunda pasada no encuentra nada que hacer. En cada pasada:
+
+1. Manda los [avisos de vencimiento](#aviso-de-vencimiento).
+2. Reintenta los archivos del bucket que quedaron pendientes.
+3. Borra las demos que cumplieron la gracia, una a una: la que falla no detiene a las demás y
+   se reintenta al día siguiente.
+
+Imprime una línea JSON por stdout, que es lo que queda en el log de cron y lo que acredita que
+el borrado corre, y deja la misma cuenta en el registro de actividad (`demo.purge`, sin
+tenant):
 
 ```json
 {
@@ -249,12 +321,23 @@ vencimiento e imprime una línea JSON por stdout:
   "proceso": "demos-vencidas",
   "warningsSent": 2,
   "warningsFailed": 0,
-  "failedWarnings": []
+  "failedWarnings": [],
+  "demosPurged": 5,
+  "demosFailed": 1,
+  "failedDemos": [{ "demoId": "…", "error": "deadlock detected" }],
+  "filesDeleted": 17,
+  "filesPending": 1,
+  "errors": []
 }
 ```
 
-`failedWarnings` lleva solo ids de demo: el motivo queda en la demo, porque puede traer el
-correo del prospecto. Si algo falló, termina con código 1.
+- `failedWarnings` lleva solo ids: el motivo queda en la demo, porque puede traer el correo del
+  prospecto.
+- `filesPending` es lo que sigue pendiente en el bucket **al terminar** (de esta pasada o de
+  antes).
+- `errors` anota un paso entero que no pudo correr (por ejemplo, sin base de datos); los demás
+  pasos corren igual.
+- Termina con código 1 si falló un aviso, una demo o un paso entero.
 
 ### Reglas que protegen el estado
 
@@ -282,7 +365,6 @@ de modo que las demos nunca pidan uno propio.
 
 ### Etapas siguientes
 
-Borrado automático con registro anónimo (etapa 2),
-convertir y descartar (etapa 3), herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas
-que necesitan (`expiresAt`, `outcome`, `outcomeAt`, `purgedAt`, contadores) ya existen, y la
-fila `demos` suelta el tenant y el prospecto (`SetNull`) para poder quedar como rastro anónimo.
+Convertir y descartar (etapa 3), herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas
+que necesitan (`outcome`, `outcomeAt`, `discardReason`, `purgedAt`, contadores) ya existen; el
+borrado ya cuenta la gracia de una descartada desde `outcomeAt`.

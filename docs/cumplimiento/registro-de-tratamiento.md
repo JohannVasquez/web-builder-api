@@ -69,8 +69,9 @@ actualizarlo aquí**.
 | **Dónde**           | `prospects`; la demo asociada en `demos` (sin datos personales propios)                          |
 | **Base de licitud** | Interés legítimo: contacto comercial con un negocio a partir de datos de fuentes públicas        |
 | **Fin**             | Preparar y presentar una propuesta de sitio, seguirla y avisar por correo antes de que venza     |
-| **Conservación**    | Mientras la demo exista; se borran con ella (etapa 2: 30 días tras vencer, configurable)         |
+| **Conservación**    | Hasta 30 días después de que su última demo venza o se descarte (`DEMO_PURGE_GRACE_DAYS`)        |
 | **Destinatarios**   | Nadie fuera de la agencia. El enlace de la demo nunca expone la ficha                            |
+| **Borrado**         | Tarea diaria `purge-expired-demos` o el owner a mano. Nunca con una demo convertida              |
 | **Nota**            | La fila `demos` queda como registro **anónimo** para métricas (kit, rubro, vendedor, contadores) |
 
 ### 7. Visitas a las demos de prospecto
@@ -81,7 +82,7 @@ actualizarlo aquí**.
 | **Datos**           | Página abierta, fecha y hora, **huella** de IP con sal, agente de usuario recortado (255)     |
 | **Dónde**           | `demo_visits`; contadores agregados (total, primera y última) en `demos`                      |
 | **Base de licitud** | Interés legítimo: saber si el prospecto abrió la propuesta que se le envió                    |
-| **Conservación**    | Se borran con la demo; los contadores agregados quedan en el registro anónimo                 |
+| **Conservación**    | Se borran con la demo (30 días tras vencer); los contadores quedan en el registro anónimo     |
 | **Nota**            | Solo con el enlace del prospecto; el equipo no genera visitas. Nunca se guarda la IP en claro |
 
 ### 8. Usuarios del panel

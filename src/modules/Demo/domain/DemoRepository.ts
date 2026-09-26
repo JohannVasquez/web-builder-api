@@ -45,7 +45,7 @@ export interface NewDemo {
 }
 
 export interface DemoFilter {
-  readonly status?: DemoStatus;
+  readonly status?: Exclude<DemoStatus, 'borrada'>;
   readonly prospectId?: string;
   readonly createdBy?: string;
   // Solo las que vencen hasta esta fecha (inclusive), de la más próxima a la más lejana.
@@ -68,6 +68,14 @@ export interface ExpiryWarningCandidate {
   readonly demo: Demo;
   readonly businessName: string;
   readonly email: string;
+}
+
+export interface PurgedDemo {
+  // La fila que queda: sin sitio, sin prospecto y sin nada que lo identifique.
+  readonly demo: Demo;
+  // Archivos del bucket anotados para borrar; salen después, fuera de la transacción.
+  readonly pendingFileKeys: readonly string[];
+  readonly prospectDeleted: boolean;
 }
 
 export interface NewDemoVisit {
@@ -127,4 +135,15 @@ export abstract class DemoRepository {
   ): Promise<void>;
   // Deja el motivo sin tocar el último aviso que sí salió: la próxima pasada reintenta.
   public abstract markExpiryWarningFailed(demoId: string, error: string): Promise<void>;
+  // Vencidas o descartadas antes de `cutoff`, sin convertir ni borrar. Las "sin vencimiento"
+  // no tienen fecha desde la cual contar, así que nunca aparecen.
+  public abstract findDueForPurge(cutoff: Date): Promise<Demo[]>;
+  // En UNA transacción: anota los archivos del sitio para borrarlos del bucket, borra el
+  // sitio (en cascada), las visitas, los enlaces y el prospecto si no le queda otra demo, y deja
+  // la fila anónima. Lanza `DemoClosedError` si la demo ya se borró o se convirtió.
+  public abstract purge(demoId: string, now: Date): Promise<PurgedDemo>;
+  // Los archivos que siguen pendientes, de una demo o de todas.
+  public abstract findPendingFiles(demoId?: string): Promise<string[]>;
+  public abstract resolvePendingFile(key: string): Promise<void>;
+  public abstract failPendingFile(key: string, error: string, at: Date): Promise<void>;
 }

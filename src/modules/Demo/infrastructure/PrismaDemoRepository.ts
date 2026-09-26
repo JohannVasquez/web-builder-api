@@ -19,10 +19,11 @@ import type {
   ExpiryWarningCandidate,
   NewDemo,
   NewDemoVisit,
+  PurgedDemo,
 } from '../domain/DemoRepository';
 import { DemoVisit } from '../domain/DemoVisit';
 import { Prospect, type ProspectPatch } from '../domain/Prospect';
-import { DemoAddressTakenError } from '../domain/errors';
+import { DemoAddressTakenError, DemoClosedError } from '../domain/errors';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
@@ -127,7 +128,10 @@ const toProspect = (record: Prisma.ProspectGetPayload<object>): Prospect =>
 
 // El estado se deriva de la hora de la consulta; aquí se traduce a una condición de base
 // para no traer todas las demos y filtrar en memoria.
-const statusWhere = (status: DemoStatus, now: Date): Prisma.DemoWhereInput => {
+const statusWhere = (
+  status: Exclude<DemoStatus, 'borrada'>,
+  now: Date,
+): Prisma.DemoWhereInput => {
   switch (status) {
     case 'convertida':
       return { outcome: 'converted' };
@@ -138,6 +142,67 @@ const statusWhere = (status: DemoStatus, now: Date): Prisma.DemoWhereInput => {
     case 'vigente':
       return { outcome: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
   }
+};
+
+// Cascada de un sitio entero: más que los 5 s por omisión de una transacción interactiva.
+const PURGE_TRANSACTION_TIMEOUT_MS = 60_000;
+
+// Lo que la fila conserva al borrarse: kit, rubro, quién la creó, fechas, resultado,
+// extensiones y contadores de visitas. El resto se vacía, porque o apunta al prospecto o es
+// texto libre que puede nombrarlo (el motivo de un correo rebotado trae su dirección).
+const ANONYMIZED: Prisma.DemoUncheckedUpdateInput = {
+  tenantId: null,
+  prospectId: null,
+  discardReason: null,
+  expiryWarningSentAt: null,
+  expiryWarningFor: null,
+  expiryWarningError: null,
+};
+
+type Transaction = Prisma.TransactionClient;
+
+// Un archivo de la demo que otro sitio también usa (por ejemplo, una segunda propuesta que se
+// armó duplicando esta) no se borra del bucket: pasa a la biblioteca de ese otro sitio. La
+// búsqueda es textual sobre todo lo que puede guardar una key; es conservadora: ante la duda,
+// el archivo se queda.
+const findKeysUsedElsewhere = async (
+  tx: Transaction,
+  tenantId: string,
+  keys: readonly string[],
+): Promise<Map<string, string>> => {
+  if (keys.length === 0) {
+    return new Map();
+  }
+  const rows = await tx.$queryRaw<{ key: string; tenant_id: string | null }[]>`
+    SELECT k.key, (
+      SELECT used.tenant_id FROM (
+        SELECT p.tenant_id FROM page_sections s JOIN pages p ON p.id = s.page_id
+          WHERE s.props::text LIKE '%' || k.key || '%'
+        UNION ALL
+        SELECT p.tenant_id FROM pages p
+          WHERE p.og_image_key = k.key OR p.published_content::text LIKE '%' || k.key || '%'
+        UNION ALL
+        SELECT p.tenant_id FROM page_versions v JOIN pages p ON p.id = v.page_id
+          WHERE v.snapshot::text LIKE '%' || k.key || '%'
+        UNION ALL
+        SELECT b.tenant_id FROM tenant_brands b WHERE b.assets::text LIKE '%' || k.key || '%'
+        UNION ALL
+        SELECT g.tenant_id FROM global_settings g WHERE g.value LIKE '%' || k.key || '%'
+        UNION ALL
+        SELECT bp.tenant_id FROM blog_posts bp
+          WHERE bp.cover_image_key = k.key OR bp.og_image_key = k.key
+             OR bp.content::text LIKE '%' || k.key || '%'
+        UNION ALL
+        SELECT pr.tenant_id FROM products pr WHERE k.key = ANY(pr.image_keys)
+      ) used
+      WHERE used.tenant_id <> ${tenantId}::uuid
+      LIMIT 1
+    ) AS tenant_id
+    FROM unnest(${keys}::text[]) AS k(key)
+  `;
+  return new Map(
+    rows.flatMap((row) => (row.tenant_id === null ? [] : [[row.key, row.tenant_id]])),
+  );
 };
 
 export class PrismaDemoRepository implements DemoRepository {
@@ -407,6 +472,115 @@ export class PrismaDemoRepository implements DemoRepository {
     await this.prisma.demo.update({
       where: { id: demoId },
       data: { expiryWarningError: error.slice(0, 1000) },
+    });
+  }
+
+  public async findDueForPurge(cutoff: Date): Promise<Demo[]> {
+    const records = await this.prisma.demo.findMany({
+      where: {
+        purgedAt: null,
+        OR: [
+          { outcome: null, expiresAt: { lt: cutoff } },
+          { outcome: 'discarded', outcomeAt: { lt: cutoff } },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return records.map(toDemo);
+  }
+
+  public async purge(demoId: string, now: Date): Promise<PurgedDemo> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const record = await tx.demo.findUnique({ where: { id: demoId } });
+        if (record === null || record.purgedAt !== null) {
+          throw new DemoClosedError('Esa demo ya se borró.');
+        }
+        if (record.outcome === 'converted') {
+          throw new DemoClosedError(
+            'Esa demo ya es un cliente: no se puede borrar como demo.',
+          );
+        }
+        const { tenantId, prospectId } = record;
+
+        let pendingFileKeys: string[] = [];
+        if (tenantId !== null) {
+          const assets = await tx.storageAsset.findMany({
+            where: { tenantId },
+            select: { key: true },
+          });
+          const keys = assets.map((asset) => asset.key);
+          const usedElsewhere = await findKeysUsedElsewhere(tx, tenantId, keys);
+          for (const [key, otherTenantId] of usedElsewhere) {
+            await tx.storageAsset.update({
+              where: { key },
+              data: { tenantId: otherTenantId },
+            });
+          }
+          pendingFileKeys = keys.filter((key) => !usedElsewhere.has(key));
+          // Anotados antes de borrar el sitio: con él se va la biblioteca, que es la única
+          // lista de sus archivos.
+          await tx.demoPendingFile.createMany({
+            data: pendingFileKeys.map((key) => ({ demoId, key })),
+            skipDuplicates: true,
+          });
+        }
+
+        await tx.demoVisit.deleteMany({ where: { demoId } });
+        await tx.demoAccessToken.deleteMany({ where: { demoId } });
+        const demo = await tx.demo.update({
+          where: { id: demoId },
+          data: { ...ANONYMIZED, purgedAt: now },
+        });
+        if (tenantId !== null) {
+          // Páginas, versiones, marca, navegación, mensajes, pedidos de prueba, productos,
+          // biblioteca y registro de actividad del sitio caen en cascada.
+          await tx.tenant.deleteMany({ where: { id: tenantId } });
+        }
+
+        // El prospecto se queda mientras tenga otra propuesta sin borrar, o una convertida
+        // (ya es cliente).
+        let prospectDeleted = false;
+        if (prospectId !== null) {
+          const others = await tx.demo.count({
+            where: {
+              prospectId,
+              OR: [{ purgedAt: null }, { outcome: 'converted' }],
+            },
+          });
+          if (others === 0) {
+            await tx.prospect.deleteMany({ where: { id: prospectId } });
+            prospectDeleted = true;
+          }
+        }
+
+        return { demo: toDemo(demo), pendingFileKeys, prospectDeleted };
+      },
+      { timeout: PURGE_TRANSACTION_TIMEOUT_MS },
+    );
+  }
+
+  public async findPendingFiles(demoId?: string): Promise<string[]> {
+    const records = await this.prisma.demoPendingFile.findMany({
+      where: demoId === undefined ? {} : { demoId },
+      select: { key: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return records.map((record) => record.key);
+  }
+
+  public async resolvePendingFile(key: string): Promise<void> {
+    await this.prisma.demoPendingFile.deleteMany({ where: { key } });
+  }
+
+  public async failPendingFile(key: string, error: string, at: Date): Promise<void> {
+    await this.prisma.demoPendingFile.updateMany({
+      where: { key },
+      data: {
+        attempts: { increment: 1 },
+        lastError: error.slice(0, 1000),
+        lastAttemptAt: at,
+      },
     });
   }
 }

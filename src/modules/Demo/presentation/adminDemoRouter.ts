@@ -18,6 +18,23 @@ export const requireUnscopedActor = (
   next();
 };
 
+// Borrar es solo del owner o de una clave `full` (que ya exige el permiso por método). Un
+// editor también tiene `full` en el panel, así que aquí se mira el rol: los vendedores crean,
+// extienden y descartan, pero no borran.
+export const requireDemoDeleter = (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const actor = getRequestActor(res);
+  if (actor.type === 'admin' && actor.role !== 'owner') {
+    throw new ForbiddenError(
+      'Borrar una demo es solo para la persona dueña de la cuenta. Si el prospecto dijo que no, déjala vencer: se borra sola.',
+    );
+  }
+  next();
+};
+
 // Montado bajo `/api/admin/demos`, detrás del actor, `requireStaff` y el permiso por método.
 export const createAdminDemoRouter = (controller: AdminDemoController): Router => {
   const router = Router();
@@ -31,5 +48,6 @@ export const createAdminDemoRouter = (controller: AdminDemoController): Router =
   router.get('/:demoId/visits', controller.listVisits);
   router.post('/:demoId/extend', controller.extend);
   router.patch('/:demoId/expiry', controller.updateExpiry);
+  router.delete('/:demoId', requireDemoDeleter, controller.remove);
   return router;
 };

@@ -250,6 +250,7 @@ import { AdminSubscriptionController } from './modules/Subscription/presentation
 import { DemoRepository } from './modules/Demo/domain/DemoRepository';
 import { DemoLifecycleConfig } from './modules/Demo/domain/DemoLifecycleConfig';
 import { ManageDemoExpiryUseCase } from './modules/Demo/application/ManageDemoExpiryUseCase';
+import { PurgeDemoUseCase } from './modules/Demo/application/PurgeDemoUseCase';
 import { PrismaDemoRepository } from './modules/Demo/infrastructure/PrismaDemoRepository';
 import { CreateDemoUseCase } from './modules/Demo/application/CreateDemoUseCase';
 import { QueryDemosUseCase } from './modules/Demo/application/QueryDemosUseCase';
@@ -1030,6 +1031,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
         new DemoLifecycleConfig(
           env.get('DEMO_DURATION_DAYS'),
           env.get('DEMO_EXPIRY_WARNING_DAYS'),
+          env.get('DEMO_PURGE_GRACE_DAYS'),
         ),
     )
     .asSingleton();
@@ -1053,6 +1055,10 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
   builder
     .registerAndUse(ManageDemoExpiryUseCase)
     .withDependencies([DemoRepository, DemoLifecycleConfig, RecordActivityUseCase]);
+  // El mismo borrado que la tarea diaria, para el botón del owner.
+  builder
+    .registerAndUse(PurgeDemoUseCase)
+    .withDependencies([DemoRepository, StorageProvider, RecordActivityUseCase]);
   builder
     .registerAndUse(UpdateProspectUseCase)
     .withDependencies([DemoRepository, RecordActivityUseCase]);
@@ -1078,6 +1084,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       UpdateProspectUseCase,
       RegenerateDemoLinkUseCase,
       ManageDemoExpiryUseCase,
+      PurgeDemoUseCase,
     ]);
 
   return builder.build();

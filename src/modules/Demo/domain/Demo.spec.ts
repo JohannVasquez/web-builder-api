@@ -192,4 +192,70 @@ describe('Demo', () => {
       expect(demo.needsExpiryWarning(now, 3)).toBe(false);
     });
   });
+
+  describe('borrado', () => {
+    const grace = config.purgeGraceDays;
+    const purgedDemo = new Demo(
+      '018f6f1a-0000-7000-8000-0000000000d1',
+      null,
+      null,
+      null,
+      null,
+      { type: 'admin', id: null, name: 'Pau' },
+      inDays(-60),
+      inDays(-40),
+      null,
+      null,
+      { count: 0, firstAt: null, lastAt: null },
+      inDays(-5),
+    );
+    const discardedAt = (outcomeAt: Date, expiresAt: Date | null = null): Demo =>
+      new Demo(
+        '018f6f1a-0000-7000-8000-0000000000d2',
+        '018f6f1a-0000-7000-8000-000000000001',
+        null,
+        null,
+        null,
+        { type: 'admin', id: null, name: 'Pau' },
+        inDays(-60),
+        expiresAt,
+        'discarded',
+        outcomeAt,
+        { count: 0, firstAt: null, lastAt: null },
+        null,
+      );
+
+    it('una vencida hace 31 días se borra; una vencida hace 29, no', () => {
+      expect(build(inDays(-31)).isPurgeDue(now, grace)).toBe(true);
+      expect(build(inDays(-29)).isPurgeDue(now, grace)).toBe(false);
+      expect(build(inDays(-30)).isPurgeDue(now, grace)).toBe(false);
+    });
+
+    it('una descartada cuenta desde el descarte, aunque su vencimiento sea otro', () => {
+      expect(discardedAt(inDays(-31), inDays(60)).isPurgeDue(now, grace)).toBe(true);
+      expect(discardedAt(inDays(-29), inDays(-90)).isPurgeDue(now, grace)).toBe(false);
+      expect(discardedAt(inDays(-31)).purgeDueAt(grace)).toEqual(inDays(-1));
+    });
+
+    it('una convertida, una sin vencimiento o una ya borrada nunca', () => {
+      expect(build(inDays(-400), 'converted').purgeDueAt(grace)).toBeNull();
+      expect(build(null).purgeDueAt(grace)).toBeNull();
+      expect(purgedDemo.purgeDueAt(grace)).toBeNull();
+    });
+
+    it('usa el período de gracia configurado', () => {
+      expect(build(inDays(-8)).isPurgeDue(now, 7)).toBe(true);
+    });
+
+    it('a mano se puede borrar una vigente, pero no una convertida ni una ya borrada', () => {
+      expect(() => build(inDays(5)).assertCanBePurged()).not.toThrow();
+      expect(() => build(null, 'converted').assertCanBePurged()).toThrow(DemoClosedError);
+      expect(() => purgedDemo.assertCanBePurged()).toThrow(DemoClosedError);
+    });
+
+    it('una demo borrada está borrada, aunque haya estado descartada', () => {
+      expect(purgedDemo.status(now)).toBe('borrada');
+      expect(purgedDemo.admits('team', now)).toBe(false);
+    });
+  });
 });
