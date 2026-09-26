@@ -25,14 +25,20 @@ export class PurgeDemoUseCase {
     private readonly recordActivity: RecordActivityUseCase,
   ) {}
 
-  public async execute(demoId: string, now: Date = new Date()): Promise<DemoPurgeResult> {
+  // `dueBefore` es para la tarea diaria: la demo solo se borra si, al tomarla, sigue vencida o
+  // descartada antes de esa fecha (ver `DemoRepository.purge`).
+  public async execute(
+    demoId: string,
+    now: Date = new Date(),
+    dueBefore?: Date,
+  ): Promise<DemoPurgeResult> {
     const demo = await this.demoRepository.findDemo(demoId);
     if (demo === null) {
       throw new DemoNotFoundError();
     }
     demo.assertCanBePurged();
 
-    const purged = await this.demoRepository.purge(demoId, now);
+    const purged = await this.demoRepository.purge(demoId, now, dueBefore);
     // Fuera de la transacción: el bucket no participa de ella. Lo que no salga queda anotado y
     // la tarea diaria lo reintenta.
     const files = await this.deleteFiles(purged.pendingFileKeys, now);

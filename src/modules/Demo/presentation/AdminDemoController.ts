@@ -7,11 +7,13 @@ import type { UpdateProspectUseCase } from '../application/UpdateProspectUseCase
 import type { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import type { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
 import type { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
+import type { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
 import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoView } from '../domain/DemoRepository';
 import {
   CreateDemoSchema,
   DeleteDemoSchema,
+  DiscardDemoSchema,
   DemoExpirySchema,
   DemoListQuerySchema,
   DemoVisitsQuerySchema,
@@ -41,6 +43,7 @@ export class AdminDemoController {
     private readonly regenerateDemoLinkUseCase: RegenerateDemoLinkUseCase,
     private readonly manageDemoExpiryUseCase: ManageDemoExpiryUseCase,
     private readonly purgeDemoUseCase: PurgeDemoUseCase,
+    private readonly discardDemoUseCase: DiscardDemoUseCase,
   ) {}
 
   public readonly create = async (req: Request, res: Response): Promise<void> => {
@@ -128,6 +131,28 @@ export class AdminDemoController {
     const view = await this.manageDemoExpiryUseCase.setNeverExpires(
       this.demoIdOf(req),
       neverExpires,
+      this.actorOf(res),
+      now,
+    );
+    res.json({ demo: presentDemo(view, now) });
+  };
+
+  public readonly discard = async (req: Request, res: Response): Promise<void> => {
+    const { reason } = DiscardDemoSchema.parse(req.body ?? {});
+    const now = new Date();
+    const view = await this.discardDemoUseCase.discard(
+      this.demoIdOf(req),
+      reason ?? null,
+      this.actorOf(res),
+      now,
+    );
+    res.json({ demo: presentDemo(view, now) });
+  };
+
+  public readonly restore = async (req: Request, res: Response): Promise<void> => {
+    const now = new Date();
+    const view = await this.discardDemoUseCase.restore(
+      this.demoIdOf(req),
       this.actorOf(res),
       now,
     );

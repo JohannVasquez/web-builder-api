@@ -55,3 +55,12 @@ export class DemoNeverExpiresError extends UnprocessableEntityError {
     this.name = 'DemoNeverExpiresError';
   }
 }
+
+// La tarea diaria eligió la demo para borrar, pero antes de borrarla alguien la extendió o la
+// recuperó. No es un fallo: simplemente ya no le toca.
+export class DemoNoLongerDueError extends DemoClosedError {
+  constructor() {
+    super('Esa demo ya no está para borrarse: alguien la extendió o la recuperó recién.');
+    this.name = 'DemoNoLongerDueError';
+  }
+}

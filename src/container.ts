@@ -253,6 +253,7 @@ import { ManageDemoExpiryUseCase } from './modules/Demo/application/ManageDemoEx
 import { PurgeDemoUseCase } from './modules/Demo/application/PurgeDemoUseCase';
 import { PrismaDemoRepository } from './modules/Demo/infrastructure/PrismaDemoRepository';
 import { CreateDemoUseCase } from './modules/Demo/application/CreateDemoUseCase';
+import { DiscardDemoUseCase } from './modules/Demo/application/DiscardDemoUseCase';
 import { QueryDemosUseCase } from './modules/Demo/application/QueryDemosUseCase';
 import { UpdateProspectUseCase } from './modules/Demo/application/UpdateProspectUseCase';
 import { RegenerateDemoLinkUseCase } from './modules/Demo/application/RegenerateDemoLinkUseCase';
@@ -1066,6 +1067,14 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(RegenerateDemoLinkUseCase)
     .withDependencies([DemoRepository, RecordActivityUseCase]);
   builder.registerAndUse(ValidateDemoAccessUseCase).withDependencies([DemoRepository]);
+  builder
+    .registerAndUse(DiscardDemoUseCase)
+    .withDependencies([
+      DemoRepository,
+      DemoLifecycleConfig,
+      SiteCacheInvalidator,
+      RecordActivityUseCase,
+    ]);
   // Misma sal que el consentimiento: la huella de IP se calcula igual en toda la plataforma.
   builder
     .register(RecordDemoVisitUseCase)
@@ -1085,6 +1094,7 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
       RegenerateDemoLinkUseCase,
       ManageDemoExpiryUseCase,
       PurgeDemoUseCase,
+      DiscardDemoUseCase,
     ]);
 
   return builder.build();

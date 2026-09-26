@@ -5,7 +5,9 @@ import {
 import { writeTenantWithContent } from '@/modules/Tenant/infrastructure/tenantContentWriter';
 import {
   Demo,
+  DEMO_DISCARD_REASONS,
   DEMO_OUTCOMES,
+  type DemoDiscardReason,
   type DemoLinkKind,
   type DemoOutcome,
   type DemoStatus,
@@ -23,7 +25,11 @@ import type {
 } from '../domain/DemoRepository';
 import { DemoVisit } from '../domain/DemoVisit';
 import { Prospect, type ProspectPatch } from '../domain/Prospect';
-import { DemoAddressTakenError, DemoClosedError } from '../domain/errors';
+import {
+  DemoAddressTakenError,
+  DemoClosedError,
+  DemoNoLongerDueError,
+} from '../domain/errors';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
@@ -59,6 +65,11 @@ const toOutcome = (value: string | null): DemoOutcome | null =>
     ? (value as DemoOutcome)
     : null;
 
+const toDiscardReason = (value: string | null): DemoDiscardReason | null =>
+  (DEMO_DISCARD_REASONS as readonly string[]).includes(value ?? '')
+    ? (value as DemoDiscardReason)
+    : null;
+
 const toDemo = (record: DemoRecord): Demo =>
   new Demo(
     record.id,
@@ -87,6 +98,7 @@ const toDemo = (record: DemoRecord): Demo =>
       forExpiry: record.expiryWarningFor,
       error: record.expiryWarningError,
     },
+    toDiscardReason(record.discardReason),
   );
 
 const toView = (record: DemoViewRecord): DemoView => ({
@@ -147,13 +159,13 @@ const statusWhere = (
 // Cascada de un sitio entero: más que los 5 s por omisión de una transacción interactiva.
 const PURGE_TRANSACTION_TIMEOUT_MS = 60_000;
 
-// Lo que la fila conserva al borrarse: kit, rubro, quién la creó, fechas, resultado,
-// extensiones y contadores de visitas. El resto se vacía, porque o apunta al prospecto o es
-// texto libre que puede nombrarlo (el motivo de un correo rebotado trae su dirección).
+// Lo que la fila conserva al borrarse: kit, rubro, quién la creó, fechas, resultado y motivo
+// del descarte (una lista cerrada, sin texto libre), extensiones y contadores de visitas. El
+// resto se vacía, porque o apunta al prospecto o es texto libre que puede nombrarlo (el motivo
+// de un correo rebotado trae su dirección).
 const ANONYMIZED: Prisma.DemoUncheckedUpdateInput = {
   tenantId: null,
   prospectId: null,
-  discardReason: null,
   expiryWarningSentAt: null,
   expiryWarningFor: null,
   expiryWarningError: null,
@@ -489,7 +501,7 @@ export class PrismaDemoRepository implements DemoRepository {
     return records.map(toDemo);
   }
 
-  public async purge(demoId: string, now: Date): Promise<PurgedDemo> {
+  public async purge(demoId: string, now: Date, dueBefore?: Date): Promise<PurgedDemo> {
     return this.prisma.$transaction(
       async (tx) => {
         const record = await tx.demo.findUnique({ where: { id: demoId } });
@@ -502,6 +514,28 @@ export class PrismaDemoRepository implements DemoRepository {
           );
         }
         const { tenantId, prospectId } = record;
+
+        // Lo primero, para tomar la fila: una extensión o una recuperación que llegó después de
+        // que la tarea eligió esta demo espera a esta transacción o la hace fallar, y con
+        // `dueBefore` la condición se vuelve a evaluar sobre la fila ya actualizada.
+        const { count } = await tx.demo.updateMany({
+          where: {
+            id: demoId,
+            purgedAt: null,
+            ...(dueBefore === undefined
+              ? {}
+              : {
+                  OR: [
+                    { outcome: null, expiresAt: { lt: dueBefore } },
+                    { outcome: 'discarded', outcomeAt: { lt: dueBefore } },
+                  ],
+                }),
+          },
+          data: { ...ANONYMIZED, purgedAt: now },
+        });
+        if (count !== 1) {
+          throw new DemoNoLongerDueError();
+        }
 
         let pendingFileKeys: string[] = [];
         if (tenantId !== null) {
@@ -528,10 +562,7 @@ export class PrismaDemoRepository implements DemoRepository {
 
         await tx.demoVisit.deleteMany({ where: { demoId } });
         await tx.demoAccessToken.deleteMany({ where: { demoId } });
-        const demo = await tx.demo.update({
-          where: { id: demoId },
-          data: { ...ANONYMIZED, purgedAt: now },
-        });
+        const demo = await tx.demo.findUniqueOrThrow({ where: { id: demoId } });
         if (tenantId !== null) {
           // Páginas, versiones, marca, navegación, mensajes, pedidos de prueba, productos,
           // biblioteca y registro de actividad del sitio caen en cascada.
@@ -558,6 +589,36 @@ export class PrismaDemoRepository implements DemoRepository {
       },
       { timeout: PURGE_TRANSACTION_TIMEOUT_MS },
     );
+  }
+
+  public async discard(
+    demoId: string,
+    reason: DemoDiscardReason | null,
+    now: Date,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.demo.updateMany({
+      where: { id: demoId, outcome: null, purgedAt: null, tenantId: { not: null } },
+      data: { outcome: 'discarded', outcomeAt: now, discardReason: reason },
+    });
+    return count === 1;
+  }
+
+  public async restore(
+    demoId: string,
+    discardedAt: Date,
+    expiresAt: Date,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.demo.updateMany({
+      where: {
+        id: demoId,
+        outcome: 'discarded',
+        outcomeAt: discardedAt,
+        purgedAt: null,
+        tenantId: { not: null },
+      },
+      data: { outcome: null, outcomeAt: null, discardReason: null, expiresAt },
+    });
+    return count === 1;
   }
 
   public async findPendingFiles(demoId?: string): Promise<string[]> {

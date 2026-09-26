@@ -1,5 +1,11 @@
 import type { SiteContent } from '@/modules/Tenant/domain/SiteContent';
-import type { Demo, DemoCreator, DemoLinkKind, DemoStatus } from './Demo';
+import type {
+  Demo,
+  DemoCreator,
+  DemoDiscardReason,
+  DemoLinkKind,
+  DemoStatus,
+} from './Demo';
 import type { Prospect, ProspectInput, ProspectPatch } from './Prospect';
 import type { DemoVisit } from './DemoVisit';
 
@@ -140,8 +146,24 @@ export abstract class DemoRepository {
   public abstract findDueForPurge(cutoff: Date): Promise<Demo[]>;
   // En UNA transacción: anota los archivos del sitio para borrarlos del bucket, borra el
   // sitio (en cascada), las visitas, los enlaces y el prospecto si no le queda otra demo, y deja
-  // la fila anónima. Lanza `DemoClosedError` si la demo ya se borró o se convirtió.
-  public abstract purge(demoId: string, now: Date): Promise<PurgedDemo>;
+  // la fila anónima. Lanza `DemoClosedError` si la demo ya se borró o se convirtió. Con
+  // `dueBefore` (la tarea diaria) vuelve a mirar, con la fila tomada, que siga vencida o
+  // descartada antes de esa fecha; si no, lanza `DemoNoLongerDueError` sin tocar nada.
+  public abstract purge(demoId: string, now: Date, dueBefore?: Date): Promise<PurgedDemo>;
+  // Solo escribe si la demo sigue sin resultado; devuelve si escribió. No anula los enlaces: si
+  // se recupera, el prospecto vuelve a entrar con el mismo.
+  public abstract discard(
+    demoId: string,
+    reason: DemoDiscardReason | null,
+    now: Date,
+  ): Promise<boolean>;
+  // Solo escribe si sigue descartada desde `discardedAt` (dos recuperaciones a la vez no pueden
+  // pisarse); le quita el resultado y el motivo y le pone el vencimiento nuevo.
+  public abstract restore(
+    demoId: string,
+    discardedAt: Date,
+    expiresAt: Date,
+  ): Promise<boolean>;
   // Los archivos que siguen pendientes, de una demo o de todas.
   public abstract findPendingFiles(demoId?: string): Promise<string[]>;
   public abstract resolvePendingFile(key: string): Promise<void>;

@@ -7,10 +7,12 @@ import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvid
 import { NotifyExpiringDemosUseCase } from '../application/NotifyExpiringDemosUseCase';
 import { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
 import { PurgeExpiredDemosUseCase } from '../application/PurgeExpiredDemosUseCase';
-import { DemoClosedError } from '../domain/errors';
+import { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
+import { ValidateDemoAccessUseCase } from '../application/ValidateDemoAccessUseCase';
+import { DemoClosedError, DemoNoLongerDueError } from '../domain/errors';
 import { addDays, DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
 import type { DemoExpiryWarningMail } from '../domain/DemoMailer';
-import { hashDemoToken } from '../domain/demoToken';
+import { generateDemoToken, hashDemoToken } from '../domain/demoToken';
 import { PrismaDemoRepository } from './PrismaDemoRepository';
 import 'dotenv/config';
 
@@ -601,6 +603,138 @@ describe('PrismaDemoRepository (base real)', () => {
       expect(
         (await prisma.demo.findUniqueOrThrow({ where: { id: converted } })).tenantId,
       ).not.toBeNull();
+    });
+  });
+  describe('descarte y recuperación', () => {
+    const config = new DemoLifecycleConfig();
+    const discarding = new DiscardDemoUseCase(
+      repository,
+      config,
+      { invalidate: (): Promise<void> => Promise.resolve() },
+      {
+        execute: jest.fn().mockResolvedValue(undefined),
+      } as unknown as RecordActivityUseCase,
+    );
+    const access = new ValidateDemoAccessUseCase(repository);
+    const actor = { type: 'admin', id: null, name: 'Prueba' } as const;
+
+    // Los dos enlaces en claro, para entrar como lo haría el prospecto y el equipo.
+    const withLinks = async (
+      demoId: string,
+    ): Promise<{ tenantId: string; prospect: string; team: string }> => {
+      const prospect = generateDemoToken();
+      const team = generateDemoToken();
+      await repository.replaceAccessToken(demoId, 'prospect', prospect.hash);
+      await repository.replaceAccessToken(demoId, 'team', team.hash);
+      const demo = await repository.findDemo(demoId);
+      return {
+        tenantId: demo?.tenantId ?? '',
+        prospect: prospect.token,
+        team: team.token,
+      };
+    };
+
+    it('el prospecto deja de entrar al instante, el equipo sigue, y al recuperarla vuelve con el mismo enlace', async () => {
+      const demoId = await createDemo({ expiresAt: addDays(NOW, 3) });
+      const links = await withLinks(demoId);
+      const enter = (token: string, when: Date): Promise<unknown> =>
+        access.execute(links.tenantId, token, when);
+
+      expect(await enter(links.prospect, NOW)).not.toBeNull();
+
+      const discarded = await discarding.discard(demoId, 'no-responde', actor, NOW);
+
+      expect(discarded.demo.status(NOW)).toBe('descartada');
+      expect(await enter(links.prospect, NOW)).toBeNull();
+      expect(await enter(links.team, NOW)).not.toBeNull();
+
+      const later = addDays(NOW, 10);
+      const restored = await discarding.restore(demoId, actor, later);
+
+      expect(restored.demo.status(later)).toBe('vigente');
+      expect(restored.demo.expiresAt).toEqual(addDays(later, 14));
+      expect(restored.demo.outcomeAt).toBeNull();
+      expect(restored.demo.discardReason).toBeNull();
+      expect(await enter(links.prospect, later)).not.toBeNull();
+    });
+
+    it('descartar dos veces no cambia nada la segunda vez', async () => {
+      const demoId = await createDemo({ expiresAt: addDays(NOW, 3) });
+      await discarding.discard(demoId, 'precio', actor, NOW);
+      const first = await prisma.demo.findUniqueOrThrow({ where: { id: demoId } });
+
+      await discarding.discard(demoId, 'otro', actor, addDays(NOW, 1));
+
+      const second = await prisma.demo.findUniqueOrThrow({ where: { id: demoId } });
+      expect(second).toEqual(first);
+      expect(second.discardReason).toBe('precio');
+    });
+
+    it('una descartada se borra 30 días después del descarte y conserva el motivo; una recuperada no', async () => {
+      // Vencía mucho después: lo que cuenta es la fecha del descarte.
+      const discarded = await createDemo({ expiresAt: addDays(NOW, 90) });
+      const restored = await createDemo({ expiresAt: addDays(NOW, 90) });
+      await discarding.discard(discarded, 'ya-tiene-sitio', actor, NOW);
+      await discarding.discard(restored, 'no-interesado', actor, NOW);
+      await discarding.restore(restored, actor, addDays(NOW, 10));
+      const mine = [discarded, restored];
+      const dueAt = async (when: Date): Promise<string[]> =>
+        (await repository.findDueForPurge(addDays(when, -config.purgeGraceDays)))
+          .filter((demo) => demo.isPurgeDue(when, config.purgeGraceDays))
+          .map((demo) => demo.id)
+          .filter((id) => mine.includes(id));
+
+      expect(await dueAt(addDays(NOW, 29))).toEqual([]);
+      expect(await dueAt(addDays(NOW, 31))).toEqual([discarded]);
+      // Recuperada, cuenta desde su vencimiento nuevo (día 24) más la gracia.
+      expect(await dueAt(addDays(NOW, 50))).toEqual([discarded]);
+
+      const purged = await repository.purge(discarded, addDays(NOW, 31));
+
+      expect(purged.demo.status(addDays(NOW, 31))).toBe('borrada');
+      expect(
+        await prisma.demo.findUniqueOrThrow({ where: { id: discarded } }),
+      ).toMatchObject({
+        tenantId: null,
+        prospectId: null,
+        outcome: 'discarded',
+        discardReason: 'ya-tiene-sitio',
+      });
+    });
+
+    it('si la extienden mientras corre la tarea, la tarea ya no la borra', async () => {
+      const expiresAt = addDays(NOW, -31);
+      const demoId = await createDemo({ expiresAt });
+      const cutoff = addDays(NOW, -config.purgeGraceDays);
+      expect((await repository.findDueForPurge(cutoff)).map((demo) => demo.id)).toContain(
+        demoId,
+      );
+      // Entre la consulta de la tarea y el borrado, alguien la reactiva.
+      await repository.updateExpiry(demoId, expiresAt, {
+        expiresAt: addDays(NOW, 14),
+        extensionCount: 1,
+      });
+
+      await expect(repository.purge(demoId, NOW, cutoff)).rejects.toBeInstanceOf(
+        DemoNoLongerDueError,
+      );
+      expect(
+        await prisma.demo.findUniqueOrThrow({ where: { id: demoId } }),
+      ).toMatchObject({
+        purgedAt: null,
+        tenantId: expect.any(String) as unknown,
+        expiresAt: addDays(NOW, 14),
+      });
+    });
+
+    it('pasada la gracia ya no se recupera', async () => {
+      const demoId = await createDemo({ expiresAt: addDays(NOW, 90) });
+      await discarding.discard(demoId, null, actor, NOW);
+
+      await expect(
+        discarding.restore(demoId, actor, addDays(NOW, 31)),
+      ).rejects.toBeInstanceOf(DemoClosedError);
+      expect((await repository.findDemo(demoId))?.outcome).toBe('discarded');
     });
   });
 });

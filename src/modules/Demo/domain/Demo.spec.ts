@@ -258,4 +258,83 @@ describe('Demo', () => {
       expect(purgedDemo.admits('team', now)).toBe(false);
     });
   });
+  describe('resultado', () => {
+    const grace = config.purgeGraceDays;
+    const purged = new Demo(
+      '018f6f1a-0000-7000-8000-0000000000d1',
+      null,
+      null,
+      null,
+      null,
+      { type: 'admin', id: null, name: 'Pau' },
+      inDays(-60),
+      inDays(-40),
+      'discarded',
+      inDays(-35),
+      { count: 0, firstAt: null, lastAt: null },
+      inDays(-5),
+      0,
+      undefined,
+      'precio',
+    );
+    const discardedOn = (outcomeAt: Date): Demo =>
+      new Demo(
+        '018f6f1a-0000-7000-8000-0000000000d2',
+        '018f6f1a-0000-7000-8000-000000000001',
+        null,
+        null,
+        null,
+        { type: 'admin', id: null, name: 'Pau' },
+        inDays(-60),
+        inDays(-20),
+        'discarded',
+        outcomeAt,
+        { count: 0, firstAt: null, lastAt: null },
+        null,
+        0,
+        undefined,
+        'no-interesado',
+      );
+
+    it('descartar una ya descartada no hace falta; una convertida o borrada no se descarta', () => {
+      expect(build(inDays(5)).needsDiscard()).toBe(true);
+      expect(build(inDays(-5)).needsDiscard()).toBe(true);
+      expect(build(inDays(5), 'discarded').needsDiscard()).toBe(false);
+      expect(() => build(null, 'converted').needsDiscard()).toThrow(DemoClosedError);
+      expect(() => purged.needsDiscard()).toThrow(DemoClosedError);
+    });
+
+    it('se recupera una descartada mientras no le toque borrarse', () => {
+      expect(() =>
+        discardedOn(inDays(-29)).assertCanBeRestored(now, grace),
+      ).not.toThrow();
+      expect(() => discardedOn(inDays(-31)).assertCanBeRestored(now, grace)).toThrow(
+        /30 días/,
+      );
+      expect(() => build(inDays(5)).assertCanBeRestored(now, grace)).toThrow(
+        /no está descartada/,
+      );
+      expect(() => build(null, 'converted').assertCanBeRestored(now, grace)).toThrow(
+        DemoClosedError,
+      );
+      expect(() => purged.assertCanBeRestored(now, grace)).toThrow(/ya se borró/);
+    });
+
+    it('una descartada no se extiende: primero se recupera', () => {
+      expect(() => build(inDays(5), 'discarded').extendedExpiry(now, 14)).toThrow(
+        /Recupérala primero/,
+      );
+    });
+
+    it('el motivo del descarte sale en la demo y sobrevive al borrado', () => {
+      expect(discardedOn(inDays(-1)).toPrimitives(now).discardReason).toBe(
+        'no-interesado',
+      );
+      expect(purged.toPrimitives(now)).toMatchObject({
+        status: 'borrada',
+        discardReason: 'precio',
+      });
+      expect(build(inDays(5)).toPrimitives(now).discardReason).toBeNull();
+    });
+  });
 });

@@ -896,7 +896,9 @@ model Demo {
   /// Nulo mientras no haya resultado; `converted` | `discarded`.
   outcome        String?   @db.VarChar(20)
   outcomeAt      DateTime? @map("outcome_at") @db.Timestamptz()
-  /// Por qué se descartó (etapa 3). Texto libre del equipo: se borra con la demo.
+  /// Por qué se descartó, de una lista cerrada: `no-interesado`, `precio`, `ya-tiene-sitio`,
+  /// `no-responde` u `otro`. Sin texto libre, así que se conserva en la fila anónima para las
+  /// métricas.
   discardReason  String?   @map("discard_reason") @db.VarChar(1000)
   /// Cuántas veces se extendió; cada extensión suma `DEMO_DURATION_DAYS`.
   extensionCount Int       @default(0) @map("extension_count")

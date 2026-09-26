@@ -19,6 +19,17 @@ export type DemoStatus = (typeof DEMO_STATUSES)[number];
 export const DEMO_OUTCOMES = ['converted', 'discarded'] as const;
 export type DemoOutcome = (typeof DEMO_OUTCOMES)[number];
 
+// Lista cerrada y no texto libre: sirve a las métricas ("¿por qué no compran?") y no puede
+// nombrar al prospecto, así que sobrevive al borrado en la fila anónima.
+export const DEMO_DISCARD_REASONS = [
+  'no-interesado',
+  'precio',
+  'ya-tiene-sitio',
+  'no-responde',
+  'otro',
+] as const;
+export type DemoDiscardReason = (typeof DEMO_DISCARD_REASONS)[number];
+
 // Quién creó la demo, congelado como en el registro de actividad: la métrica "por vendedor"
 // tiene que sobrevivir a que la persona o la clave dejen de existir.
 export interface DemoCreator {
@@ -59,6 +70,7 @@ export interface DemoPrimitives {
   readonly expiresAt: string | null;
   readonly outcome: DemoOutcome | null;
   readonly outcomeAt: string | null;
+  readonly discardReason: DemoDiscardReason | null;
   readonly purgedAt: string | null;
   readonly neverExpires: boolean;
   readonly extensionCount: number;
@@ -91,6 +103,7 @@ export class Demo {
     public readonly purgedAt: Date | null,
     public readonly extensionCount: number = 0,
     public readonly expiryWarning: DemoExpiryWarning = NO_EXPIRY_WARNING,
+    public readonly discardReason: DemoDiscardReason | null = null,
   ) {}
 
   // El resultado manda sobre el vencimiento: una demo convertida no "vence" después.
@@ -190,19 +203,54 @@ export class Demo {
     }
   }
 
-  // Con resultado o ya borrada, el vencimiento no se toca: convertida es un cliente, y
-  // descartada o borrada es una decisión que no se revierte extendiéndola.
-  private assertOpen(): void {
+  // Falso si ya estaba descartada: descartar dos veces no cambia nada, ni el motivo ni la
+  // fecha desde la que corre la gracia.
+  public needsDiscard(): boolean {
+    this.assertNotPurged();
+    if (this.outcome === 'converted') {
+      throw new DemoClosedError('Esa demo ya es un cliente: no se puede descartar.');
+    }
+    return this.outcome !== 'discarded';
+  }
+
+  // Se recupera solo mientras no le toque borrarse: pasada la gracia, la tarea diaria puede
+  // estar borrándola en este mismo momento.
+  public assertCanBeRestored(now: Date, graceDays: number): void {
+    this.assertNotPurged();
+    if (this.outcome === 'converted') {
+      throw new DemoClosedError('Esa demo ya es un cliente.');
+    }
+    if (this.outcome !== 'discarded') {
+      throw new DemoClosedError(
+        'Esa demo no está descartada: no hay nada que recuperar.',
+      );
+    }
+    if (this.isPurgeDue(now, graceDays)) {
+      throw new DemoClosedError(
+        `Pasaron más de ${String(graceDays)} días desde que se descartó y ya se va a borrar. Arma una demo nueva.`,
+      );
+    }
+  }
+
+  private assertNotPurged(): void {
     if (this.purgedAt !== null || this.tenantId === null) {
       throw new DemoClosedError('Esa demo ya se borró.');
     }
+  }
+
+  // Con resultado o ya borrada, el vencimiento no se toca: convertida es un cliente, y
+  // descartada o borrada es una decisión que no se revierte extendiéndola.
+  private assertOpen(): void {
+    this.assertNotPurged();
     if (this.outcome === 'converted') {
       throw new DemoClosedError(
         'Esa demo ya es un cliente: no tiene vencimiento que cambiar.',
       );
     }
     if (this.outcome === 'discarded') {
-      throw new DemoClosedError('Esa demo está descartada: no se puede extender.');
+      throw new DemoClosedError(
+        'Esa demo está descartada: no se puede extender. Recupérala primero.',
+      );
     }
   }
 
@@ -219,6 +267,7 @@ export class Demo {
       expiresAt: this.expiresAt?.toISOString() ?? null,
       outcome: this.outcome,
       outcomeAt: this.outcomeAt?.toISOString() ?? null,
+      discardReason: this.discardReason,
       purgedAt: this.purgedAt?.toISOString() ?? null,
       neverExpires: this.expiresAt === null,
       extensionCount: this.extensionCount,

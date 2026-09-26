@@ -2,6 +2,7 @@ import { addDays, type DemoLifecycleConfig } from '../domain/DemoLifecycleConfig
 import type { DemoRepository } from '../domain/DemoRepository';
 import type { NotifyExpiringDemosUseCase } from './NotifyExpiringDemosUseCase';
 import type { PurgeDemoUseCase } from './PurgeDemoUseCase';
+import { DemoNoLongerDueError } from '../domain/errors';
 
 // Lo que imprime la tarea diaria: es lo que queda en el log de cron y lo que acredita que el
 // borrado corre. Solo ids y contadores: ningún dato del prospecto.
@@ -69,10 +70,14 @@ export class PurgeExpiredDemosUseCase {
     // Una a una y cada una con su propio manejo: la que falla no detiene a las demás.
     for (const { id: demoId } of due) {
       try {
-        const result = await this.purgeDemo.execute(demoId, now);
+        const result = await this.purgeDemo.execute(demoId, now, addDays(now, -grace));
         demosPurged += 1;
         filesDeleted += result.files.deleted;
       } catch (error) {
+        // La extendieron o la recuperaron mientras corría la tarea: ya no le toca.
+        if (error instanceof DemoNoLongerDueError) {
+          continue;
+        }
         failedDemos.push({ demoId, error: messageOf(error) });
       }
     }

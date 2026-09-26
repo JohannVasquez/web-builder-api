@@ -20,6 +20,8 @@ import { UpdateProspectUseCase } from '../application/UpdateProspectUseCase';
 import { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import { ManageDemoExpiryUseCase } from '../application/ManageDemoExpiryUseCase';
 import { PurgeDemoUseCase } from '../application/PurgeDemoUseCase';
+import { DiscardDemoUseCase } from '../application/DiscardDemoUseCase';
+import type { SiteCacheInvalidator } from '@/modules/SiteCache/domain/SiteCacheInvalidator';
 import type { StorageProvider } from '@/modules/FileStorage/domain/StorageProvider';
 import { Demo, type DemoOutcome } from '../domain/Demo';
 import { DemoLifecycleConfig } from '../domain/DemoLifecycleConfig';
@@ -139,7 +141,13 @@ describe('AdminDemoController (HTTP)', () => {
     findPendingFiles: jest.fn(),
     resolvePendingFile: jest.fn(),
     failPendingFile: jest.fn(),
+    discard: jest.fn().mockResolvedValue(true),
+    restore: jest.fn().mockResolvedValue(true),
   });
+
+  interface Collaborators {
+    readonly cache: jest.Mocked<SiteCacheInvalidator>;
+  }
 
   const build = (
     actor: Actor,
@@ -149,7 +157,7 @@ describe('AdminDemoController (HTTP)', () => {
     repository: jest.Mocked<DemoRepository>;
     logs: jest.Mock;
     storage: jest.Mocked<StorageProvider>;
-  } => {
+  } & Collaborators => {
     const logs = jest.fn().mockResolvedValue(undefined);
     const activity = new RecordActivityUseCase({
       record: logs,
@@ -163,6 +171,7 @@ describe('AdminDemoController (HTTP)', () => {
     const storage = {
       delete: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<StorageProvider>;
+    const cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
     const controller = new AdminDemoController(
       new CreateDemoUseCase(
         repository,
@@ -177,6 +186,7 @@ describe('AdminDemoController (HTTP)', () => {
       new RegenerateDemoLinkUseCase(repository, activity),
       new ManageDemoExpiryUseCase(repository, config, activity),
       new PurgeDemoUseCase(repository, storage, activity),
+      new DiscardDemoUseCase(repository, config, cache, activity),
     );
     const fakeActor: RequestHandler = (_req, res, next) => {
       setRequestActor(res, actor);
@@ -193,7 +203,7 @@ describe('AdminDemoController (HTTP)', () => {
       createAdminDemoRouter(controller),
     );
     app.use(new ErrorHandler().handle);
-    return { app, repository, logs, storage };
+    return { app, repository, logs, storage, cache };
   };
 
   const body = {
@@ -598,7 +608,7 @@ describe('AdminDemoController (HTTP)', () => {
       const response = await remove(app);
 
       expect(response.status).toBe(200);
-      expect(repository.purge).toHaveBeenCalledWith(DEMO_ID, expect.any(Date));
+      expect(repository.purge).toHaveBeenCalledWith(DEMO_ID, expect.any(Date), undefined);
       expect(storage.delete).toHaveBeenCalledWith(
         '018f6f1a-0000-7000-8000-0000000000b1.png',
       );
@@ -673,6 +683,174 @@ describe('AdminDemoController (HTTP)', () => {
       const { app } = build(owner, repository);
 
       expect((await remove(app)).status).toBe(404);
+    });
+  });
+  describe('descartar y recuperar', () => {
+    const discardedDemo = buildDemo(FAR_EXPIRY, 'discarded');
+    const withDiscarded = (demo: Demo = discardedDemo): jest.Mocked<DemoRepository> => {
+      const repository = buildRepository();
+      repository.findDemo.mockResolvedValue(demo);
+      return repository;
+    };
+    const discard = (app: Express, payload: object = {}): request.Test =>
+      request(app).post(`/api/admin/demos/${DEMO_ID}/discard`).send(payload);
+    const restore = (app: Express): request.Test =>
+      request(app).post(`/api/admin/demos/${DEMO_ID}/restore`);
+
+    it('un editor descarta con motivo y queda en el registro de actividad', async () => {
+      const repository = buildRepository();
+      repository.findById.mockResolvedValue({ ...view, demo: discardedDemo });
+      const { app, logs, cache } = build(staff, repository);
+
+      const response = await discard(app, { reason: 'precio' });
+
+      expect(response.status).toBe(200);
+      expect(repository.discard).toHaveBeenCalledWith(
+        DEMO_ID,
+        'precio',
+        expect.any(Date),
+      );
+      expect((response.body as { demo: { status: string } }).demo.status).toBe(
+        'descartada',
+      );
+      expect(cache.invalidate).toHaveBeenCalledWith([
+        'demo-pasteleria-luna.webbuilder.co',
+      ]);
+      expect(logs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'demo.discard',
+          tenantId: TENANT_ID,
+          after: expect.objectContaining({ reason: 'precio' }) as unknown,
+        }),
+      );
+    });
+
+    it('el motivo es opcional pero de una lista cerrada', async () => {
+      const { app, repository } = build(staff);
+
+      const [none, other] = [await discard(app), await discard(app, { reason: 'caro' })];
+
+      expect(none.status).toBe(200);
+      expect(repository.discard).toHaveBeenCalledWith(DEMO_ID, null, expect.any(Date));
+      expect(other.status).toBe(400);
+    });
+
+    it('descartar dos veces no cambia nada la segunda vez', async () => {
+      const { app, repository, logs } = build(staff, withDiscarded());
+
+      const response = await discard(app, { reason: 'otro' });
+
+      expect(response.status).toBe(200);
+      expect(repository.discard).not.toHaveBeenCalled();
+      expect(logs).not.toHaveBeenCalled();
+    });
+
+    it('si otro descarte gana la carrera, responde igual sin registrar dos veces', async () => {
+      const repository = buildRepository();
+      repository.discard.mockResolvedValue(false);
+      repository.findDemo
+        .mockResolvedValueOnce(buildDemo())
+        .mockResolvedValue(discardedDemo);
+      const { app, logs } = build(staff, repository);
+
+      expect((await discard(app)).status).toBe(200);
+      expect(logs).not.toHaveBeenCalled();
+    });
+
+    it('descartar una demo convertida responde 422', async () => {
+      const { app, repository } = build(
+        staff,
+        withDiscarded(buildDemo(null, 'converted')),
+      );
+
+      expect((await discard(app)).status).toBe(422);
+      expect(repository.discard).not.toHaveBeenCalled();
+    });
+
+    it('recuperar una descartada la deja vigente 14 días desde hoy', async () => {
+      const repository = withDiscarded();
+      const { app, logs } = build(staff, repository);
+      const before = Date.now();
+
+      const response = await restore(app);
+
+      expect(response.status).toBe(200);
+      const [id, discardedAt, expiresAt] = repository.restore.mock.calls[0] ?? [];
+      expect(id).toBe(DEMO_ID);
+      expect(discardedAt).toEqual(NOW);
+      const fourteenDays = 14 * 24 * 60 * 60 * 1000;
+      expect(expiresAt?.getTime()).toBeGreaterThanOrEqual(before + fourteenDays);
+      expect(expiresAt?.getTime()).toBeLessThanOrEqual(Date.now() + fourteenDays);
+      expect(logs).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'demo.restore', entityId: DEMO_ID }),
+      );
+    });
+
+    it('pasado el período de gracia ya no se recupera', async () => {
+      const old = new Demo(
+        DEMO_ID,
+        TENANT_ID,
+        PROSPECT_ID,
+        null,
+        null,
+        { type: 'admin', id: null, name: 'Pau' },
+        NOW,
+        FAR_EXPIRY,
+        'discarded',
+        new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+        { count: 0, firstAt: null, lastAt: null },
+        null,
+      );
+      const { app, repository } = build(staff, withDiscarded(old));
+
+      const response = await restore(app);
+
+      expect(response.status).toBe(422);
+      expect((response.body as { message: string }).message).toContain('30 días');
+      expect(repository.restore).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['vigente', buildDemo()],
+      ['convertida', buildDemo(null, 'converted')],
+    ])('recuperar una demo %s responde 422', async (_label, demo) => {
+      const { app, repository } = build(staff, withDiscarded(demo));
+
+      expect((await restore(app)).status).toBe(422);
+      expect(repository.restore).not.toHaveBeenCalled();
+    });
+
+    it('si otra petición la cambió a la vez, responde 409', async () => {
+      const repository = withDiscarded();
+      repository.restore.mockResolvedValue(false);
+      const { app } = build(staff, repository);
+
+      expect((await restore(app)).status).toBe(409);
+    });
+
+    it.each([
+      ['un editor', staff, 200, 200],
+      ['una clave full', fullKey, 200, 200],
+      ['una clave write', writeKey, 403, 200],
+      ['una clave de solo lectura', readKey, 403, 403],
+      ['un usuario client', client, 403, 403],
+    ])('%s: descartar %i, recuperar %i', async (_label, actor, onDiscard, onRestore) => {
+      const { app: discardApp } = build(actor);
+      const { app: restoreApp } = build(actor, withDiscarded());
+
+      expect((await discard(discardApp)).status).toBe(onDiscard);
+      expect((await restore(restoreApp)).status).toBe(onRestore);
+    });
+
+    it('un editor descarta y recupera, pero no borra', async () => {
+      const { app } = build(staff, withDiscarded());
+
+      const response = await request(app)
+        .delete(`/api/admin/demos/${DEMO_ID}`)
+        .send({ confirm: true });
+
+      expect(response.status).toBe(403);
+      expect((response.body as { message: string }).message).toContain('descártala');
     });
   });
 });

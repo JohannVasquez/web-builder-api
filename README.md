@@ -54,6 +54,8 @@ vencido, la respuesta es `401 { error: 'Unauthorized', message }`.
 | GET    | `/api/admin/demos/:demoId/visits`        | Visitas del prospecto, paginadas                                 |
 | POST   | `/api/admin/demos/:demoId/extend`        | Extiende la demo 14 días (`DEMO_DURATION_DAYS`)                  |
 | PATCH  | `/api/admin/demos/:demoId/expiry`        | `{ neverExpires }`: la deja sin vencimiento o se lo devuelve     |
+| POST   | `/api/admin/demos/:demoId/discard`       | `{ reason? }`: la descarta; el prospecto deja de entrar          |
+| POST   | `/api/admin/demos/:demoId/restore`       | Recupera una descartada (dentro de la gracia) por 14 días        |
 | DELETE | `/api/admin/demos/:demoId`               | `{ confirm: true }`: la borra ya y deja el registro anónimo      |
 | POST   | `/api/admin/signed-documents`            | Registra firma de contrato (exige full)                          |
 | GET    | `/api/admin/signed-documents/tenant/:id` | Lista documentos firmados por un cliente                         |

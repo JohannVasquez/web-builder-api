@@ -176,9 +176,10 @@ las lista, lo más reciente primero.
 
 Una demo borrada no se lista ni se consulta (404): es un número en las métricas.
 
-Crear, editar la ficha, regenerar enlaces, cambiar el vencimiento y borrar queda en el registro
-de actividad (`demo.create`, `demo.prospect.update`, `demo.link.regenerate`, `demo.extend`,
-`demo.expiry.update`, `demo.delete`) con quién lo hizo y **sin** tokens. Las entradas que
+Crear, editar la ficha, regenerar enlaces, cambiar el vencimiento, descartar, recuperar y borrar
+queda en el registro de actividad (`demo.create`, `demo.prospect.update`, `demo.link.regenerate`,
+`demo.extend`, `demo.expiry.update`, `demo.discard`, `demo.restore`, `demo.delete`) con quién lo
+hizo y **sin** tokens. Las entradas que
 llevan el tenant de la demo (con su dirección y el nombre del negocio) se borran con ella;
 `demo.delete` queda sin tenant y sin nada del prospecto.
 
@@ -188,6 +189,10 @@ llevan el tenant de la demo (con su dirección y el nombre del negocio) se borra
 crear ──▶ vigente ──(pasa expiresAt)──▶ vencida ──(30 días más)──▶ borrada
              ▲                             │                   (rastro anónimo)
              └───────── extender ──────────┘
+
+vigente o vencida ──descartar──▶ descartada ──(30 días desde el descarte)──▶ borrada
+        ▲                            │
+        └── recuperar (dentro de esos 30 días): vigente por 14 días desde hoy
 
 "sin vencimiento" (expiresAt nulo): se queda vigente y nunca se borra sola
 ```
@@ -200,7 +205,7 @@ nadie tiene que acordarse de actualizarlo.
 | `vigente`    | Sin resultado y `expiresAt` futuro (o nulo) | Entra     | Entra y edita       |
 | `vencida`    | Sin resultado y `expiresAt` ya pasó         | 404       | Entra y edita       |
 | `convertida` | `outcome = converted` (etapa 3)             | 404       | Es un cliente       |
-| `descartada` | `outcome = discarded` (etapa 3)             | 404       | Entra               |
+| `descartada` | `outcome = discarded`                       | 404       | Entra y la recupera |
 | `borrada`    | `purgedAt` puesto (ver [Borrado](#borrado)) | 404       | No existe           |
 
 - **Vence sola** a los `DEMO_DURATION_DAYS` (14) de crearse. El enlace del prospecto responde
@@ -214,11 +219,46 @@ nadie tiene que acordarse de actualizarlo.
   deja `expiresAt` en nulo (una demo de portafolio, por ejemplo). Con `false` le vuelve a poner
   vencimiento a 14 días desde hoy; si ya vencía, no le cambia la fecha. Extender una demo sin
   vencimiento responde 422: primero hay que devolverle el vencimiento.
-- Ninguna de las dos acciones vale sobre una demo convertida, descartada o ya borrada (422).
+- Ninguna de las dos acciones vale sobre una demo convertida, descartada o ya borrada (422): una
+  descartada primero se [recupera](#descartar-y-recuperar).
   Si dos personas cambian el vencimiento a la vez, la segunda recibe 409 en vez de pisar a la
   primera.
 - Ambas son de owner, editores y claves con `write`, y responden `{ "demo": { ... } }` con la
   demo actualizada.
+
+### Descartar y recuperar
+
+Cuando el prospecto dice que no: `POST /api/admin/demos/:demoId/discard`
+
+```json
+{ "reason": "no-interesado" }
+```
+
+- `reason` es opcional y de una **lista cerrada**, pensada para las métricas: `no-interesado`,
+  `precio`, `ya-tiene-sitio`, `no-responde`, `otro` (cualquier otro valor: 400). No es texto
+  libre, así que no nombra a nadie y se conserva en la fila anónima cuando la demo se borra.
+- La demo queda `descartada` (`outcome = discarded`, `outcomeAt` = ahora, `discardReason`). El
+  enlace del prospecto responde 404 en la petición siguiente; el del equipo sigue sirviendo hasta
+  el borrado. Los enlaces **no se anulan**: si se recupera, el prospecto entra con el mismo.
+- Desde `outcomeAt` corre el período de gracia del [borrado](#borrado): se borra
+  `DEMO_PURGE_GRACE_DAYS` (30) días después del descarte, aunque su vencimiento fuera otro.
+- **Idempotente:** descartar una ya descartada responde 200 con la demo tal cual. No cambia el
+  motivo ni la fecha, ni deja otra entrada en el registro.
+- Una convertida o ya borrada: 422.
+- Owner, editores y claves con permiso `full` (una `write` recibe 403). Descartar **no es
+  borrar**: los editores descartan, el borrado es de la tarea diaria o del owner.
+
+Para el prospecto que llama de vuelta: `POST /api/admin/demos/:demoId/restore`, sin cuerpo.
+
+- Solo una **descartada** y **dentro del período de gracia**. Pasado, 422: ya le toca borrarse y
+  conviene armar una demo nueva. Vigente, vencida, convertida o borrada: 422.
+- Vuelve a `vigente` por `DEMO_DURATION_DAYS` (14) días desde hoy, sin resultado ni motivo, y el
+  prospecto entra con el **mismo enlace** de antes. Si no vencía, ahora vence (se le puede volver
+  a quitar con `PATCH .../expiry`).
+- Owner, editores y claves con `write`: deshace un descarte, no destruye nada.
+- Si dos personas la recuperan a la vez, la segunda recibe 409.
+
+Las dos responden `{ "demo": { ... } }` con la demo actualizada (incluye `discardReason`).
 
 ### Aviso de vencimiento
 
@@ -251,7 +291,9 @@ borra todo eso y **queda una fila anónima** por demo, para las métricas.
 **Cuándo:** la tarea diaria borra las demos cuyo `expiresAt` —o, si está descartada, su fecha
 de descarte (`outcomeAt`)— tiene más de `DEMO_PURGE_GRACE_DAYS` (30) días. Una vencida hace
 31 días se borra; una vencida hace 29, no. Una **convertida** (es un cliente) o **sin
-vencimiento** nunca se borra sola. Extenderla antes de que pase la gracia la salva.
+vencimiento** nunca se borra sola. Extenderla (o recuperarla, si está descartada) antes de que
+pase la gracia la salva: la tarea vuelve a mirar la fila dentro de la transacción que borra, así
+que una demo que alguien reactivó mientras la tarea corría no se borra.
 
 **Qué se borra**, en una sola transacción:
 
@@ -272,10 +314,10 @@ ajustes, blog y productos) y ante la duda conserva el archivo.
 
 **Qué queda** en `demos`: `tenantId` y `prospectId` en nulo, `purgedAt` puesto, y solo lo que
 sirve para medir: rubro, kit de origen, quién la creó (persona del equipo, no el prospecto),
-fechas de creación, vencimiento, resultado y borrado, `extensionCount`, `visitCount` y fechas
-de primera y última visita. Se vacían `discardReason` (texto libre que puede nombrarlo) y los
-datos del aviso (`expiryWarning*`: el error de un correo rebotado trae la dirección). No quedan
-nombre del negocio, contacto, teléfono, correo, notas, dirección ni IPs.
+fechas de creación, vencimiento, resultado y borrado, el motivo del descarte (`discardReason`,
+de una lista cerrada), `extensionCount`, `visitCount` y fechas de primera y última visita. Se
+vacían los datos del aviso (`expiryWarning*`: el error de un correo rebotado trae la dirección).
+No quedan nombre del negocio, contacto, teléfono, correo, notas, dirección ni IPs.
 
 **Borrado manual:** `DELETE /api/admin/demos/:demoId` con `{ "confirm": true }` hace lo mismo
 ya, sin esperar la gracia (también a una vigente).
@@ -342,7 +384,7 @@ tenant):
 ### Reglas que protegen el estado
 
 - `PATCH /api/admin/tenants/:id/status` no acepta `demo` ni cambia una demo (422): se entra
-  creándola y se sale convirtiéndola o descartándola (etapa 3).
+  creándola y se sale convirtiéndola (etapa 3) o [descartándola](#descartar-y-recuperar).
 - Una demo no acepta dominios (422 "Una demo no puede tener dominio propio; conviértela
   primero.").
 - A una demo no se le asigna una persona con rol `client` (422): el prospecto no entra al panel.
@@ -365,6 +407,5 @@ de modo que las demos nunca pidan uno propio.
 
 ### Etapas siguientes
 
-Convertir y descartar (etapa 3), herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas
-que necesitan (`outcome`, `outcomeAt`, `discardReason`, `purgedAt`, contadores) ya existen; el
-borrado ya cuenta la gracia de una descartada desde `outcomeAt`.
+Convertir (etapa 3), herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas que
+necesitan (`outcome`, `outcomeAt`, `discardReason`, `purgedAt`, contadores) ya existen.

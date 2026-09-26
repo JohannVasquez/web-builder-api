@@ -4,6 +4,7 @@ import type { DemoRepository } from '../domain/DemoRepository';
 import type { NotifyExpiringDemosUseCase } from './NotifyExpiringDemosUseCase';
 import type { DemoPurgeResult, PurgeDemoUseCase } from './PurgeDemoUseCase';
 import { PurgeExpiredDemosUseCase } from './PurgeExpiredDemosUseCase';
+import { DemoNoLongerDueError } from '../domain/errors';
 
 // Lo que se borra y lo que se conserva se prueba contra la base (PrismaDemoRepository.spec.ts);
 // aquí, que ningún paso que falla detenga a los demás y que quede en el resumen.
@@ -99,6 +100,20 @@ describe('PurgeExpiredDemosUseCase', () => {
 
     expect(run.demosPurged).toBe(2);
     expect(run.failedDemos).toEqual([{ demoId: 'sol', error: 'deadlock detected' }]);
+  });
+
+  it('una demo que extendieron o recuperaron mientras corría no cuenta como fallo', async () => {
+    const luna = expired('luna', 31);
+    const sol = expired('sol', 40);
+    const run = await build({
+      due: [luna, sol],
+      purge: (demoId) =>
+        demoId === 'luna'
+          ? Promise.reject(new DemoNoLongerDueError())
+          : Promise.resolve(purgedResult(sol)),
+    }).execute(NOW);
+
+    expect(run).toMatchObject({ demosPurged: 1, demosFailed: 0, failedDemos: [] });
   });
 
   it('no borra lo que el dominio dice que todavía no corresponde', async () => {

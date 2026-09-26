@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '@/shared/domain/identifier';
+import { DEMO_DISCARD_REASONS } from './Demo';
 import { ProspectInputSchema } from './Prospect';
 
 // El slug del tenant será `demo-<slug>` y el sufijo sugerido ante un choque suma unos
@@ -70,4 +71,8 @@ export const DeleteDemoSchema = z.object({
   confirm: z.literal(true, {
     error: 'Borrar una demo no se puede deshacer: confirma con { "confirm": true }.',
   }),
+});
+
+export const DiscardDemoSchema = z.strictObject({
+  reason: z.enum(DEMO_DISCARD_REASONS).optional(),
 });

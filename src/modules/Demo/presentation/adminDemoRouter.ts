@@ -1,6 +1,9 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { ForbiddenError } from '@/shared/domain/ForbiddenError';
-import { getRequestActor } from '@/modules/ApiKey/presentation/actorMiddleware';
+import {
+  getRequestActor,
+  requirePermission,
+} from '@/modules/ApiKey/presentation/actorMiddleware';
 import type { AdminDemoController } from './AdminDemoController';
 
 // Las demos son trabajo de la agencia sobre prospectos que todavía no son clientes: una clave
@@ -29,7 +32,7 @@ export const requireDemoDeleter = (
   const actor = getRequestActor(res);
   if (actor.type === 'admin' && actor.role !== 'owner') {
     throw new ForbiddenError(
-      'Borrar una demo es solo para la persona dueña de la cuenta. Si el prospecto dijo que no, déjala vencer: se borra sola.',
+      'Borrar una demo es solo para la persona dueña de la cuenta. Si el prospecto dijo que no, descártala: se borra sola al terminar el período de gracia.',
     );
   }
   next();
@@ -48,6 +51,10 @@ export const createAdminDemoRouter = (controller: AdminDemoController): Router =
   router.get('/:demoId/visits', controller.listVisits);
   router.post('/:demoId/extend', controller.extend);
   router.patch('/:demoId/expiry', controller.updateExpiry);
+  // Descartar cambia el destino de la demo: con una clave, solo `full`. Owner y editores ya
+  // tienen `full` en el panel. Recuperar deshace un descarte y basta con `write`.
+  router.post('/:demoId/discard', requirePermission('full'), controller.discard);
+  router.post('/:demoId/restore', controller.restore);
   router.delete('/:demoId', requireDemoDeleter, controller.remove);
   return router;
 };
