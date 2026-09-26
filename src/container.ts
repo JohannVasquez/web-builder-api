@@ -255,7 +255,11 @@ import { UpdateProspectUseCase } from './modules/Demo/application/UpdateProspect
 import { RegenerateDemoLinkUseCase } from './modules/Demo/application/RegenerateDemoLinkUseCase';
 import { ValidateDemoAccessUseCase } from './modules/Demo/application/ValidateDemoAccessUseCase';
 import { AdminDemoController } from './modules/Demo/presentation/AdminDemoController';
-import { createDemoGuard } from './modules/Demo/presentation/demoGuard';
+import { RecordDemoVisitUseCase } from './modules/Demo/application/RecordDemoVisitUseCase';
+import {
+  createDemoGuard,
+  createDemoVisitTracker,
+} from './modules/Demo/presentation/demoGuard';
 import { buildApp } from './app';
 
 /**
@@ -1038,6 +1042,16 @@ const buildServiceContainer = (env: EnvConfig): ServiceContainer => {
     .registerAndUse(RegenerateDemoLinkUseCase)
     .withDependencies([DemoRepository, RecordActivityUseCase]);
   builder.registerAndUse(ValidateDemoAccessUseCase).withDependencies([DemoRepository]);
+  // Misma sal que el consentimiento: la huella de IP se calcula igual en toda la plataforma.
+  builder
+    .register(RecordDemoVisitUseCase)
+    .useFactory(
+      (container) =>
+        new RecordDemoVisitUseCase(
+          container.get(DemoRepository),
+          env.get('CONSENT_IP_SALT'),
+        ),
+    );
   builder
     .registerAndUse(AdminDemoController)
     .withDependencies([
@@ -1110,6 +1124,7 @@ export class Container {
       createActivityRecordingMiddleware(this.services.get(RecordActivityUseCase)),
       createPreviewMiddleware(this.services.get(ValidatePreviewTokenUseCase)),
       createDemoGuard(this.services.get(ValidateDemoAccessUseCase)),
+      createDemoVisitTracker(this.services.get(RecordDemoVisitUseCase)),
       createIdempotency(this.services.get(IdempotencyStore), 'store.checkout'),
       async () => {
         // Ping DB (ligero)

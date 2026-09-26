@@ -153,6 +153,7 @@ export const buildApp = (
   activityRecording: RequestHandler,
   previewMiddleware: RequestHandler,
   demoGuard: RequestHandler,
+  demoVisitTracker: RequestHandler,
   // Sin clave de idempotencia la compra se comporta igual; por defecto no hace nada.
   checkoutIdempotency: RequestHandler = (_req, _res, next) => {
     next();
@@ -193,6 +194,7 @@ export const buildApp = (
   app.use(
     '/api/pages',
     ...publicSite,
+    demoVisitTracker,
     previewMiddleware,
     siteAvailability,
     createPageRouter(controllers.pageController),

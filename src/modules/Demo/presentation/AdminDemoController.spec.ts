@@ -21,6 +21,7 @@ import { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseC
 import { Demo } from '../domain/Demo';
 import type { DemoRepository, DemoView } from '../domain/DemoRepository';
 import { Prospect } from '../domain/Prospect';
+import { DemoVisit } from '../domain/DemoVisit';
 import { AdminDemoController } from './AdminDemoController';
 import { createAdminDemoRouter } from './adminDemoRouter';
 
@@ -348,5 +349,51 @@ describe('AdminDemoController (HTTP)', () => {
 
     expect(response.status).toBe(403);
     expect(repository.replaceAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('lista las visitas paginadas, lo más reciente primero, sin la huella de la IP', async () => {
+    const repository = buildRepository();
+    repository.listVisits.mockResolvedValue({
+      visits: [
+        new DemoVisit(
+          '018f6f1a-0000-7000-8000-0000000000b2',
+          'precios',
+          new Date('2026-09-26T13:00:00Z'),
+          'huella',
+          'Mozilla/5.0 (iPhone)',
+        ),
+      ],
+      total: 3,
+    });
+    const { app } = build(staff, repository);
+
+    const response = await request(app).get(
+      `/api/admin/demos/${DEMO_ID}/visits?page=1&perPage=1`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      visits: [
+        {
+          id: '018f6f1a-0000-7000-8000-0000000000b2',
+          pageSlug: 'precios',
+          visitedAt: '2026-09-26T13:00:00.000Z',
+          userAgent: 'Mozilla/5.0 (iPhone)',
+        },
+      ],
+      total: 3,
+      page: 1,
+      perPage: 1,
+    });
+    expect(repository.listVisits).toHaveBeenCalledWith(DEMO_ID, 1, 1);
+  });
+
+  it('un usuario client no puede ver las visitas de ninguna demo', async () => {
+    const { app, repository } = build(client);
+
+    const response = await request(app).get(`/api/admin/demos/${DEMO_ID}/visits`);
+
+    expect(response.status).toBe(403);
+    expect(repository.listVisits).not.toHaveBeenCalled();
   });
 });

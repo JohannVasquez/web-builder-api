@@ -28,5 +28,6 @@ export const createAdminDemoRouter = (controller: AdminDemoController): Router =
   router.patch('/:demoId/prospect', controller.updateProspect);
   router.post('/:demoId/prospect-link', controller.regenerateProspectLink);
   router.post('/:demoId/team-link', controller.regenerateTeamLink);
+  router.get('/:demoId/visits', controller.listVisits);
   return router;
 };

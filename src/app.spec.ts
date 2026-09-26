@@ -199,6 +199,7 @@ describe('buildApp (rutas protegidas)', () => {
         updateProspect: ok(200),
         regenerateProspectLink: ok(201),
         regenerateTeamLink: ok(201),
+        listVisits: ok(200),
       },
     } as unknown as AppControllers;
   };
@@ -228,6 +229,7 @@ describe('buildApp (rutas protegidas)', () => {
       noop,
       fakeTenantResolver,
       fakeActor,
+      noop,
       noop,
       noop,
       noop,
@@ -312,6 +314,7 @@ describe('buildApp (rutas protegidas)', () => {
         noop,
         noop,
         noop,
+        noop,
         () => Promise.resolve(),
       );
 
@@ -327,6 +330,7 @@ describe('buildApp (rutas protegidas)', () => {
         noop,
         fakeTenantResolver,
         fakeActor,
+        noop,
         noop,
         noop,
         noop,
@@ -414,6 +418,7 @@ describe('buildApp (rutas protegidas)', () => {
           noop,
           noop,
           guard,
+          noop,
         );
         const mounts = spies.flatMap((spy) =>
           spy.mock.calls

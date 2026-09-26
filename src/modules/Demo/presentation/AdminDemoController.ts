@@ -7,7 +7,11 @@ import type { UpdateProspectUseCase } from '../application/UpdateProspectUseCase
 import type { RegenerateDemoLinkUseCase } from '../application/RegenerateDemoLinkUseCase';
 import type { DemoCreator, DemoLinkKind } from '../domain/Demo';
 import type { DemoView } from '../domain/DemoRepository';
-import { CreateDemoSchema, DemoListQuerySchema } from '../domain/DemoSchema';
+import {
+  CreateDemoSchema,
+  DemoListQuerySchema,
+  DemoVisitsQuerySchema,
+} from '../domain/DemoSchema';
 import { ProspectPatchSchema } from '../domain/Prospect';
 import { DemoSlugTakenError } from '../domain/errors';
 
@@ -100,6 +104,23 @@ export class AdminDemoController {
     res: Response,
   ): Promise<void> => {
     await this.regenerate(req, res, 'team');
+  };
+
+  // Lo que el prospecto abrió, lo más reciente primero: la señal para decidir si volver a
+  // llamarlo y de qué hablarle.
+  public readonly listVisits = async (req: Request, res: Response): Promise<void> => {
+    const { page, perPage } = DemoVisitsQuerySchema.parse(req.query);
+    const { visits, total } = await this.queryDemosUseCase.visits(
+      this.demoIdOf(req),
+      page,
+      perPage,
+    );
+    res.json({
+      visits: visits.map((visit) => visit.toPrimitives()),
+      total,
+      page,
+      perPage,
+    });
   };
 
   private async regenerate(
