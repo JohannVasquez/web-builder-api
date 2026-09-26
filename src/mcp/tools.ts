@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { ApiClient } from './ApiClient';
 import { MIME_EXTENSIONS } from '../modules/FileStorage/domain/AllowedMimeTypes';
 import { idSchema } from '../shared/domain/identifier';
+import { DEMO_DISCARD_REASONS, DEMO_LINK_KINDS } from '../modules/Demo/domain/Demo';
+import { DEMO_LIST_STATUSES } from '../modules/Demo/domain/DemoSchema';
 
 export interface McpTool {
   readonly name: string;
@@ -13,6 +15,33 @@ export interface McpTool {
 
 const tenantId = idSchema.describe('Id del cliente (tenant)');
 const pageId = idSchema.describe('Id de la página');
+const demoId = idSchema.describe('Id de la demo (sale de create_demo o de list_demos)');
+
+// Los enlaces de una demo se guardan como hash: si el agente no se los entrega a la persona
+// ahora, nadie los puede volver a ver.
+const DEMO_LINKS_NOTE =
+  'Este enlace se muestra UNA sola vez: la plataforma guarda solo su huella y ninguna otra herramienta lo vuelve a mostrar. Entrégaselo ahora a la persona que te lo pidió. Si se pierde, genera otro con regenerate_demo_link (el anterior deja de servir).';
+
+const prospectFields = {
+  contactName: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Nombre de la persona de contacto'),
+  phone: z.string().nullable().optional().describe('Teléfono, tal como se marca'),
+  email: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Correo del prospecto; sin él no le llega el aviso de vencimiento'),
+  industry: z.string().nullable().optional().describe('Rubro, ej. "pastelería"'),
+  source: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('De dónde salió: "Google Maps", "Instagram", "referido"...'),
+  notes: z.string().nullable().optional().describe('Notas de la llamada'),
+};
 
 // Las acciones destructivas exigen esta confirmación en la MISMA solicitud (Spec 10.4):
 // un agente no puede borrar "de pasada" creyendo que era reversible.
@@ -33,7 +62,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     tool(
       'list_tenants',
       'Listar clientes',
-      'Lista los clientes que alcanza tu clave de acceso, con su id, slug, nombre y dominio principal.',
+      'Lista los clientes que alcanza tu clave de acceso, con su id, slug, nombre y dominio principal. No incluye las demos de prospecto: esas se listan con list_demos.',
       {},
       () => api.request('GET', '/api/admin/tenants'),
     ),
@@ -72,7 +101,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
     tool(
       'create_tenant',
       'Crear un cliente',
-      'Crea un cliente nuevo. Puede nacer vacío, desde un kit por rubro (`templateId`, ver list_templates) o duplicando el sitio de otro cliente (`duplicateFromTenantId`). Un sitio duplicado nace despublicado.',
+      'Crea un cliente nuevo, con su sitio PÚBLICO. Si es para mostrarle a un prospecto que todavía no compró, usa `create_demo`: un cliente se ve en internet apenas se crea. Puede nacer vacío, desde un kit por rubro (`templateId`, ver list_templates) o duplicando el sitio de otro cliente (`duplicateFromTenantId`). Un sitio duplicado nace despublicado.',
       {
         slug: z
           .string()
@@ -91,6 +120,186 @@ export const buildTools = (api: ApiClient): McpTool[] => {
           .describe('Id del cliente cuyo sitio quieres copiar'),
       },
       (args) => api.request('POST', '/api/admin/tenants', args),
+    ),
+
+    tool(
+      'create_demo',
+      'Crear una demo para un prospecto',
+      'Crea el sitio PRIVADO de un prospecto (un negocio que todavía no compró) para mostrárselo antes de venderle. Nace desde un kit por rubro (`templateId`, ver list_templates), duplicando otro sitio (`duplicateFromTenantId`) o vacío, con todas sus páginas publicadas, pero solo lo ve quien trae su enlace: ni el público ni los buscadores. Vence a los 14 días. Devuelve la demo (su `tenantId` sirve para llenarla con get_site, add_block, update_brand y las demás herramientas de siempre) y sus dos enlaces: `links.prospect` para mandarle al prospecto y `links.team` para el equipo. Los enlaces se muestran UNA sola vez. Si el negocio ya es cliente, usa create_tenant. Requiere permiso "write" y una clave sin alcance limitado.',
+      {
+        slug: z
+          .string()
+          .describe(
+            'Nombre del negocio en minúsculas y guiones, ej. "pasteleria-luna"; la dirección será demo-<slug>. Si está ocupado, la respuesta sugiere uno libre',
+          ),
+        name: z.string().describe('Nombre del negocio, como se muestra en el sitio'),
+        templateId: z.string().optional().describe('Id de un kit por rubro'),
+        duplicateFromTenantId: idSchema
+          .optional()
+          .describe('Id del sitio que quieres copiar (excluyente con templateId)'),
+        prospect: z
+          .object({
+            businessName: z.string().describe('Nombre del negocio'),
+            ...prospectFields,
+          })
+          .optional()
+          .describe('Ficha del prospecto nuevo. Manda esto o `prospectId`'),
+        prospectId: idSchema
+          .optional()
+          .describe(
+            'Id de un prospecto que ya tiene otra demo, para hacerle una segunda propuesta',
+          ),
+      },
+      async (args) => ({
+        ...(await api.request<object>('POST', '/api/admin/demos', args)),
+        note: DEMO_LINKS_NOTE,
+      }),
+    ),
+
+    tool(
+      'list_demos',
+      'Listar demos de prospectos',
+      'Lista las demos con su estado (vigente, vencida, convertida, descartada), el prospecto y su teléfono, la dirección, el vencimiento y las visitas del prospecto (cuántas y la última). `por-vencer` trae las vigentes que vencen en los próximos días, la más próxima primero: la lista para llamar. No incluye enlaces.',
+      {
+        status: z.enum(DEMO_LIST_STATUSES).optional().describe('Filtra por estado'),
+        prospectId: idSchema.optional().describe('Solo las demos de este prospecto'),
+      },
+      (args) => {
+        const params = new URLSearchParams();
+        for (const key of ['status', 'prospectId'] as const) {
+          const value = args[key];
+          if (typeof value === 'string') {
+            params.set(key, value);
+          }
+        }
+        const query = params.toString();
+        return api.request('GET', `/api/admin/demos${query === '' ? '' : `?${query}`}`);
+      },
+    ),
+
+    tool(
+      'get_demo',
+      'Ver una demo',
+      'Detalle de una demo: su estado y vencimiento, la ficha completa del prospecto, sus otras propuestas y las últimas páginas que abrió. Úsala antes de llamarlo. No incluye enlaces.',
+      { demoId },
+      async (args) => {
+        const id = String(args.demoId);
+        const [detail, visits] = await Promise.all([
+          api.request<object>('GET', `/api/admin/demos/${id}`),
+          api.request<{ visits: unknown[]; total: number }>(
+            'GET',
+            `/api/admin/demos/${id}/visits?perPage=10`,
+          ),
+        ]);
+        return { ...detail, recentVisits: visits.visits, totalVisits: visits.total };
+      },
+    ),
+
+    tool(
+      'update_prospect',
+      'Editar la ficha del prospecto',
+      'Cambia los datos del prospecto de una demo: notas de la llamada, contacto, teléfono, correo. La ficha es una sola y la comparten todas sus propuestas. Manda solo lo que cambia.',
+      {
+        demoId,
+        businessName: z.string().optional().describe('Nombre del negocio'),
+        ...prospectFields,
+      },
+      (args) => {
+        const { demoId: id, ...body } = args;
+        return api.request('PATCH', `/api/admin/demos/${String(id)}/prospect`, body);
+      },
+    ),
+
+    tool(
+      'regenerate_demo_link',
+      'Regenerar el enlace de una demo',
+      'Genera un enlace nuevo, del prospecto o del equipo, y lo devuelve. El anterior deja de funcionar al instante: sirve si el enlace se perdió o llegó a quien no debía. El enlace nuevo se muestra UNA sola vez.',
+      {
+        demoId,
+        kind: z
+          .enum(DEMO_LINK_KINDS)
+          .describe('"prospect" para el prospecto, "team" para el equipo de la agencia'),
+      },
+      async (args) => ({
+        ...(await api.request<object>(
+          'POST',
+          `/api/admin/demos/${String(args.demoId)}/${String(args.kind)}-link`,
+        )),
+        note: DEMO_LINKS_NOTE,
+      }),
+    ),
+
+    tool(
+      'extend_demo',
+      'Extender una demo',
+      'Suma 14 días al vencimiento (o a hoy, si ya venció: la reactiva y el prospecto vuelve a entrar con el mismo enlace). Sin máximo. No vale sobre una demo descartada (primero restore_demo) ni convertida.',
+      { demoId },
+      (args) => api.request('POST', `/api/admin/demos/${String(args.demoId)}/extend`),
+    ),
+
+    tool(
+      'set_demo_expiry',
+      'Marcar una demo sin vencimiento',
+      'Con `neverExpires: true` la demo deja de vencer (por ejemplo, una que se usa de portafolio) y nunca se borra sola. Con `false` le vuelve a poner vencimiento a 14 días desde hoy.',
+      { demoId, neverExpires: z.boolean() },
+      (args) =>
+        api.request('PATCH', `/api/admin/demos/${String(args.demoId)}/expiry`, {
+          neverExpires: args.neverExpires,
+        }),
+    ),
+
+    tool(
+      'discard_demo',
+      'Descartar una demo',
+      'Cuando el prospecto dijo que no: su enlace deja de funcionar al instante y la demo se borra sola 30 días después. No es borrar: dentro de esos 30 días se recupera con restore_demo. Requiere permiso "full" y confirmación explícita.',
+      {
+        demoId,
+        reason: z
+          .enum(DEMO_DISCARD_REASONS)
+          .optional()
+          .describe('Por qué no compró; sirve a las métricas'),
+        confirm,
+      },
+      (args) =>
+        api.request('POST', `/api/admin/demos/${String(args.demoId)}/discard`, {
+          reason: args.reason,
+        }),
+    ),
+
+    tool(
+      'restore_demo',
+      'Recuperar una demo descartada',
+      'Para el prospecto que llamó de vuelta: una demo descartada hace menos de 30 días vuelve a estar vigente por 14 días y el prospecto entra con el mismo enlace de antes.',
+      { demoId },
+      (args) => api.request('POST', `/api/admin/demos/${String(args.demoId)}/restore`),
+    ),
+
+    tool(
+      'convert_demo',
+      'Convertir una demo en cliente',
+      'El prospecto compró: su demo pasa a ser su sitio público en `<slug>.<dominio de la plataforma>`, deja de vencer, sus enlaces dejan de servir y sus otras propuestas se descartan. Con `owner` se crea su cuenta del panel y le llega un correo para elegir contraseña. Si el slug está ocupado responde con uno libre para reintentar. Requiere permiso "full" y confirmación explícita.',
+      {
+        demoId,
+        slug: z
+          .string()
+          .optional()
+          .describe(
+            'Slug definitivo; por omisión el de la demo sin "demo-" (ni el "-2" de una segunda propuesta)',
+          ),
+        owner: z
+          .object({
+            name: z.string().describe('Nombre de la persona dueña del negocio'),
+            email: z.string().describe('Su correo: ahí le llega la invitación'),
+          })
+          .optional()
+          .describe('La persona dueña del negocio, para crearle su cuenta de cliente'),
+        confirm,
+      },
+      (args) =>
+        api.request('POST', `/api/admin/demos/${String(args.demoId)}/convert`, {
+          slug: args.slug,
+          owner: args.owner,
+        }),
     ),
 
     tool(
@@ -514,7 +723,11 @@ export const buildTools = (api: ApiClient): McpTool[] => {
             const buffer = await readFile(f.filePath);
             toUpload.push({ file: f.filePath, buffer, alt: f.alt });
           } catch (err) {
-            if (err instanceof Error && 'code' in err && (err as { code?: string }).code === 'ENOENT') {
+            if (
+              err instanceof Error &&
+              'code' in err &&
+              (err as { code?: string }).code === 'ENOENT'
+            ) {
               throw new Error(
                 `El archivo no existe en el disco local: ${f.filePath}. Verifica la ruta y reintenta.`,
               );
@@ -1088,10 +1301,7 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Ejecuta una revisión automática de calidad sobre el sitio (textos de ejemplo sin cambiar, imágenes sin texto alternativo, enlaces rotos, páginas sin SEO, datos de negocio faltantes, política de privacidad no publicada). Devuelve una lista de observaciones con su gravedad y cómo solucionarlas. Útil correrla antes de dar por terminado un proyecto.',
       { tenantId },
       (args) =>
-        api.request(
-          'GET',
-          `/api/admin/tenants/${String(args.tenantId)}/quality-review`,
-        ),
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/quality-review`),
     ),
 
     tool(
@@ -1099,7 +1309,8 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Consultar estado de cobro de un cliente',
       'Revisa si un cliente está al día con la mensualidad de la agencia, si está por vencer o si está atrasado. El estado se calcula solo a partir de su fecha de inicio y los pagos recibidos.',
       { tenantId },
-      (args) => api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/subscription`),
+      (args) =>
+        api.request('GET', `/api/admin/tenants/${String(args.tenantId)}/subscription`),
     ),
 
     tool(
@@ -1108,16 +1319,31 @@ export const buildTools = (api: ApiClient): McpTool[] => {
       'Anota que el cliente pagó la mensualidad. Exige permiso `full` porque toca dinero. El estado del cliente (al día, atrasado) se actualizará solo. El monto va en números enteros (pesos).',
       {
         tenantId,
-        amountCents: z.number().int().positive().describe('Monto pagado, en enteros (pesos)'),
-        paidAt: z.string().datetime().describe('Fecha en que se recibió la plata (ISO 8601)'),
-        paymentMethod: z.string().min(1).max(50).describe('Medio de pago (ej. transferencia, tarjeta, efectivo)'),
+        amountCents: z
+          .number()
+          .int()
+          .positive()
+          .describe('Monto pagado, en enteros (pesos)'),
+        paidAt: z
+          .string()
+          .datetime()
+          .describe('Fecha en que se recibió la plata (ISO 8601)'),
+        paymentMethod: z
+          .string()
+          .min(1)
+          .max(50)
+          .describe('Medio de pago (ej. transferencia, tarjeta, efectivo)'),
       },
       (args) =>
-        api.request('POST', `/api/admin/tenants/${String(args.tenantId)}/subscription/payments`, {
-          amountCents: args.amountCents,
-          paidAt: args.paidAt,
-          paymentMethod: args.paymentMethod,
-        }),
+        api.request(
+          'POST',
+          `/api/admin/tenants/${String(args.tenantId)}/subscription/payments`,
+          {
+            amountCents: args.amountCents,
+            paidAt: args.paidAt,
+            paymentMethod: args.paymentMethod,
+          },
+        ),
     ),
   ];
 };

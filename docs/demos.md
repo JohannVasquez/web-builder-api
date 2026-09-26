@@ -512,7 +512,18 @@ Transparency, y `demo-pasteleria-luna.<plataforma>` delataría el nombre del neg
 producción conviene servir `*.<PLATFORM_DOMAIN>` con **un certificado comodín** (desafío DNS),
 de modo que las demos nunca pidan uno propio.
 
+### Desde el agente (MCP)
+
+Todo lo anterior salvo borrar existe como herramienta MCP, con los mismos permisos y el mismo
+registro de actividad: `create_demo`, `list_demos`, `get_demo`, `update_prospect`,
+`regenerate_demo_link`, `extend_demo`, `set_demo_expiry`, `discard_demo`, `restore_demo` y
+`convert_demo`. Descartar y convertir piden permiso `full` y `confirm: true`; ninguna herramienta
+borra una demo. Una clave limitada a algunos clientes no alcanza a ninguna demo (ni para crearla
+ni para verla). El recorrido para el agente está en
+[Armar una demo para un prospecto](herramientas-agentes.md#armar-una-demo-para-un-prospecto).
+
 ### Etapas siguientes
 
-Herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas que necesitan (`outcome`,
-`outcomeAt`, `discardReason`, `purgedAt`, contadores) ya existen.
+Métricas (etapa 4): cuántas se crean, se abren y se convierten, por rubro, por kit y por
+vendedor. Lo que necesitan (`outcome`, `outcomeAt`, `discardReason`, `industry`, `templateId`,
+quién la creó y los contadores de visitas) ya se guarda y sobrevive al borrado.

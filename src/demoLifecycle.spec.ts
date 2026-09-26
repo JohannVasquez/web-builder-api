@@ -7,6 +7,11 @@ import { EnvConfig } from './shared/config/EnvConfig';
 import { Container } from './container';
 import { generateApiKeyToken } from './modules/ApiKey/domain/apiKeyToken';
 import type { Permission } from './modules/ApiKey/domain/Actor';
+import { z } from 'zod';
+import type { AddressInfo } from 'node:net';
+import type { Server } from 'node:http';
+import { ApiClient } from './mcp/ApiClient';
+import { buildTools, type McpTool } from './mcp/tools';
 
 // El ciclo de una demo contra la API armada de verdad y la base real: lo que se prueba es lo
 // que ve el prospecto y lo que ve el público, no un doble. Las direcciones cuelgan de un
@@ -361,6 +366,160 @@ describe('demos de punta a punta (API y base reales)', () => {
           },
         }),
       ).toBe(2);
+    });
+  });
+  // DEMO 10: el agente hace todo por el MCP, contra la API real, con los permisos de su clave.
+  describe('un agente arma y opera una demo por MCP', () => {
+    let server: Server;
+    let baseUrl = '';
+
+    beforeAll(async () => {
+      server = await new Promise<Server>((resolve) => {
+        const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+      });
+      baseUrl = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
+    });
+
+    afterAll(async () => {
+      await new Promise((resolve) => server.close(resolve));
+    });
+
+    // Como el servidor MCP: valida los argumentos con el esquema de la herramienta antes de
+    // llamarla, así que sin `confirm: true` ni siquiera llega a la API.
+    const agent = (key: string) => {
+      const tools = buildTools(new ApiClient(baseUrl, key));
+      return async <T = Record<string, unknown>>(
+        name: string,
+        args: Record<string, unknown> = {},
+      ): Promise<T> => {
+        const tool = tools.find((candidate) => candidate.name === name) as McpTool;
+        const parsed = z.object(tool.inputSchema).parse(args);
+        return (await tool.handler(parsed)) as T;
+      };
+    };
+
+    it('con write crea la demo desde un kit, la edita, la publica y entrega el enlace', async () => {
+      const call = agent(keys.write);
+
+      const made = await call<{
+        demo: { id: string; tenantId: string; status: string };
+        links: Record<'prospect' | 'team', { url: string; token: string }>;
+        note: string;
+      }>('create_demo', {
+        slug: `floreria-${tag}-rosa`,
+        name: 'Florería Rosa',
+        templateId: 'pasteleria',
+        prospect: { businessName: 'Florería Rosa', phone: '+56 9 5555 5555' },
+      });
+      created.tenants.push(made.demo.tenantId);
+      expect(made.demo.status).toBe('vigente');
+      expect(made.note).toMatch(/UNA sola vez/);
+      const address = `demo-floreria-${tag}-rosa.${platform}`;
+      expect(made.links.prospect.url).toContain(address);
+
+      // Las herramientas de siempre, sobre el tenant de la demo.
+      const site = await call<{ pages: { id: string; slug: string }[] }>('get_site', {
+        tenantId: made.demo.tenantId,
+      });
+      const home = site.pages.find((page) => page.slug === 'home');
+      expect(home).toBeDefined();
+      await call('add_block', {
+        tenantId: made.demo.tenantId,
+        pageId: home?.id,
+        type: 'Hero',
+        position: 0,
+        props: {
+          title: `Flores frescas ${tag}`,
+          subtitle: 'Ramos a domicilio en Ñuñoa.',
+          variant: 'centered',
+        },
+      });
+      await call('publish_page', { tenantId: made.demo.tenantId, pageId: home?.id });
+
+      // Lo que ve el prospecto con el enlace que le entregó el agente.
+      const seen = await visit(address, made.links.prospect.token);
+      expect(seen.status).toBe(200);
+      expect(JSON.stringify(seen.body)).toContain(`Flores frescas ${tag}`);
+      expect((await visit(address)).status).toBe(404);
+
+      // Leer, anotar, extender y regenerar también son de write, y nada de eso trae enlaces.
+      const listed = await call<{ demos: { id: string }[] }>('list_demos', {
+        status: 'vigente',
+      });
+      expect(listed.demos.map((demo) => demo.id)).toContain(made.demo.id);
+      await call('update_prospect', {
+        demoId: made.demo.id,
+        notes: 'Llamar el lunes',
+      });
+      const detail = await agent(keys.read)('get_demo', { demoId: made.demo.id });
+      expect(detail).toMatchObject({
+        prospect: { notes: 'Llamar el lunes' },
+        recentVisits: expect.any(Array) as unknown,
+      });
+      expect(JSON.stringify(detail)).not.toContain(made.links.prospect.token);
+      await call('extend_demo', { demoId: made.demo.id });
+      await call('set_demo_expiry', { demoId: made.demo.id, neverExpires: true });
+      await call('set_demo_expiry', { demoId: made.demo.id, neverExpires: false });
+
+      const regenerated = await call<{ link: { token: string }; note: string }>(
+        'regenerate_demo_link',
+        { demoId: made.demo.id, kind: 'prospect' },
+      );
+      expect(regenerated.note).toMatch(/UNA sola vez/);
+      expect((await visit(address, made.links.prospect.token)).status).toBe(404);
+      expect((await visit(address, regenerated.link.token)).status).toBe(200);
+
+      // Con write no se descarta ni se convierte; con full sí, y solo con confirmación.
+      await expect(
+        call('discard_demo', { demoId: made.demo.id, confirm: true }),
+      ).rejects.toThrow(/permiso "full"/);
+      await expect(
+        call('convert_demo', { demoId: made.demo.id, confirm: true }),
+      ).rejects.toThrow(/permiso "full"/);
+      const full = agent(keys.full);
+      await expect(full('discard_demo', { demoId: made.demo.id })).rejects.toThrow();
+      await expect(full('convert_demo', { demoId: made.demo.id })).rejects.toThrow();
+
+      await full('discard_demo', {
+        demoId: made.demo.id,
+        reason: 'no-responde',
+        confirm: true,
+      });
+      expect((await visit(address, regenerated.link.token)).status).toBe(404);
+      await call('restore_demo', { demoId: made.demo.id });
+      expect((await visit(address, regenerated.link.token)).status).toBe(200);
+
+      const converted = await full<{ tenant: { primaryDomain: string } }>(
+        'convert_demo',
+        {
+          demoId: made.demo.id,
+          confirm: true,
+        },
+      );
+      expect(converted.tenant.primaryDomain).toBe(`floreria-${tag}-rosa.${platform}`);
+      const open = await visit(converted.tenant.primaryDomain);
+      expect(open.status).toBe(200);
+      expect(JSON.stringify(open.body)).toContain(`Flores frescas ${tag}`);
+    });
+
+    it('una clave limitada a algunos clientes no crea ni ve demos; una de lectura no crea', async () => {
+      const scoped = agent(keys.scoped);
+      const args = {
+        slug: `limitada-${tag}`,
+        name: 'Limitada',
+        prospect: { businessName: 'Limitada' },
+      };
+
+      await expect(scoped('create_demo', args)).rejects.toThrow(
+        /Las demos son de la agencia/,
+      );
+      await expect(scoped('list_demos')).rejects.toThrow(/Las demos son de la agencia/);
+      await expect(agent(keys.read)('create_demo', args)).rejects.toThrow(
+        /permiso "write"/,
+      );
+      expect(
+        await prisma.tenant.findUnique({ where: { slug: `demo-limitada-${tag}` } }),
+      ).toBeNull();
     });
   });
 });
