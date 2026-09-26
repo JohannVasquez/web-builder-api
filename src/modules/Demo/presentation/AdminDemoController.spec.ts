@@ -123,6 +123,9 @@ describe('AdminDemoController (HTTP)', () => {
     findAccess: jest.fn(),
     recordVisit: jest.fn(),
     listVisits: jest.fn(),
+    findExpiryWarningCandidates: jest.fn(),
+    markExpiryWarningSent: jest.fn(),
+    markExpiryWarningFailed: jest.fn(),
   });
 
   const build = (

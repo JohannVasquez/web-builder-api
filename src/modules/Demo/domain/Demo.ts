@@ -26,6 +26,20 @@ export interface DemoVisitCounters {
   readonly lastAt: Date | null;
 }
 
+// El último aviso de vencimiento al prospecto. `forExpiry` es el vencimiento que se avisó:
+// si la demo se extiende deja de coincidir y corresponde un aviso nuevo.
+export interface DemoExpiryWarning {
+  readonly sentAt: Date | null;
+  readonly forExpiry: Date | null;
+  readonly error: string | null;
+}
+
+export const NO_EXPIRY_WARNING: DemoExpiryWarning = {
+  sentAt: null,
+  forExpiry: null,
+  error: null,
+};
+
 export interface DemoPrimitives {
   readonly id: string;
   readonly status: DemoStatus;
@@ -40,6 +54,11 @@ export interface DemoPrimitives {
   readonly outcomeAt: string | null;
   readonly neverExpires: boolean;
   readonly extensionCount: number;
+  readonly expiryWarning: {
+    readonly sentAt: string | null;
+    readonly expiresAt: string | null;
+    readonly error: string | null;
+  };
   readonly visits: {
     readonly count: number;
     readonly firstAt: string | null;
@@ -63,6 +82,7 @@ export class Demo {
     public readonly visits: DemoVisitCounters,
     public readonly purgedAt: Date | null,
     public readonly extensionCount: number = 0,
+    public readonly expiryWarning: DemoExpiryWarning = NO_EXPIRY_WARNING,
   ) {}
 
   // El resultado manda sobre el vencimiento: una demo convertida no "vence" después.
@@ -122,6 +142,15 @@ export class Demo {
     );
   }
 
+  // Un aviso por cada vencimiento: si ya salió para esta fecha no se repite, y si la demo se
+  // extendió después, la fecha nueva merece el suyo. Un intento fallido no cuenta como aviso.
+  public needsExpiryWarning(now: Date, warningDays: number): boolean {
+    return (
+      this.isAboutToExpire(now, warningDays) &&
+      this.expiryWarning.forExpiry?.getTime() !== this.expiresAt?.getTime()
+    );
+  }
+
   // Con resultado o ya borrada, el vencimiento no se toca: convertida es un cliente, y
   // descartada o borrada es una decisión que no se revierte extendiéndola.
   private assertOpen(): void {
@@ -153,6 +182,11 @@ export class Demo {
       outcomeAt: this.outcomeAt?.toISOString() ?? null,
       neverExpires: this.expiresAt === null,
       extensionCount: this.extensionCount,
+      expiryWarning: {
+        sentAt: this.expiryWarning.sentAt?.toISOString() ?? null,
+        expiresAt: this.expiryWarning.forExpiry?.toISOString() ?? null,
+        error: this.expiryWarning.error,
+      },
       visits: {
         count: this.visits.count,
         firstAt: this.visits.firstAt?.toISOString() ?? null,

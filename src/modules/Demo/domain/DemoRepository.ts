@@ -63,6 +63,13 @@ export interface DemoAccess {
   readonly demo: Demo;
 }
 
+// Una demo que podría necesitar aviso, con lo único del prospecto que el correo necesita.
+export interface ExpiryWarningCandidate {
+  readonly demo: Demo;
+  readonly businessName: string;
+  readonly email: string;
+}
+
 export interface NewDemoVisit {
   readonly pageSlug: string;
   readonly ipHash: string | null;
@@ -107,4 +114,17 @@ export abstract class DemoRepository {
     page: number,
     perPage: number,
   ): Promise<{ visits: DemoVisit[]; total: number }>;
+  // Vigentes, con sitio, con correo de prospecto y que vencen hasta `until`. Si ya se avisó
+  // para su vencimiento lo decide `Demo.needsExpiryWarning`.
+  public abstract findExpiryWarningCandidates(
+    now: Date,
+    until: Date,
+  ): Promise<ExpiryWarningCandidate[]>;
+  public abstract markExpiryWarningSent(
+    demoId: string,
+    sentAt: Date,
+    forExpiry: Date,
+  ): Promise<void>;
+  // Deja el motivo sin tocar el último aviso que sí salió: la próxima pasada reintenta.
+  public abstract markExpiryWarningFailed(demoId: string, error: string): Promise<void>;
 }

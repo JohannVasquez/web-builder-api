@@ -16,6 +16,7 @@ import type {
   DemoFilter,
   DemoRepository,
   DemoView,
+  ExpiryWarningCandidate,
   NewDemo,
   NewDemoVisit,
 } from '../domain/DemoRepository';
@@ -80,6 +81,11 @@ const toDemo = (record: DemoRecord): Demo =>
     },
     record.purgedAt,
     record.extensionCount,
+    {
+      sentAt: record.expiryWarningSentAt,
+      forExpiry: record.expiryWarningFor,
+      error: record.expiryWarningError,
+    },
   );
 
 const toView = (record: DemoViewRecord): DemoView => ({
@@ -352,5 +358,55 @@ export class PrismaDemoRepository implements DemoRepository {
       ),
       total,
     };
+  }
+
+  public async findExpiryWarningCandidates(
+    now: Date,
+    until: Date,
+  ): Promise<ExpiryWarningCandidate[]> {
+    const records = await this.prisma.demo.findMany({
+      where: {
+        purgedAt: null,
+        tenantId: { not: null },
+        outcome: null,
+        expiresAt: { gt: now, lte: until },
+        prospect: { email: { not: null } },
+      },
+      include: { prospect: { select: { businessName: true, email: true } } },
+      orderBy: { expiresAt: 'asc' },
+    });
+    return records.flatMap((record) =>
+      record.prospect?.email == null
+        ? []
+        : [
+            {
+              demo: toDemo(record),
+              businessName: record.prospect.businessName,
+              email: record.prospect.email,
+            },
+          ],
+    );
+  }
+
+  public async markExpiryWarningSent(
+    demoId: string,
+    sentAt: Date,
+    forExpiry: Date,
+  ): Promise<void> {
+    await this.prisma.demo.update({
+      where: { id: demoId },
+      data: {
+        expiryWarningSentAt: sentAt,
+        expiryWarningFor: forExpiry,
+        expiryWarningError: null,
+      },
+    });
+  }
+
+  public async markExpiryWarningFailed(demoId: string, error: string): Promise<void> {
+    await this.prisma.demo.update({
+      where: { id: demoId },
+      data: { expiryWarningError: error.slice(0, 1000) },
+    });
   }
 }

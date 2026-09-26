@@ -86,6 +86,8 @@ const envSchema = z.strictObject({
   // extensión, y con cuánta anticipación entran en "por vencer".
   DEMO_DURATION_DAYS: days(14, 1),
   DEMO_EXPIRY_WARNING_DAYS: days(3, 0),
+  // A dónde responde el prospecto el aviso de vencimiento. Vacío = CONTACT_EMAIL_FROM.
+  DEMO_REPLY_TO: z.union([z.literal(''), z.email()]).default(''),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -130,6 +132,7 @@ export class EnvConfig {
       CONSENT_IP_SALT: source.CONSENT_IP_SALT,
       DEMO_DURATION_DAYS: source.DEMO_DURATION_DAYS,
       DEMO_EXPIRY_WARNING_DAYS: source.DEMO_EXPIRY_WARNING_DAYS,
+      DEMO_REPLY_TO: source.DEMO_REPLY_TO,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

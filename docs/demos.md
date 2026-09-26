@@ -215,6 +215,47 @@ nadie tiene que acordarse de actualizarlo.
 - Ambas son de owner, editores y claves con `write`, y responden `{ "demo": { ... } }` con la
   demo actualizada.
 
+### Aviso de vencimiento
+
+La tarea diaria (`scripts/purge-expired-demos.ts`, ver [Tarea diaria](#tarea-diaria)) le
+escribe al prospecto `DEMO_EXPIRY_WARNING_DAYS` (3) días antes de que su demo venza:
+
+- Solo a demos **vigentes**, con **correo** en la ficha y que vencen dentro de la ventana. Una
+  convertida, descartada, vencida o sin vencimiento no genera correo.
+- **Un aviso por vencimiento.** Se guarda cuándo salió (`expiryWarningSentAt`) y qué
+  vencimiento avisó (`expiryWarningFor`): no se repite para la misma fecha, y si la demo se
+  extiende, la fecha nueva recibe su propio aviso cuando entre en la ventana.
+- **Si el envío falla** queda el motivo en `expiryWarningError` y la pasada siguiente lo
+  reintenta; cuando sale, el motivo se limpia. El resto de los avisos sale igual.
+- Asunto: "Tu propuesta de sitio para `<negocio>` vence el `<fecha>`" (fecha en hora de Chile).
+  El cuerpo dice hasta cuándo está disponible, que la abra con **el enlace que ya recibió** (el
+  token no se guarda en claro, así que no puede ir en el correo) y que responda si le interesa
+  o quiere más tiempo. Va en texto y en HTML, con el nombre del negocio escapado y sin saltos
+  de línea; no lleva ningún enlace ni dato de otra demo.
+- `Reply-To`: `DEMO_REPLY_TO` (el correo de la agencia); vacío, `CONTACT_EMAIL_FROM`.
+- **Sin correo** no pasa nada: la demo aparece en `GET /api/admin/demos?status=por-vencer`, que
+  trae el contacto, el teléfono y `prospect.hasEmail`, para llamarlo o escribirle por WhatsApp.
+  Cada demo trae también `expiryWarning: { sentAt, expiresAt, error }`.
+
+### Tarea diaria
+
+`scripts/purge-expired-demos.ts` (`pnpm purge:demos`) corre una vez al día desde cron y es
+idempotente: una segunda pasada no encuentra nada que hacer. Hoy manda los avisos de
+vencimiento e imprime una línea JSON por stdout:
+
+```json
+{
+  "at": "2026-09-26T06:00:00.000Z",
+  "proceso": "demos-vencidas",
+  "warningsSent": 2,
+  "warningsFailed": 0,
+  "failedWarnings": []
+}
+```
+
+`failedWarnings` lleva solo ids de demo: el motivo queda en la demo, porque puede traer el
+correo del prospecto. Si algo falló, termina con código 1.
+
 ### Reglas que protegen el estado
 
 - `PATCH /api/admin/tenants/:id/status` no acepta `demo` ni cambia una demo (422): se entra
@@ -241,7 +282,7 @@ de modo que las demos nunca pidan uno propio.
 
 ### Etapas siguientes
 
-Avisar al prospecto (etapa 2), borrado automático con registro anónimo (etapa 2),
+Borrado automático con registro anónimo (etapa 2),
 convertir y descartar (etapa 3), herramientas MCP (etapa 3) y métricas (etapa 4). Las columnas
 que necesitan (`expiresAt`, `outcome`, `outcomeAt`, `purgedAt`, contadores) ya existen, y la
 fila `demos` suelta el tenant y el prospecto (`SetNull`) para poder quedar como rastro anónimo.

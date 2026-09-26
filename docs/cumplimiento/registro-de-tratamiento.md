@@ -68,7 +68,7 @@ actualizarlo aquí**.
 | **Datos**           | Nombre del negocio, nombre de contacto, teléfono, correo (opcional), rubro, origen, notas        |
 | **Dónde**           | `prospects`; la demo asociada en `demos` (sin datos personales propios)                          |
 | **Base de licitud** | Interés legítimo: contacto comercial con un negocio a partir de datos de fuentes públicas        |
-| **Fin**             | Preparar y presentar una propuesta de sitio y hacer su seguimiento comercial                     |
+| **Fin**             | Preparar y presentar una propuesta de sitio, seguirla y avisar por correo antes de que venza     |
 | **Conservación**    | Mientras la demo exista; se borran con ella (etapa 2: 30 días tras vencer, configurable)         |
 | **Destinatarios**   | Nadie fuera de la agencia. El enlace de la demo nunca expone la ficha                            |
 | **Nota**            | La fila `demos` queda como registro **anónimo** para métricas (kit, rubro, vendedor, contadores) |
@@ -98,13 +98,13 @@ actualizarlo aquí**.
 Terceros que tratan datos por cuenta de la plataforma. **Cada uno necesita su propio contrato**,
 y el DPA con el cliente tiene que listarlos.
 
-| Subencargado                              | Para qué                                    | ¿Fuera de Chile?      |
-| ----------------------------------------- | ------------------------------------------- | --------------------- |
-| Proveedor SMTP                            | Correos de contacto, pedidos y verificación | Depende del proveedor |
-| Almacenamiento S3 (MinIO / Cloudflare R2) | Imágenes y archivos                         | R2 sí                 |
-| Pasarela de pago (Flow)                   | Cobro                                       | No                    |
-| Google Analytics / Tag Manager            | Medición, **solo con consentimiento**       | Sí                    |
-| Meta Pixel                                | Publicidad, **solo con consentimiento**     | Sí                    |
+| Subencargado                              | Para qué                                     | ¿Fuera de Chile?      |
+| ----------------------------------------- | -------------------------------------------- | --------------------- |
+| Proveedor SMTP                            | Contacto, pedidos, verificación y prospectos | Depende del proveedor |
+| Almacenamiento S3 (MinIO / Cloudflare R2) | Imágenes y archivos                          | R2 sí                 |
+| Pasarela de pago (Flow)                   | Cobro                                        | No                    |
+| Google Analytics / Tag Manager            | Medición, **solo con consentimiento**        | Sí                    |
+| Meta Pixel                                | Publicidad, **solo con consentimiento**      | Sí                    |
 
 > Los dos últimos no cargan sin permiso de su finalidad. Ver el módulo `Consent`.
 

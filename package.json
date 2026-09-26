@@ -24,6 +24,7 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "purge": "tsx scripts/purge-expired-data.ts",
+    "purge:demos": "tsx scripts/purge-expired-demos.ts",
     "backup": "tsx scripts/backup.ts",
     "encrypt-credentials": "tsx scripts/encrypt-payment-credentials.ts",
     "mcp": "tsx src/mcp/bin.ts",

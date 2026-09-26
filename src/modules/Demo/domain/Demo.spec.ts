@@ -1,4 +1,4 @@
-import { Demo, type DemoOutcome } from './Demo';
+import { Demo, type DemoExpiryWarning, type DemoOutcome } from './Demo';
 import { addDays, DemoLifecycleConfig } from './DemoLifecycleConfig';
 import { DemoClosedError, DemoNeverExpiresError } from './errors';
 
@@ -9,6 +9,7 @@ describe('Demo', () => {
     outcome: DemoOutcome | null = null,
     tenantId: string | null = '018f6f1a-0000-7000-8000-000000000001',
     extensionCount = 0,
+    warning?: DemoExpiryWarning,
   ): Demo =>
     new Demo(
       '018f6f1a-0000-7000-8000-0000000000d1',
@@ -24,6 +25,7 @@ describe('Demo', () => {
       { count: 0, firstAt: null, lastAt: null },
       null,
       extensionCount,
+      warning,
     );
   const config = new DemoLifecycleConfig();
   const inDays = (days: number): Date => addDays(now, days);
@@ -139,6 +141,55 @@ describe('Demo', () => {
       expect(build(null).isAboutToExpire(now, 3)).toBe(false);
       expect(build(inDays(2), 'discarded').isAboutToExpire(now, 3)).toBe(false);
       expect(build(inDays(2), 'converted').isAboutToExpire(now, 3)).toBe(false);
+    });
+  });
+
+  describe('aviso de vencimiento', () => {
+    const warned = (forExpiry: Date): DemoExpiryWarning => ({
+      sentAt: now,
+      forExpiry,
+      error: null,
+    });
+
+    it('corresponde a una por vencer que no recibió aviso para su vencimiento', () => {
+      expect(build(inDays(2)).needsExpiryWarning(now, 3)).toBe(true);
+    });
+
+    it('no se repite para el mismo vencimiento', () => {
+      expect(
+        build(inDays(2), null, undefined, 0, warned(inDays(2))).needsExpiryWarning(
+          now,
+          3,
+        ),
+      ).toBe(false);
+    });
+
+    it('vuelve a corresponder si la demo se extendió después del aviso', () => {
+      expect(
+        build(inDays(2), null, undefined, 1, warned(inDays(-12))).needsExpiryWarning(
+          now,
+          3,
+        ),
+      ).toBe(true);
+    });
+
+    it('un intento fallido no cuenta como aviso', () => {
+      expect(
+        build(inDays(2), null, undefined, 0, {
+          sentAt: null,
+          forExpiry: null,
+          error: 'Connection refused',
+        }).needsExpiryWarning(now, 3),
+      ).toBe(true);
+    });
+
+    it.each([
+      ['convertida', build(inDays(2), 'converted')],
+      ['descartada', build(inDays(2), 'discarded')],
+      ['vencida', build(inDays(-1))],
+      ['sin vencimiento', build(null)],
+    ])('no corresponde a una demo %s', (_label, demo) => {
+      expect(demo.needsExpiryWarning(now, 3)).toBe(false);
     });
   });
 });

@@ -899,6 +899,13 @@ model Demo {
   /// Cuántas veces se extendió; cada extensión suma `DEMO_DURATION_DAYS`.
   extensionCount Int @default(0) @map("extension_count")
 
+  /// Aviso de vencimiento al prospecto: cuándo salió y para qué vencimiento. Si la demo se
+  /// extiende, `expiryWarningFor` deja de coincidir con `expiresAt` y el aviso vuelve a correr.
+  expiryWarningSentAt DateTime? @map("expiry_warning_sent_at") @db.Timestamptz()
+  expiryWarningFor    DateTime? @map("expiry_warning_for") @db.Timestamptz()
+  /// Por qué falló el último intento; se limpia cuando sale. La tarea siguiente lo reintenta.
+  expiryWarningError  String?   @map("expiry_warning_error")
+
   /// Contadores propios: se conservan aunque las visitas se borren con los datos personales.
   visitCount   Int       @default(0) @map("visit_count")
   firstVisitAt DateTime? @map("first_visit_at") @db.Timestamptz()
