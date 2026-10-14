@@ -8,7 +8,12 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { FileData, StorageProvider, UploadResult } from '../domain/StorageProvider';
 
-const DEFAULT_PRESIGNED_URL_TTL_SECONDS = 3600;
+// Debe superar con margen SITE_CACHE_TTL_SECONDS (1h, ver cacheTags.ts del
+// webapp): una página cacheada puede servir esta URL durante toda esa hora
+// (o más, si Next todavía no revalidó), y si la firma caduca antes la imagen
+// se rompe hasta que alguien recargue. 7 días es el límite práctico de una
+// URL S3 firmada con credenciales estáticas (no STS).
+const DEFAULT_PRESIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 /**
  * Clase (no interface) para poder registrarse como token resoluble por diod
