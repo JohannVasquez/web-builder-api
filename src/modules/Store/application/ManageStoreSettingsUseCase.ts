@@ -1,4 +1,5 @@
 import type { PageRepository } from '@/modules/Page/domain/PageRepository';
+import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 import {
   missingSellerFields,
   type SellerIdentity,
@@ -25,6 +26,7 @@ export class ManageStoreSettingsUseCase {
   constructor(
     private readonly storeSettingsRepository: StoreSettingsRepository,
     private readonly pageRepository: PageRepository,
+    private readonly tenantRepository: TenantRepository,
   ) {}
 
   public async find(tenantId: string): Promise<StoreSettings> {
@@ -53,7 +55,13 @@ export class ManageStoreSettingsUseCase {
     current: StoreSettings,
     update: StoreSettingsUpdate,
   ): Promise<string[]> {
-    const missing = missingSellerFields(resolvedSeller(current.seller, update));
+    // Una demo no vende de verdad (el pago es simulado), y todavía no hay razón social ni RUT
+    // que mostrar: exigirlos obligaría a inventarlos para poder enseñar la tienda.
+    const tenant = await this.tenantRepository.findById(tenantId);
+    const missing =
+      tenant?.isDemo() === true
+        ? []
+        : missingSellerFields(resolvedSeller(current.seller, update));
 
     const slug =
       update.termsPageSlug === undefined ? current.termsPageSlug : update.termsPageSlug;

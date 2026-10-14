@@ -16,7 +16,7 @@ export class CreateTenantUseCase {
 
   public async execute(input: CreateTenantInput): Promise<Tenant> {
     const content = await this.resolveContent(input);
-    
+
     // Si no hay dominio configurado saltamos este paso en vez de fallar; lo ponemos al final para que los dominios propios tengan prioridad como principal.
     const domains = [...input.domains];
     if (this.platform.baseDomain !== '') {
@@ -34,7 +34,11 @@ export class CreateTenantUseCase {
     );
   }
 
-  private async resolveContent(input: CreateTenantInput): Promise<SiteContent> {
+  // Público porque la creación de demos parte del mismo origen (kit, copia o vacío) y solo
+  // decide distinto qué queda publicado.
+  public async resolveContent(
+    input: Pick<CreateTenantInput, 'templateId' | 'duplicateFromTenantId'>,
+  ): Promise<SiteContent> {
     if (input.templateId !== undefined && input.duplicateFromTenantId !== undefined) {
       throw new BadRequestError(
         'Elige una plantilla o un cliente a duplicar, no las dos cosas.',

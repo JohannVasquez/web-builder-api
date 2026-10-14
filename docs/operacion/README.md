@@ -11,4 +11,4 @@ Estos documentos son "runbooks" (manuales de operación directos y paso a paso) 
 2. [Configuración de Correo](./correo.md) — Configuración DNS (SPF, DKIM, DMARC), variables de entorno y diagnóstico para el envío de correos transaccionales y de contacto.
 3. [Respaldos](./respaldos.md) — Política, ejecución (comandos exactos para la base de datos y el bucket de almacenamiento) y recuperación de copias de seguridad.
 4. [Monitoreo](./monitoreo.md) — Qué variables vigilar, cómo interpretar las alertas y qué hacer cuando algo falla (incluye verificación de `/health`).
-5. [Borrado de Datos Vencidos](./borrado-de-datos-vencidos.md) — Cumplimiento legal de privacidad: cómo opera el borrado de información caducada y cómo asegurar que corra a diario.
+5. [Borrado de Datos Vencidos](./borrado-de-datos-vencidos.md) — Cumplimiento legal de privacidad: cómo opera el borrado de información caducada y cómo asegurar que corra a diario, incluida la tarea propia de las demos de prospecto (`purge-expired-demos`).

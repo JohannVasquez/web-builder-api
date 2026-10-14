@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { BadRequestError } from '@/shared/domain/BadRequestError';
 import { NotFoundError } from '@/shared/domain/NotFoundError';
+import { UnprocessableEntityError } from '@/shared/domain/UnprocessableEntityError';
+import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 import type { AdminRole, AdminUser, AdminUserPrimitives } from '../domain/AdminUser';
 import type { AdminUserRepository } from '../domain/AdminUserRepository';
 import type { PasswordHasher } from '../domain/PasswordHasher';
@@ -14,6 +16,7 @@ export class ManageAdminUsersUseCase {
     private readonly passwordHasher: PasswordHasher,
     private readonly passwordReset: RequestPasswordResetUseCase,
     private readonly mailer: PasswordResetMailer,
+    private readonly tenantRepository: TenantRepository,
   ) {}
 
   public async list(): Promise<AdminUserPrimitives[]> {
@@ -25,6 +28,9 @@ export class ManageAdminUsersUseCase {
     const email = input.email.trim().toLowerCase();
     if ((await this.adminUserRepository.findByEmail(email)) !== null) {
       throw new BadRequestError('Ya existe una cuenta con ese correo.');
+    }
+    if (input.role === 'client') {
+      await this.guardNoDemos(input.tenantIds);
     }
 
     // Se crea con una contraseña aleatoria que nadie conoce: la persona invitada la
@@ -38,13 +44,22 @@ export class ManageAdminUsersUseCase {
       input.tenantIds,
     );
 
+    await this.sendInvitation(user);
+    return user.toPrimitives();
+  }
+
+  // El correo para que una cuenta nueva elija su contraseña. Aparte porque convertir una demo
+  // crea la cuenta del dueño dentro de su transacción y el correo sale recién cuando quedó
+  // confirmada: si saliera antes, podría llegar la invitación a una cuenta que no existe.
+  public async sendInvitation(
+    user: Pick<AdminUserPrimitives, 'id' | 'email' | 'name'>,
+  ): Promise<void> {
     const token = await this.passwordReset.issue(user.id);
     await this.mailer.sendInvitation(
       user.email,
       user.name,
       this.passwordReset.buildUrl(token),
     );
-    return user.toPrimitives();
   }
 
   public async changeRole(
@@ -60,6 +75,9 @@ export class ManageAdminUsersUseCase {
       );
     }
     await this.guardLastOwner(user.id, user.role === 'owner' && role !== 'owner');
+    if (role === 'client') {
+      await this.guardNoDemos(tenantIds);
+    }
 
     const updated = await this.adminUserRepository.setRole(id, role);
     // El alcance se reescribe con el rol: quien deja de ser cliente no puede quedarse con
@@ -92,6 +110,19 @@ export class ManageAdminUsersUseCase {
       throw new NotFoundError('Esa persona no existe en el panel.');
     }
     return user;
+  }
+
+  // El prospecto de una demo solo mira su sitio con el enlace mágico: no entra al panel. Una
+  // cuenta de cliente sobre una demo le abriría el contenido y la edición antes de comprar.
+  private async guardNoDemos(tenantIds: readonly string[]): Promise<void> {
+    const tenants = await Promise.all(
+      tenantIds.map((tenantId) => this.tenantRepository.findById(tenantId)),
+    );
+    if (tenants.some((tenant) => tenant?.isDemo() === true)) {
+      throw new UnprocessableEntityError(
+        'A una demo no se le asignan personas con rol cliente: el prospecto la ve con su enlace, sin entrar al panel. Conviértela en cliente primero.',
+      );
+    }
   }
 
   // Sin dueños activos nadie puede volver a invitar ni a reactivar a nadie: la cuenta

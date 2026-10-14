@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { hashIp } from '../domain/ipHash';
-import type { ConsentInput, ConsentRecord } from '../domain/Consent';
+import { ConsentRecord, type ConsentInput } from '../domain/Consent';
 import type { ConsentRepository } from '../domain/ConsentRepository';
 
 export interface RequestOrigin {
@@ -24,5 +25,19 @@ export class RecordConsentUseCase {
       ipHash: hashIp(origin.ip, this.ipSalt),
       userAgent: origin.userAgent ?? null,
     });
+  }
+
+  // Lo que respondería `execute` sin guardar nada. Para una demo: quien acepta el aviso de
+  // cookies es el prospecto o el vendedor probando, no un visitante cuyo permiso haya que
+  // poder acreditar.
+  public simulate(input: ConsentInput, now: Date = new Date()): ConsentRecord {
+    return new ConsentRecord(
+      randomUUID(),
+      input.subject,
+      input.source,
+      input.purposes,
+      input.textVersion,
+      now,
+    );
   }
 }

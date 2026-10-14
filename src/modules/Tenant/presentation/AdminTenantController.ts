@@ -12,6 +12,12 @@ import { actorReachesTenant } from '@/modules/ApiKey/domain/Actor';
 import { z } from 'zod';
 
 const StatusSchema = z.strictObject({ status: z.enum(TENANT_STATUSES) });
+const ListQuerySchema = z.object({
+  includeDemos: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+});
 
 export class AdminTenantController {
   constructor(
@@ -23,8 +29,9 @@ export class AdminTenantController {
 
   // Cada actor ve solo los clientes que alcanza: una persona de un cliente no puede
   // enterarse de que existen los demás, ni siquiera por el selector del panel.
-  public readonly list = async (_req: Request, res: Response): Promise<void> => {
-    const tenants = await this.listTenantsUseCase.execute();
+  public readonly list = async (req: Request, res: Response): Promise<void> => {
+    const { includeDemos } = ListQuerySchema.parse(req.query);
+    const tenants = await this.listTenantsUseCase.execute({ includeDemos });
     const actor = getRequestActor(res);
     const visible = tenants.filter((tenant) => actorReachesTenant(actor, tenant.id));
     res.status(200).json({ tenants: visible.map((tenant) => tenant.toPrimitives()) });

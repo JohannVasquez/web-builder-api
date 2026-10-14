@@ -12,7 +12,7 @@ Si necesitas exponer una nueva capacidad para que la IA la pueda invocar:
 2. Escribe pruebas en `src/mcp/tools.spec.ts` para cubrir casos borde.
 3. **Documentación a actualizar:** `docs/herramientas-agentes.md` (si la nueva herramienta cambia el flujo de trabajo).
 
-*(Nota: Al añadir herramientas, el test `docs-sync.spec.ts` verificará automáticamente que estén consistentes, por lo que no hace falta mantener una lista manual)*
+_(Nota: al añadir o quitar herramientas, `src/mcp/tools.spec.ts` verifica que la lista de "Lista Completa de Herramientas" en `docs/herramientas-agentes.md` tenga exactamente las que existen: agrega o quita la línea correspondiente ahí.)_
 
 ## 2. Agregar un nuevo Kit por Rubro (Plantilla)
 

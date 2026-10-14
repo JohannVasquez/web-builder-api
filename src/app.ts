@@ -1,6 +1,5 @@
-import type { AdminSignedDocumentController } from "./modules/SignedDocuments/presentation/AdminSignedDocumentController";
-import { createAdminSignedDocumentRouter } from "./modules/SignedDocuments/presentation/adminSignedDocumentRouter";
-
+import type { AdminSignedDocumentController } from './modules/SignedDocuments/presentation/AdminSignedDocumentController';
+import { createAdminSignedDocumentRouter } from './modules/SignedDocuments/presentation/adminSignedDocumentRouter';
 
 import express, { type Express, type RequestHandler } from 'express';
 import cors from 'cors';
@@ -98,7 +97,12 @@ import { ErrorHandler } from './shared/presentation/ErrorHandler';
 import type { AdminSiteQualityReviewController } from './modules/SiteQualityReview/presentation/AdminSiteQualityReviewController';
 import { createAdminSiteQualityReviewRouter } from './modules/SiteQualityReview/presentation/adminSiteQualityReviewRouter';
 import type { AdminSubscriptionController } from './modules/Subscription/presentation/AdminSubscriptionController';
-import { createAdminSubscriptionRouter, createAdminSubscriptionOverviewRouter } from './modules/Subscription/presentation/adminSubscriptionRouter';
+import {
+  createAdminSubscriptionRouter,
+  createAdminSubscriptionOverviewRouter,
+} from './modules/Subscription/presentation/adminSubscriptionRouter';
+import type { AdminDemoController } from './modules/Demo/presentation/AdminDemoController';
+import { createAdminDemoRouter } from './modules/Demo/presentation/adminDemoRouter';
 
 export interface AppControllers {
   readonly pageController: PageController;
@@ -136,6 +140,7 @@ export interface AppControllers {
   readonly adminSiteQualityReviewController: AdminSiteQualityReviewController;
   readonly adminSubscriptionController: AdminSubscriptionController;
   readonly adminSignedDocumentController: AdminSignedDocumentController;
+  readonly adminDemoController: AdminDemoController;
 }
 
 export const buildApp = (
@@ -147,6 +152,8 @@ export const buildApp = (
   cacheInvalidation: RequestHandler,
   activityRecording: RequestHandler,
   previewMiddleware: RequestHandler,
+  demoGuard: RequestHandler,
+  demoVisitTracker: RequestHandler,
   // Sin clave de idempotencia la compra se comporta igual; por defecto no hace nada.
   checkoutIdempotency: RequestHandler = (_req, _res, next) => {
     next();
@@ -180,29 +187,33 @@ export const buildApp = (
   // publicarse a internet. Ver createTenantInternalRouter.
   app.use('/internal', createTenantInternalRouter(controllers.tenantController));
 
-  // Rutas scoped por tenant: el resolver deja el tenant en res.locals.
+  // Rutas scoped por tenant: el resolver deja el tenant en res.locals, y la guarda de demos va
+  // pegada a él en TODAS, antes de `siteAvailability`: un tenant en estado `demo` responde 404
+  // a quien no trae su enlace, por la ruta que sea. app.spec.ts falla si una ruta nueva la omite.
+  const publicSite: RequestHandler[] = [tenantResolver, demoGuard];
   app.use(
     '/api/pages',
-    tenantResolver,
+    ...publicSite,
+    demoVisitTracker,
     previewMiddleware,
     siteAvailability,
     createPageRouter(controllers.pageController),
   );
   app.use(
     '/api/settings',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createGlobalSettingsRouter(controllers.globalSettingsController),
   );
   app.use(
     '/api/navigation',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createNavigationRouter(controllers.navigationController),
   );
   app.use(
     '/api/contact',
-    tenantResolver,
+    ...publicSite,
     previewMiddleware,
     siteAvailability,
     createContactRouter(controllers.contactController),
@@ -210,31 +221,31 @@ export const buildApp = (
   // Subir y borrar exige sesión (SPEC 0.1); leer imágenes sigue siendo público.
   app.use(
     '/api/blog',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createBlogRouter(controllers.blogController),
   );
   app.use(
     '/api/products',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createStoreRouter(controllers.storeController),
   );
   app.use(
     '/api/store',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createCheckoutRouter(controllers.checkoutController, checkoutIdempotency),
   );
   app.use(
     '/api/product-categories',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createProductCategoryRouter(controllers.storeController),
   );
   app.use(
     '/api/newsletter',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createNewsletterRouter(controllers.newsletterController),
   );
@@ -245,32 +256,32 @@ export const buildApp = (
   );
   app.use(
     '/api/solicitudes-datos',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     activityRecording,
     createDataRightsRouter(controllers.dataRightsController),
   );
   app.use(
     '/api/media',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createMediaProxyRouter(controllers.mediaProxyController),
   );
   app.use(
     '/api/reclamos',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createConsumerClaimRouter(controllers.consumerClaimController),
   );
   app.use(
     '/api/redirecciones',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createRedirectRouter(controllers.redirectController),
   );
   app.use(
     '/api/consents',
-    tenantResolver,
+    ...publicSite,
     siteAvailability,
     createConsentRouter(controllers.consentController),
   );
@@ -425,7 +436,7 @@ export const buildApp = (
     actorMiddleware,
     controllers.adminBrandController.listFontPairings,
   );
-  
+
   app.use(
     '/api/admin/tenants/:tenantId/quality-review',
     ...adminGuards,
@@ -446,10 +457,20 @@ export const buildApp = (
     createAdminSubscriptionRouter(controllers.adminSubscriptionController),
   );
 
+  // Demos de prospecto: trabajo de la agencia. Sin `activityRecording` genérico porque cada
+  // caso de uso registra su propia acción (`demo.create`...) sin los enlaces en claro.
+  app.use(
+    '/api/admin/demos',
+    actorMiddleware,
+    requireStaff,
+    requireMethodPermission,
+    createAdminDemoRouter(controllers.adminDemoController),
+  );
+
   app.use(
     '/api/admin/signed-documents',
     ...adminGuards,
-    createAdminSignedDocumentRouter(controllers.adminSignedDocumentController)
+    createAdminSignedDocumentRouter(controllers.adminSignedDocumentController),
   );
 
   app.use(errorHandler.handle);

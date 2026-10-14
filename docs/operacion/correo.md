@@ -13,7 +13,7 @@ El dominio de la plataforma necesita tres registros DNS para demostrar identidad
 
 - **SPF (Sender Policy Framework):** Un registro TXT que lista las IPs autorizadas para mandar correos en tu nombre. Si alguien usa nuestro dominio desde un servidor ajeno, el proveedor del destinatario lo rechaza.
 - **DKIM (DomainKeys Identified Mail):** Un registro DNS con una llave pública. El servidor SMTP firma cada correo con la llave privada correspondiente. Gmail o Outlook usan la llave pública para asegurar que el mensaje no fue modificado en tránsito.
-- **DMARC (Domain-based Message Authentication, Reporting, and Conformance):** Le dice al buzón de destino qué hacer si un correo falla en SPF o DKIM (ej. rechazarlo o mandarlo a spam). 
+- **DMARC (Domain-based Message Authentication, Reporting, and Conformance):** Le dice al buzón de destino qué hacer si un correo falla en SPF o DKIM (ej. rechazarlo o mandarlo a spam).
 
 ## 2. Variables de entorno en la API
 
@@ -29,12 +29,14 @@ CONTACT_EMAIL_FROM=no-reply@tudominio.com
 CONTACT_EMAIL_TO=contacto@tudominio.com
 ```
 
-- **El remitente (`CONTACT_EMAIL_FROM`):** Tiene que pertenecer al dominio configurado con SPF y DKIM. Si envías usando el correo de la persona que rellenó el formulario (ej. cliente@gmail.com), los proveedores como Gmail rechazarán el mensaje por suplantación. La API siempre usa este remitente y pone al usuario en la cabecera *Reply-To*.
+- **El remitente (`CONTACT_EMAIL_FROM`):** Tiene que pertenecer al dominio configurado con SPF y DKIM. Si envías usando el correo de la persona que rellenó el formulario (ej. cliente@gmail.com), los proveedores como Gmail rechazarán el mensaje por suplantación. La API siempre usa este remitente y pone al usuario en la cabecera _Reply-To_.
 - **El destinatario (`CONTACT_EMAIL_TO`):** Es el correo de respaldo al que llega el mensaje si la tienda (tenant) no tiene un `contactEmail` configurado.
+- **Respuestas de los prospectos (`DEMO_REPLY_TO`):** El aviso de vencimiento de una demo de prospecto sale desde `CONTACT_EMAIL_FROM` con esta dirección en _Reply-To_, para que la respuesta le llegue a la agencia. Vacía, se usa `CONTACT_EMAIL_FROM`. Ver [Demos](../demos.md#aviso-de-vencimiento).
 
 ## 3. Pruebas de entrega
 
 Una vez aplicada la configuración:
+
 1. Manda un correo de prueba (ej. a través de un formulario de contacto de la plataforma) hacia un buzón de Gmail y otro de Outlook.
 2. Abre el mensaje recibido en Gmail, selecciona "Mostrar original" (Show original) y asegúrate de que **SPF**, **DKIM** y **DMARC** tengan el estado **PASS**.
 3. También puedes enviar un correo a [Mail-Tester](https://www.mail-tester.com/) para una revisión en profundidad.

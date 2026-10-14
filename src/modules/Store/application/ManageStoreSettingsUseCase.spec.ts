@@ -1,4 +1,6 @@
 import type { PageRepository } from '@/modules/Page/domain/PageRepository';
+import { Tenant, type TenantStatus } from '@/modules/Tenant/domain/Tenant';
+import type { TenantRepository } from '@/modules/Tenant/domain/TenantRepository';
 import { ManageStoreSettingsUseCase } from './ManageStoreSettingsUseCase';
 import { StoreCannotBeEnabledError } from '../domain/StoreCannotBeEnabledError';
 import { StoreSettings, type SellerIdentity } from '../domain/StoreSettings';
@@ -46,6 +48,7 @@ interface Harness {
 const buildHarness = (
   current: StoreSettings,
   termsPublishedAt: Date | null = new Date('2026-01-01T00:00:00.000Z'),
+  status: TenantStatus = 'active',
 ): Harness => {
   const save = jest.fn().mockResolvedValue(current);
   const settingsRepository = {
@@ -56,8 +59,18 @@ const buildHarness = (
     findPublishedAt: jest.fn().mockResolvedValue(termsPublishedAt),
   } as unknown as PageRepository;
 
+  const tenantRepository = {
+    findById: jest
+      .fn()
+      .mockResolvedValue(new Tenant(TENANT, 'luna', 'Luna', null, status)),
+  } as unknown as TenantRepository;
+
   return {
-    useCase: new ManageStoreSettingsUseCase(settingsRepository, pageRepository),
+    useCase: new ManageStoreSettingsUseCase(
+      settingsRepository,
+      pageRepository,
+      tenantRepository,
+    ),
     save,
   };
 };
@@ -136,5 +149,19 @@ describe('encender la tienda', () => {
     await useCase.save(TENANT, { isEnabled: false });
 
     expect(save).toHaveBeenCalledWith(TENANT, { isEnabled: false });
+  });
+
+  it('en una demo se enciende sin datos del vendedor: no vende de verdad', async () => {
+    const { useCase, save } = buildHarness(
+      buildSettings({
+        seller: { legalName: null, taxId: null, address: null, email: null, phone: null },
+      }),
+      new Date('2026-01-01T00:00:00.000Z'),
+      'demo',
+    );
+
+    await useCase.save(TENANT, { isEnabled: true });
+
+    expect(save).toHaveBeenCalledWith(TENANT, { isEnabled: true });
   });
 });

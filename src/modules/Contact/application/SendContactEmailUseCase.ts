@@ -20,6 +20,7 @@ export class SendContactEmailUseCase {
     input: ContactInput,
     tenantId: string,
     isPreview: boolean = false,
+    isDemo: boolean = false,
   ): Promise<SendContactResult> {
     const contact = ContactRequest.fromInput(input);
 
@@ -31,7 +32,17 @@ export class SendContactEmailUseCase {
 
     if (isPreview) {
       // Guardamos la evidencia de que fue una prueba en el motivo de fallo.
-      await this.contactMessageRepository.markEmailed(stored.id, 'No enviado (Vista previa)');
+      await this.contactMessageRepository.markEmailed(
+        stored.id,
+        'No enviado (Vista previa)',
+      );
+      return { stored: true, emailed: false };
+    }
+
+    // El correo de contacto de una demo puede ser el del negocio real, que todavía no compró
+    // nada: el mensaje queda guardado como prueba y no sale.
+    if (isDemo) {
+      await this.contactMessageRepository.markEmailed(stored.id, 'No enviado (Demo)');
       return { stored: true, emailed: false };
     }
 

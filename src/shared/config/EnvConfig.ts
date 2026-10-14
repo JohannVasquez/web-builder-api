@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+// Un plazo en días; vacío cuenta como no definido, para que `DEMO_X=` en el .env no se lea
+// como cero.
+const days = (fallback: number, min: number): z.ZodType<number> =>
+  z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.coerce.number().int().min(min).default(fallback),
+  );
+
 const envSchema = z.strictObject({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -74,6 +82,14 @@ const envSchema = z.strictObject({
   // Sal para la huella de IP del registro de consentimiento. Vacía = no se guarda huella
   // alguna, que es preferible a guardar un sha256 de IP, reversible en segundos sin sal.
   CONSENT_IP_SALT: z.string().default(''),
+  // Demos de prospecto (ver docs/demos.md): cuánto duran al crearlas y cuánto suma cada
+  // extensión, y con cuánta anticipación entran en "por vencer".
+  DEMO_DURATION_DAYS: days(14, 1),
+  DEMO_EXPIRY_WARNING_DAYS: days(3, 0),
+  // Cuánto espera una demo vencida o descartada antes de que la tarea diaria la borre.
+  DEMO_PURGE_GRACE_DAYS: days(30, 0),
+  // A dónde responde el prospecto el aviso de vencimiento. Vacío = CONTACT_EMAIL_FROM.
+  DEMO_REPLY_TO: z.union([z.literal(''), z.email()]).default(''),
 });
 
 export type EnvVariables = z.infer<typeof envSchema>;
@@ -116,6 +132,10 @@ export class EnvConfig {
       PLATFORM_DOMAIN: source.PLATFORM_DOMAIN,
       PLATFORM_SITE_TARGET: source.PLATFORM_SITE_TARGET,
       CONSENT_IP_SALT: source.CONSENT_IP_SALT,
+      DEMO_DURATION_DAYS: source.DEMO_DURATION_DAYS,
+      DEMO_EXPIRY_WARNING_DAYS: source.DEMO_EXPIRY_WARNING_DAYS,
+      DEMO_PURGE_GRACE_DAYS: source.DEMO_PURGE_GRACE_DAYS,
+      DEMO_REPLY_TO: source.DEMO_REPLY_TO,
     };
     const cleaned = Object.fromEntries(
       Object.entries(candidate).filter(([, value]) => value !== undefined),

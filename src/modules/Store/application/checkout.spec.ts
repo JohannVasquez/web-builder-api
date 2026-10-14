@@ -14,6 +14,7 @@ import type { ProductRepository } from '../domain/ProductRepository';
 import type { StoreSettingsRepository } from '../domain/StoreSettingsRepository';
 import type {
   PaymentContext,
+  PaymentGateway,
   PaymentGatewayRegistry,
   PaymentStart,
 } from '../domain/PaymentGateway';
@@ -450,6 +451,110 @@ describe('CheckoutUseCase', () => {
       );
 
       expect(repository.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('en una demo (pago simulado)', () => {
+    const flowGateway = { provider: 'flow', start: jest.fn(), confirm: jest.fn() };
+    // Igual que DemoPaymentGateway: sin proveedor, de vuelta a la URL de retorno.
+    const demoGateway = {
+      provider: 'demo',
+      start: (
+        order: Order,
+        _settings: StoreSettings,
+        ctx: PaymentContext,
+      ): Promise<PaymentStart> =>
+        Promise.resolve({
+          reference: `demo-${order.number}`,
+          redirectUrl: ctx.returnUrl,
+          instructions: null,
+        }),
+      confirm: jest.fn(),
+    };
+    const registry = {
+      for: (provider: string): PaymentGateway =>
+        provider === 'flow' ? flowGateway : demoGateway,
+    };
+    const paidRepository = (): jest.Mocked<OrderRepository> => {
+      const repository = orderRepository();
+      repository.markPaid = jest.fn().mockResolvedValue(
+        new Order(
+          '018f6f1a-0000-7000-8000-000000000001',
+          '0001',
+          'paid',
+          { name: 'Ana', email: 'ana@ejemplo.cl', phone: '+56911111111' },
+          {
+            method: 'shipping',
+            shippingCode: 'despacho',
+            shippingName: 'Despacho',
+            addressLine: 'Calle 1',
+            addressCity: null,
+            addressRegion: null,
+            addressNotes: null,
+          },
+          [],
+          0,
+          0,
+          0,
+          0,
+          23990,
+          'CLP',
+          null,
+          'demo',
+          'demo-0001',
+          new Date(),
+          new Date(),
+        ),
+      );
+      return repository;
+    };
+
+    it('con Flow configurado no llama a Flow y deja el pedido pagado con el proveedor demo', async () => {
+      const repository = paidRepository();
+      const { useCase } = build(
+        settingsFor({ paymentProvider: 'flow' }),
+        repository,
+        registry,
+      );
+
+      const result = await useCase.execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        checkoutInput(),
+        { ...context, simulatedPayment: true },
+      );
+
+      expect(flowGateway.start).not.toHaveBeenCalled();
+      expect(repository.create).toHaveBeenCalledWith(
+        '018f6f1a-0000-7000-8000-000000000001',
+        expect.objectContaining({ paymentProvider: 'demo' }),
+      );
+      expect(repository.markPaid).toHaveBeenCalledWith(
+        '018f6f1a-0000-7000-8000-000000000001',
+        '018f6f1a-0000-7000-8000-000000000001',
+        'demo-0001',
+      );
+      expect(result.order.status).toBe('paid');
+      // La misma URL de retorno que usaría un pago real: el sitio muestra su confirmación normal.
+      expect(result.redirectUrl).toBe(context.returnUrl);
+      expect(result.instructions).toBeNull();
+    });
+
+    it('también simula cuando la tienda no cobra en línea', async () => {
+      const repository = paidRepository();
+      const { useCase } = build(
+        settingsFor({ paymentProvider: 'none' }),
+        repository,
+        registry,
+      );
+
+      const result = await useCase.execute(
+        '018f6f1a-0000-7000-8000-000000000001',
+        checkoutInput(),
+        { ...context, simulatedPayment: true },
+      );
+
+      expect(repository.markPaid).toHaveBeenCalled();
+      expect(result.redirectUrl).toBe(context.returnUrl);
     });
   });
 });

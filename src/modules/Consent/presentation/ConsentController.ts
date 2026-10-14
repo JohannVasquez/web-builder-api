@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getRequestTenant } from '@/modules/Tenant/presentation/tenantResolver';
 import { TooManyRequestsError } from '@/shared/domain/TooManyRequestsError';
 import type { RateLimiter } from '@/modules/ApiKey/application/RateLimiter';
+import { isDemoRequest } from '@/shared/presentation/demoRequest';
 import { ConsentInputSchema } from '../domain/Consent';
 import type { RecordConsentUseCase } from '../application/RecordConsentUseCase';
 import type { GetCurrentConsentUseCase } from '../application/GetCurrentConsentUseCase';
@@ -28,10 +29,12 @@ export class ConsentController {
     this.enforceRateLimit(req, tenant.id);
 
     const input = ConsentInputSchema.parse(req.body);
-    const consent = await this.recordConsentUseCase.execute(tenant.id, input, {
-      ip: req.ip,
-      userAgent: req.get('user-agent'),
-    });
+    const consent = isDemoRequest(res)
+      ? this.recordConsentUseCase.simulate(input)
+      : await this.recordConsentUseCase.execute(tenant.id, input, {
+          ip: req.ip,
+          userAgent: req.get('user-agent'),
+        });
 
     res.status(201).json({ consent: consent.toPrimitives() });
   };
